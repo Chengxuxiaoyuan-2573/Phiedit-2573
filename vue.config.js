@@ -4,5 +4,19 @@ module.exports = defineConfig({
 	devServer: {
 		host: '0.0.0.0',
 		port: 8080
+	},
+	configureWebpack: {
+		module: {
+			rules: [
+				{
+					test: /\.zip$/,
+					use: [
+						{
+							loader: 'file-loader'
+						}
+					]
+				}
+			]
+		}
 	}
 })

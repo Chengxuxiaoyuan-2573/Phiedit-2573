@@ -6,6 +6,9 @@
         <a href="/about">
             <ElButton :class="{ active: $route.name == 'About' }">关于</ElButton>
         </a>
+        <a href="/document">
+            <ElButton :class="{ active: $route.name == 'Document' }">文档</ElButton>
+        </a>
     </nav>
 </template>
 
@@ -22,6 +25,8 @@ nav {
     width: 100%;
     padding: 10px;
     gap: 10px;
+    position: sticky;
+    top: 0;
 }
 
 a {
