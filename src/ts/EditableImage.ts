@@ -123,9 +123,11 @@ export class EditableImage {
             imageData.data[i] = color[0];
             imageData.data[i + 1] = color[1];
             imageData.data[i + 2] = color[2];
+            /*
             if (color.length == 4) {
                 imageData.data[i + 3] *= color[3] / 0xff;
             }
+            */
         }
         ctx.putImageData(imageData, 0, 0);
         this.canvas = canvas;
@@ -135,10 +137,5 @@ export class EditableImage {
     clone() {
         const newCanvas = this.canvas.cloneNode() as HTMLCanvasElement;
         return new EditableImage(newCanvas);
-    }
-    debug(...args: unknown[]) {
-        console.log(this.canvas, ...args);
-        document.body.appendChild(this.canvas);
-        return this;
     }
 }

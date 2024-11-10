@@ -1,7 +1,7 @@
-import { BPM, Chart, ChartData, NumberEvent, TextEvent, ColorEvent, RGBcolor, Note, NoteType, HitState, ImageSource } from "./typeDefinitions";
+import { BPM, Chart, ChartData, NumberEvent, TextEvent, ColorEvent, RGBcolor, NoteType, HitState, ImageSource } from "./typeDefinitions";
 import { easingFuncs } from "./easing";
 import { EditableImage } from "./EditableImage";
-import { getBeatsValue, convertPositionX, convertPositionY, convertBeatsToSeconds, moveAndRotate, playSound, mod } from "./tools";
+import { getBeatsValue, beatsToSeconds, moveAndRotate, playSound, mod, convertDegreesToRadians } from "./tools";
 import TaskQueue from "./taskQueue";
 export default function renderChart(canvas: HTMLCanvasElement, chartData: ChartData, seconds: number) {
     const { chartPackage } = chartData;
@@ -11,7 +11,7 @@ export default function renderChart(canvas: HTMLCanvasElement, chartData: ChartD
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawBackground(canvas, chartData, background);
     drawJudgeLines(ctx, chartData, seconds);
-    highlightNotes(chart);
+    chart.highlightNotes();
     drawNotes(ctx, chartData, seconds);
 }
 function drawBackground(canvas: HTMLCanvasElement, chartData: ChartData, background: ImageSource) {
@@ -41,26 +41,7 @@ function drawBackground(canvas: HTMLCanvasElement, chartData: ChartData, backgro
     );
     ctx.fillStyle = "#000";
     ctx.globalAlpha = chartData.backgroundDarkness;
-    ctx.fillRect(0, 0, 1350, 900);
-}
-function highlightNotes(chart: Chart) {
-    if (!chart._highlighted) {
-        const allNotes = new Map<number, Note>();
-        for (const judgeLine of chart.judgeLineList) {
-            for (const note of judgeLine.notes) {
-                const anotherNote = allNotes.get(getBeatsValue(note.startTime));
-                if (anotherNote) {
-                    anotherNote._highlight = true;
-                    note._highlight = true;
-                }
-                else {
-                    allNotes.set(getBeatsValue(note.startTime), note);
-                    note._highlight = false;
-                }
-            }
-        }
-        chart._highlighted = true;
-    }
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 function drawJudgeLines(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds: number) {
     const { chartPackage } = chartData;
@@ -79,8 +60,7 @@ function drawJudgeLines(ctx: CanvasRenderingContext2D, chartData: ChartData, sec
         });
         const judgeLine = chart.judgeLineList[i];
         if (alpha <= 0.01) continue;
-        const length = 2000;
-        const radians = angle * (Math.PI / 180);
+        const radians = convertDegreesToRadians(angle);
         ctx.translate(convertPositionX(x), convertPositionY(y));
         ctx.rotate(radians);
         ctx.globalAlpha = alpha / 255;
@@ -96,8 +76,8 @@ function drawJudgeLines(ctx: CanvasRenderingContext2D, chartData: ChartData, sec
             ctx.strokeStyle = "rgb(" + color[0] + ", " + color[1] + ", " + color[2] + ")";
             ctx.lineWidth = chartData.lineWidth * scaleY;
             ctx.beginPath();
-            ctx.moveTo(-length * scaleX, 0);
-            ctx.lineTo(length * scaleX, 0);
+            ctx.moveTo(-chartData.lineLength * scaleX, 0);
+            ctx.lineTo(chartData.lineLength * scaleX, 0);
             ctx.stroke();
         }
         else {
@@ -165,8 +145,8 @@ function getJudgeLineInfo(chart: Chart, lineNumber: number, seconds: number, {
     return { x, y, angle, alpha, speed, scaleX, scaleY, color, paint, text };
 }
 function interpolateNumberEventValue(BPMList: BPM[], event: NumberEvent | null, seconds: number) {
-    const startSeconds = event == null ? 0 : convertBeatsToSeconds(BPMList, event.startTime);
-    const endSeconds = event == null ? 0 : convertBeatsToSeconds(BPMList, event.endTime);
+    const startSeconds = event == null ? 0 : beatsToSeconds(BPMList, event.startTime);
+    const endSeconds = event == null ? 0 : beatsToSeconds(BPMList, event.endTime);
     const { start = 0, end = 0, easingType = 1, easingLeft = 0, easingRight = 1 } = event ?? {};
     if (endSeconds <= seconds) {
         return end;
@@ -180,8 +160,8 @@ function interpolateNumberEventValue(BPMList: BPM[], event: NumberEvent | null, 
     }
 }
 function interpolateColorEventValue(BPMList: BPM[], event: ColorEvent | null, seconds: number) {
-    const startSeconds = event == null ? 0 : convertBeatsToSeconds(BPMList, event.startTime);
-    const endSeconds = event == null ? 0 : convertBeatsToSeconds(BPMList, event.endTime);
+    const startSeconds = event == null ? 0 : beatsToSeconds(BPMList, event.startTime);
+    const endSeconds = event == null ? 0 : beatsToSeconds(BPMList, event.endTime);
     const { start = [255, 255, 255], end = [255, 255, 255], easingType = 1, easingLeft = 0, easingRight = 1 } = event ?? {};
     if (endSeconds <= seconds) {
         return end;
@@ -200,7 +180,7 @@ function interpolateColorEventValue(BPMList: BPM[], event: ColorEvent | null, se
 }
 function interpolateTextEventValue(BPMList: BPM[], event: TextEvent | null, seconds: number) {
     //const startSeconds = nearestEvent == null ? 0 : convertBeatsToSeconds(BPMList, nearestEvent.startTime);
-    const endSeconds = event == null ? 0 : convertBeatsToSeconds(BPMList, event.endTime);
+    const endSeconds = event == null ? 0 : beatsToSeconds(BPMList, event.endTime);
     const { start = undefined, end = undefined/*, easingType = 1, easingLeft = 0, easingRight = 1*/ } = event ?? {};
     if (endSeconds <= seconds) {
         return end;
@@ -209,7 +189,7 @@ function interpolateTextEventValue(BPMList: BPM[], event: TextEvent | null, seco
         if (start.startsWith(end) || end.startsWith(start)) {
             const lengthStart = start.length;
             const lengthEnd = end.length;
-            const e: NumberEvent = {
+            const e = new NumberEvent({
                 startTime: event.startTime,
                 endTime: event.endTime,
                 easingType: event.easingType,
@@ -219,7 +199,7 @@ function interpolateTextEventValue(BPMList: BPM[], event: TextEvent | null, seco
                 bezierPoints: event.bezierPoints,
                 start: lengthStart,
                 end: lengthEnd
-            };
+            });
             const length = Math.round(interpolateNumberEventValue(BPMList, e, seconds));
             return start.length > end.length ? start.slice(0, length) : end.slice(0, length);
         }
@@ -231,7 +211,7 @@ function findLastEvent<T extends NumberEvent | ColorEvent | TextEvent>(BPMList: 
     let lastEvent: T | null = null;
     let smallestDifference = Infinity;
     events.forEach(event => {
-        const startSeconds = convertBeatsToSeconds(BPMList, event.startTime);
+        const startSeconds = beatsToSeconds(BPMList, event.startTime);
         if (startSeconds <= seconds) {
             const difference = seconds - startSeconds;
             if (difference < smallestDifference) {
@@ -256,8 +236,8 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
         });
         for (let noteNumber = 0; noteNumber < judgeLine.notes.length; noteNumber++) {
             const note = judgeLine.notes[noteNumber];
-            const noteInfo = getNoteInfo(chart, judgeLineNumber, noteNumber, seconds, judgeLineInfo, chartData);
-            const radians = noteInfo.angle * (Math.PI / 180);
+            const noteInfo = getNoteInfo(chartData, judgeLineNumber, noteNumber, seconds, judgeLineInfo);
+            const radians = convertDegreesToRadians(noteInfo.angle);
             const missSeconds = note.type == NoteType.Tap ? chartData.judgement.tap.bad :
                 note.type == NoteType.Drag ? chartData.judgement.drag.perfect : chartData.judgement.flick.perfect;
             if (chartData.autoplay && seconds >= noteInfo.startSeconds &&
@@ -287,15 +267,16 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
                 note._hitState = HitState.Miss;
                 note._hitSeconds = Infinity;
             }
-            if (!note.isFake && (note.type == NoteType.Hold
-                ?
-                note._hitState >= HitState.HoldingPerfect &&
-                seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration * (
-                    1 + Math.floor((noteInfo.endSeconds - note._hitSeconds) / chartData.resourcePackage.hitFxDuration)
+            if (
+                !note.isFake && (
+                    note.type == NoteType.Hold ?
+                        note._hitState >= HitState.HoldingPerfect &&
+                        seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration * (
+                            1 + Math.floor((noteInfo.endSeconds - note._hitSeconds) / chartData.resourcePackage.hitFxDuration)
+                        ) :
+                        note._hitState >= HitState.Perfect &&
+                        seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration
                 )
-                :
-                note._hitState >= HitState.Perfect &&
-                seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration)
             ) {
                 taskQueue.addTask(() => {
                     ctx.globalAlpha = 1;
@@ -306,7 +287,7 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
                             * chartData.resourcePackage.hitFxFrameNumber
                         ), chartData.resourcePackage.hitFxFrameNumber
                     );
-                    const { x, y, angle } = note.type==NoteType.Hold ? judgeLineInfo : getJudgeLineInfo(chart, judgeLineNumber, note._hitSeconds, {
+                    const { x, y, angle } = note.type == NoteType.Hold ? judgeLineInfo : getJudgeLineInfo(chart, judgeLineNumber, note._hitSeconds, {
                         getX: true,
                         getY: true,
                         getAngle: true
@@ -344,39 +325,31 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
                     const holdEnd = note._highlight ? resourcePackage.holdHLEnd : resourcePackage.holdEnd;
                     const noteHeadHeight = holdHead.height / holdBody.width * noteWidth;
                     const noteEndHeight = holdEnd.height / holdBody.width * noteWidth;
-                    if (noteInfo.endPositionY > noteInfo.startPositionY) {
+
+                    ctx.translate(canvasStartX, canvasStartY);
+                    ctx.rotate(radians);
+                    if (noteInfo.endPositionY < noteInfo.startPositionY)
+                        ctx.rotate(radians + Math.PI);
+                    ctx.drawImage(holdBody,
+                        0, 0, holdBody.width, holdBody.height,
+                        -noteWidth / 2, -noteHeight, noteWidth, noteHeight);
+
+                    ctx.resetTransform();
+                    if (seconds < noteInfo.startSeconds || resourcePackage.holdKeepHead) {
                         ctx.translate(canvasStartX, canvasStartY);
                         ctx.rotate(radians);
-                        ctx.drawImage(holdBody,
-                            0, 0, holdBody.width, holdBody.height,
-                            -noteWidth / 2, -noteHeight, noteWidth, noteHeight);
-                    }
-                    else {
-                        ctx.translate(canvasStartX, canvasStartY);
-                        ctx.rotate(radians + Math.PI);
-                        ctx.drawImage(holdBody,
-                            0, 0, holdBody.width, holdBody.height,
-                            -noteWidth / 2, -noteHeight, noteWidth, noteHeight);
-                    }
-                    ctx.resetTransform();
-                    if (seconds < noteInfo.startSeconds) {
-                        ctx.translate(canvasStartX, canvasStartY);
-                        if (noteInfo.startPositionY < 0) {
-                            ctx.rotate(radians + Math.PI);
-                        }
-                        else {
-                            ctx.rotate(radians);
-                        }
+                        if (noteInfo.endPositionY < noteInfo.startPositionY)
+                            ctx.rotate(Math.PI);
                         ctx.drawImage(holdHead,
                             0, 0, holdHead.width, holdHead.height,
                             -noteWidth / 2, 0, noteWidth, noteHeadHeight);
                     }
                     ctx.resetTransform();
+
                     ctx.translate(canvasEndX, canvasEndY);
                     ctx.rotate(radians);
-                    if (noteInfo.endPositionY < 0) {
+                    if (noteInfo.endPositionY < noteInfo.startPositionY)
                         ctx.rotate(Math.PI);
-                    }
                     ctx.drawImage(holdEnd,
                         0, 0, holdEnd.width, holdEnd.height,
                         -noteWidth / 2, -noteEndHeight, noteWidth, noteEndHeight);
@@ -389,23 +362,39 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
                     if (seconds >= noteInfo.startSeconds) {
                         ctx.globalAlpha = Math.max(0, 1 - (seconds - noteInfo.startSeconds) / missSeconds);
                     }
-                    const noteImage =
-                        note.type == NoteType.Flick ? note._highlight ? resourcePackage.flickHL : resourcePackage.flick :
-                            note.type == NoteType.Drag ? note._highlight ? resourcePackage.dragHL : resourcePackage.drag :
-                                note._highlight ? resourcePackage.tapHL : resourcePackage.tap;
+                    const noteImage = (() => {
+                        switch (note.type) {
+                            case NoteType.Flick:
+                                if (note._highlight)
+                                    return resourcePackage.flickHL;
+                                else
+                                    return resourcePackage.flick;
+                            case NoteType.Drag:
+                                if (note._highlight)
+                                    return resourcePackage.dragHL;
+                                else
+                                    return resourcePackage.drag;
+                            default:
+                                if (note._highlight)
+                                    return resourcePackage.tapHL;
+                                else
+                                    return resourcePackage.tap;
+                        }
+                    })();
                     const canvasStartX = convertPositionX(noteInfo.startX), canvasStartY = convertPositionY(noteInfo.startY);
-                    const noteWidth = note._highlight ? note.size * 200 * (
-                        (
-                            note.type == NoteType.Drag ? chartData.resourcePackage.dragHL :
-                                note.type == NoteType.Flick ? chartData.resourcePackage.flickHL :
-                                    chartData.resourcePackage.tapHL
-                        ).width /
-                        (
-                            note.type == NoteType.Drag ? chartData.resourcePackage.drag :
-                                note.type == NoteType.Flick ? chartData.resourcePackage.flick :
-                                    chartData.resourcePackage.tap
-                        ).width
-                    ) : note.size * 200;
+                    const noteWidth = (() => {
+                        let size = note.size * 200;
+                        if (note._highlight) {
+                            size *= (() => {
+                                switch (note.type) {
+                                    case NoteType.Drag: return resourcePackage.dragHL.width / resourcePackage.drag.width;
+                                    case NoteType.Flick: return resourcePackage.flickHL.width / resourcePackage.flick.width;
+                                    default: return resourcePackage.tapHL.width / resourcePackage.tap.width;
+                                }
+                            })();
+                        }
+                        return size;
+                    })();
                     const noteHeight = noteImage.height / noteImage.width * noteWidth;
                     ctx.translate(canvasStartX, canvasStartY);
                     ctx.rotate(radians);
@@ -420,11 +409,13 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
     // 叠放顺序从下到上： Hold < Drag < Tap < Flick < 打击特效
     taskQueue.run();
 }
-function getNoteInfo(chart: Chart, lineNumber: number, noteNumber: number, seconds: number, judgeLineInfo: { x: number, y: number, angle: number }, chartData: ChartData) {
+function getNoteInfo(chartData: ChartData, lineNumber: number, noteNumber: number, seconds: number, judgeLineInfo: { x: number, y: number, angle: number },) {
+    const { chartPackage } = chartData;
+    const { chart } = chartPackage;
     const judgeLine = chart.judgeLineList[lineNumber];
     const note = judgeLine.notes[noteNumber];
-    const noteStartSeconds = note._startSeconds || (note._startSeconds = convertBeatsToSeconds(chart.BPMList, note.startTime));
-    const noteEndSeconds = note._endSeconds || (note._endSeconds = convertBeatsToSeconds(chart.BPMList, note.endTime));
+    const noteStartSeconds = note._startSeconds || (note._startSeconds = beatsToSeconds(chart.BPMList, note.startTime));
+    const noteEndSeconds = note._endSeconds || (note._endSeconds = beatsToSeconds(chart.BPMList, note.endTime));
     const { x: lineX, y: lineY, angle: lineAngle } = judgeLineInfo;
     const { positionX, above, speed, yOffset, type } = note;
     let startPositionY = 0, endPositionY = 0;
@@ -433,11 +424,16 @@ function getNoteInfo(chart: Chart, lineNumber: number, noteNumber: number, secon
         for (let i = 0; i < speedEvents.length; i++) {
             const current = speedEvents[i];
             const next = speedEvents[i + 1];
-            const currentStartSeconds = convertBeatsToSeconds(chart.BPMList, current.startTime);
-            const currentEndSeconds = convertBeatsToSeconds(chart.BPMList, current.endTime);
+            const currentStartSeconds = beatsToSeconds(chart.BPMList, current.startTime);
+            const currentEndSeconds = beatsToSeconds(chart.BPMList, current.endTime);
             const currentStart = current.start;
             const currentEnd = current.end;
-            const nextStartSeconds = i < speedEvents.length - 1 ? convertBeatsToSeconds(chart.BPMList, next.startTime) : Infinity;
+            const nextStartSeconds = (() => {
+                if (i < speedEvents.length - 1)
+                    return beatsToSeconds(chart.BPMList, next.startTime)
+                else
+                    return Infinity;
+            })();
             const
                 l1 = Math.min(seconds, noteStartSeconds), l2 = Math.min(seconds, noteEndSeconds),
                 r1 = Math.max(seconds, noteStartSeconds), r2 = Math.max(seconds, noteEndSeconds);
@@ -537,8 +533,8 @@ function getNoteInfo(chart: Chart, lineNumber: number, noteNumber: number, secon
             }
         }
     }
-    if (seconds >= noteStartSeconds) startPositionY = - startPositionY;
-    if (seconds >= noteEndSeconds) endPositionY = - endPositionY;
+    if (seconds >= noteStartSeconds) startPositionY = -startPositionY;// 已经过了那个时间就求相反数
+    if (seconds >= noteEndSeconds) endPositionY = -endPositionY;
     const isCovered = endPositionY < 0 && judgeLine.isCover == 1 && seconds < noteEndSeconds;
     startPositionY = startPositionY * speed * (above == 1 ? 1 : -1) + yOffset;
     endPositionY = endPositionY * speed * (above == 1 ? 1 : -1) + yOffset;
@@ -548,4 +544,10 @@ function getNoteInfo(chart: Chart, lineNumber: number, noteNumber: number, secon
         startX, startY, endX, endY, angle: lineAngle, startSeconds: noteStartSeconds, endSeconds: noteEndSeconds,
         startPositionY, endPositionY, isCovered
     };
+}
+export function convertPositionX(x: number) {
+    return x + 675;
+}
+export function convertPositionY(y: number) {
+    return 450 - y;
 }
