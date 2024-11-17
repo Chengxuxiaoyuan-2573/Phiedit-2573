@@ -1,4 +1,4 @@
-export default class TaskQueue<T> {
+export class TaskQueue<T> {
     _tasks: {
         task: () => T,
         priority: number

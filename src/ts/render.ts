@@ -1,12 +1,14 @@
-import { BPM, Chart, ChartData, NumberEvent, TextEvent, ColorEvent, RGBcolor, NoteType, HitState, ImageSource } from "./typeDefinitions";
-import { easingFuncs } from "./easing";
-import { EditableImage } from "./EditableImage";
-import { getBeatsValue, beatsToSeconds, moveAndRotate, playSound, mod, convertDegreesToRadians } from "./tools";
-import TaskQueue from "./taskQueue";
+import { BPM, ChartData, RGBcolor, NoteType, HitState, Ctx } from "./typeDefinitions";
+import easingFuncs from "./easing";
+import { getBeatsValue, beatsToSeconds, moveAndRotate, convertDegreesToRadians, getContext } from "./tools";
+import { TaskQueue } from "./classes/taskQueue";
+import { NumberEvent, ColorEvent, TextEvent } from "./classes/event";
+import { Chart } from "./classes/chart";
+import { NoteJudgement } from "./classes/noteJudgement";
 export default function renderChart(canvas: HTMLCanvasElement, chartData: ChartData, seconds: number) {
     const { chartPackage } = chartData;
     const { chart, background } = chartPackage;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = getContext(canvas);
     seconds -= chart.META.offset / 1000;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawBackground(canvas, chartData, background);
@@ -14,8 +16,8 @@ export default function renderChart(canvas: HTMLCanvasElement, chartData: ChartD
     chart.highlightNotes();
     drawNotes(ctx, chartData, seconds);
 }
-function drawBackground(canvas: HTMLCanvasElement, chartData: ChartData, background: ImageSource) {
-    const ctx = canvas.getContext("2d")!;
+function drawBackground(canvas: HTMLCanvasElement, chartData: ChartData, background: HTMLImageElement) {
+    const ctx = getContext(canvas);
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
     const imageWidth = background.width;
@@ -43,7 +45,7 @@ function drawBackground(canvas: HTMLCanvasElement, chartData: ChartData, backgro
     ctx.globalAlpha = chartData.backgroundDarkness;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
-function drawJudgeLines(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds: number) {
+function drawJudgeLines(ctx: Ctx, chartData: ChartData, seconds: number) {
     const { chartPackage } = chartData;
     const { chart, textures } = chartPackage;
     chart.judgeLineList.sort((y, x) => x.zOrder - y.zOrder);
@@ -63,28 +65,26 @@ function drawJudgeLines(ctx: CanvasRenderingContext2D, chartData: ChartData, sec
         const radians = convertDegreesToRadians(angle);
         ctx.translate(convertPositionX(x), convertPositionY(y));
         ctx.rotate(radians);
+        ctx.scale(scaleX, scaleY);
         ctx.globalAlpha = alpha / 255;
         if (judgeLine.Texture in textures) {
             const image = textures[judgeLine.Texture];
-            ctx.drawImage(
-                image, 0, 0, image.width, image.height,
-                -image.width / 2 * scaleX, -image.height / 2 * scaleY,
-                image.width * scaleX, image.height * scaleY
-            );
+            ctx.drawImage(image, 0, 0, image.width, image.height, -image.width / 2, -image.height / 2, image.width, image.height);
         }
         else if (text == undefined) {
             ctx.strokeStyle = "rgb(" + color[0] + ", " + color[1] + ", " + color[2] + ")";
-            ctx.lineWidth = chartData.lineWidth * scaleY;
+            ctx.lineWidth = chartData.lineWidth;
             ctx.beginPath();
-            ctx.moveTo(-chartData.lineLength * scaleX, 0);
-            ctx.lineTo(chartData.lineLength * scaleX, 0);
+            ctx.moveTo(-chartData.lineLength, 0);
+            ctx.lineTo(chartData.lineLength, 0);
             ctx.stroke();
         }
         else {
-            const { canvas: textImage } = EditableImage.text(text, "PhiFont,sans-serif", chartData.textSize, color)
-                .stretchScale(scaleX, scaleY);
-            if (textImage.width > 0 && textImage.height > 0)
-                ctx.drawImage(textImage, -textImage.width / 2, -textImage.height / 2);
+            ctx.fillStyle = "rgb(" + color[0] + ", " + color[1] + ", " + color[2] + ")";
+            ctx.font = chartData.textSize + "px PhiFont";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 0, 0);
         }
         ctx.resetTransform();
     }
@@ -222,7 +222,7 @@ function findLastEvent<T extends NumberEvent | ColorEvent | TextEvent>(BPMList: 
     });
     return lastEvent;
 }
-function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds: number) {
+function drawNotes(ctx: Ctx, chartData: ChartData, seconds: number) {
     const { chartPackage, resourcePackage } = chartData;
     const { chart } = chartPackage;
     const taskQueue = new TaskQueue<void>();
@@ -238,10 +238,10 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
             const note = judgeLine.notes[noteNumber];
             const noteInfo = getNoteInfo(chartData, judgeLineNumber, noteNumber, seconds, judgeLineInfo);
             const radians = convertDegreesToRadians(noteInfo.angle);
-            const missSeconds = note.type == NoteType.Tap ? chartData.judgement.tap.bad :
-                note.type == NoteType.Drag ? chartData.judgement.drag.perfect : chartData.judgement.flick.perfect;
+            const missSeconds = note.type == NoteType.Tap ? 0.18 :
+                note.type == NoteType.Drag ? 0.18 : 0.18;
             if (chartData.autoplay && seconds >= noteInfo.startSeconds &&
-                note._hitState == HitState.NotHitted && !note.isFake) {
+                !note._playedSound && !note.isFake) {
                 if (note.type == NoteType.Hold)
                     if (seconds >= noteInfo.endSeconds) {
                         note._hitState = HitState.Perfect;
@@ -253,59 +253,107 @@ function drawNotes(ctx: CanvasRenderingContext2D, chartData: ChartData, seconds:
                     note._hitState = HitState.Perfect;
                 }
                 note._hitSeconds = seconds;
-                const audioBuffer =
-                    note.type == NoteType.Drag ? chartData.resourcePackage.dragSound :
-                        note.type == NoteType.Flick ? chartData.resourcePackage.flickSound :
-                            note.type == NoteType.Tap ? chartData.resourcePackage.tapSound : chartData.resourcePackage.tapSound;
-                playSound(chartData.resourcePackage.audioContext, audioBuffer);
+                note.playSound(resourcePackage);
             }
             if (seconds < note._hitSeconds) {
                 note._hitState = HitState.NotHitted;
-                note._hitSeconds = Infinity;
+                note._hitSeconds = -Infinity;
             }
             if (!chartData.autoplay && note._hitState == HitState.NotHitted && !note.isFake && seconds > noteInfo.startSeconds + missSeconds) {
                 note._hitState = HitState.Miss;
-                note._hitSeconds = Infinity;
+                note._hitSeconds = -Infinity;
             }
-            if (
-                !note.isFake && (
-                    note.type == NoteType.Hold ?
-                        note._hitState >= HitState.HoldingPerfect &&
-                        seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration * (
-                            1 + Math.floor((noteInfo.endSeconds - note._hitSeconds) / chartData.resourcePackage.hitFxDuration)
-                        ) :
-                        note._hitState >= HitState.Perfect &&
-                        seconds < note._hitSeconds + chartData.resourcePackage.hitFxDuration
-                )
-            ) {
+            if (!note.isFake && note._hitState >= HitState.HoldingPerfect && seconds < (() => {
+                if (note.type == NoteType.Hold)
+                    return Math.floor((noteInfo.endSeconds - note._hitSeconds) / resourcePackage.hitFxFrequency)
+                        * resourcePackage.hitFxFrequency + note._hitSeconds;
+                else
+                    return noteInfo.endSeconds;
+            })() + resourcePackage.hitFxDuration) {
                 taskQueue.addTask(() => {
                     ctx.globalAlpha = 1;
-                    const frameNumber = mod(
-                        Math.floor(
-                            (seconds - note._hitSeconds)
-                            / chartData.resourcePackage.hitFxDuration
-                            * chartData.resourcePackage.hitFxFrameNumber
-                        ), chartData.resourcePackage.hitFxFrameNumber
-                    );
-                    const { x, y, angle } = note.type == NoteType.Hold ? judgeLineInfo : getJudgeLineInfo(chart, judgeLineNumber, note._hitSeconds, {
+                    const { x, y, angle } = getJudgeLineInfo(chart, judgeLineNumber, note._hitSeconds, {
                         getX: true,
                         getY: true,
                         getAngle: true
                     });
-                    if (note._hitState == HitState.Perfect || note._hitState == HitState.HoldingPerfect) {
-                        const frame = chartData.resourcePackage.perfectHitFxFrames[frameNumber];
+                    function _showPerfectHitFx(frameNumber: number, x: number, y: number, angle: number) {
+                        const frame = resourcePackage.perfectHitFxFrames[frameNumber];
                         const noteHittedPosition = moveAndRotate(x, y, angle, note.positionX, note.yOffset);
                         const canvasX = convertPositionX(noteHittedPosition.x);
                         const canvasY = convertPositionY(noteHittedPosition.y);
+                        const radians = convertDegreesToRadians(angle);
                         ctx.translate(canvasX, canvasY);
                         if (chartData.resourcePackage.hitFxRotate) ctx.rotate(radians);
                         ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
+                        ctx.resetTransform();
                     }
-                    ctx.resetTransform();
+                    function _showGoodHitFx(frameNumber: number, x: number, y: number, angle: number) {
+                        const frame = resourcePackage.goodHitFxFrames[frameNumber];
+                        const noteHittedPosition = moveAndRotate(x, y, angle, note.positionX, note.yOffset);
+                        const canvasX = convertPositionX(noteHittedPosition.x);
+                        const canvasY = convertPositionY(noteHittedPosition.y);
+                        const radians = convertDegreesToRadians(angle);
+                        ctx.translate(canvasX, canvasY);
+                        if (chartData.resourcePackage.hitFxRotate) ctx.rotate(radians);
+                        ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
+                        ctx.resetTransform();
+                    }
+                    if (note._hitState == HitState.Perfect || note._hitState == HitState.HoldingPerfect) {
+                        if (note.type == NoteType.Hold) {
+                            for (let s = note._hitSeconds; s <= seconds && s < noteInfo.endSeconds; s += resourcePackage.hitFxFrequency) {
+                                const { x, y, angle } = getJudgeLineInfo(chart, judgeLineNumber, s, {
+                                    getX: true,
+                                    getY: true,
+                                    getAngle: true
+                                });
+                                const frameNumber = Math.floor(
+                                    (seconds - s)
+                                    / chartData.resourcePackage.hitFxDuration
+                                    * chartData.resourcePackage.perfectHitFxFrames.length
+                                );
+                                if (frameNumber < chartData.resourcePackage.perfectHitFxFrames.length)
+                                    _showPerfectHitFx(frameNumber, x, y, angle);
+                            }
+                        }
+                        else {
+                            const frameNumber = Math.floor(
+                                (seconds - note._hitSeconds)
+                                / chartData.resourcePackage.hitFxDuration
+                                * chartData.resourcePackage.perfectHitFxFrames.length
+                            )
+                            _showPerfectHitFx(frameNumber, x, y, angle);
+                        }
+                    }
+                    if (note._hitState == HitState.Good || note._hitState == HitState.HoldingGood) {
+                        if (note.type == NoteType.Hold) {
+                            for (let s = note._hitSeconds; s <= seconds && s < noteInfo.endSeconds; s += resourcePackage.hitFxFrequency) {
+                                const { x, y, angle } = getJudgeLineInfo(chart, judgeLineNumber, s, {
+                                    getX: true,
+                                    getY: true,
+                                    getAngle: true
+                                });
+                                const frameNumber = Math.floor(
+                                    (seconds - s)
+                                    / chartData.resourcePackage.hitFxDuration
+                                    * chartData.resourcePackage.goodHitFxFrames.length
+                                );
+                                if (frameNumber < chartData.resourcePackage.goodHitFxFrames.length)
+                                    _showGoodHitFx(frameNumber, x, y, angle);
+                            }
+                        }
+                        else {
+                            const frameNumber = Math.floor(
+                                (seconds - note._hitSeconds)
+                                / chartData.resourcePackage.hitFxDuration
+                                * chartData.resourcePackage.goodHitFxFrames.length
+                            )
+                            _showGoodHitFx(frameNumber, x, y, angle);
+                        }
+                    }
                 }, 5);
-                if (note._hitState >= HitState.Perfect)
-                    continue;
             }
+            if (seconds >= noteInfo.endSeconds && note._hitState >= HitState.Perfect) continue;
             if (noteInfo.isCovered) continue;
             if (noteInfo.startSeconds - seconds > note.visibleTime) continue; // note is not in visible time
             if (judgeLineInfo.alpha < 0) continue; // note is hided
@@ -414,8 +462,7 @@ function getNoteInfo(chartData: ChartData, lineNumber: number, noteNumber: numbe
     const { chart } = chartPackage;
     const judgeLine = chart.judgeLineList[lineNumber];
     const note = judgeLine.notes[noteNumber];
-    const noteStartSeconds = note._startSeconds || (note._startSeconds = beatsToSeconds(chart.BPMList, note.startTime));
-    const noteEndSeconds = note._endSeconds || (note._endSeconds = beatsToSeconds(chart.BPMList, note.endTime));
+    const { startSeconds: noteStartSeconds, endSeconds: noteEndSeconds } = note.caculateSeconds(chart.BPMList);
     const { x: lineX, y: lineY, angle: lineAngle } = judgeLineInfo;
     const { positionX, above, speed, yOffset, type } = note;
     let startPositionY = 0, endPositionY = 0;
@@ -540,6 +587,7 @@ function getNoteInfo(chartData: ChartData, lineNumber: number, noteNumber: numbe
     endPositionY = endPositionY * speed * (above == 1 ? 1 : -1) + yOffset;
     const { x: startX, y: startY } = moveAndRotate(lineX, lineY, lineAngle, positionX, startPositionY);
     const { x: endX, y: endY } = moveAndRotate(lineX, lineY, lineAngle, positionX, endPositionY);
+    note._judgement = new NoteJudgement(convertPositionX(startX), convertPositionY(startY), lineAngle, note.size * 100);
     return {
         startX, startY, endX, endY, angle: lineAngle, startSeconds: noteStartSeconds, endSeconds: noteEndSeconds,
         startPositionY, endPositionY, isCovered

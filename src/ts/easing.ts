@@ -1,5 +1,6 @@
+import { EasingType } from "./typeDefinitions";
 type SimpleFunction = (t: number) => number;
-export const easingFuncs: Record<number, SimpleFunction> = {
+const easingFuncs: Record<EasingType, SimpleFunction> = {
     1: (t) => t,
     2: (t) => Math.sin(t * Math.PI / 2),
     3: (t) => 1 - Math.cos(t * Math.PI / 2),
@@ -30,3 +31,4 @@ export const easingFuncs: Record<number, SimpleFunction> = {
     28: (t) => (t *= 2) < 1 ? easingFuncs[26](t) / 2 : easingFuncs[27](t - 1) / 2 + .5,
     29: (t) => t < .5 ? 2 ** (20 * t - 11) * Math.sin((160 * t + 1) * Math.PI / 18) : 1 - 2 ** (9 - 20 * t) * Math.sin((160 * t + 1) * Math.PI / 18)
 };
+export default easingFuncs;

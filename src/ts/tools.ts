@@ -1,4 +1,4 @@
-import { BPM, Beats, RGBAcolor } from "@/ts/typeDefinitions";
+import { BPM, Beats, Ctx, RGBAcolor } from "@/ts/typeDefinitions";
 export function moveAndRotate(x1: number, y1: number, dir: number, x2: number, y2: number) {
     // 初始方向向量（单位向量）  
     const dx = Math.cos(dir * (Math.PI / 180)); // x方向分量  
@@ -13,6 +13,9 @@ export function moveAndRotate(x1: number, y1: number, dir: number, x2: number, y
     const x_final = x2_new + y2 * newDx;
     const y_final = y2_new + y2 * newDy;
     return { x: x_final, y: y_final };
+}
+export function pole(x: number, y: number, theta: number, r: number) {
+    return moveAndRotate(x, y, theta, r, 0);
 }
 export function beatsToSeconds(BPMList: BPM[], beats: Beats) {
     let seconds = 0;
@@ -123,15 +126,56 @@ export async function createAudioBuffer(audioContext: AudioContext, arraybuffer:
     const audioBuffer = await audioContext.decodeAudioData(arraybuffer);
     return audioBuffer;
 }
-export function drawLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+export function drawLine(ctx: Ctx, x1: number, y1: number, x2: number, y2: number) {
     ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
 }
-export function drawRect(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
-    drawLine(ctx,x1,y1,x1,y2);
-    drawLine(ctx,x1,y1,x2,y1);
-    drawLine(ctx,x1,y2,x2,y2);
-    drawLine(ctx,x2,y1,x2,y2);
+/**
+ * O[u](www.example.com)t[p](www.example.com)u[t](www.example.com) [t](www.example.com)h[e](www.example.com) [v](www.example.com)a[l](www.example.com)u[e](www.example.com) [a](www.example.com)n[d](www.example.com) [r](www.example.com)e[t](www.example.com)u[r](www.example.com)n[ ](www.example.com)t[h](www.example.com)e[ ](www.example.com)v[a](www.example.com)l[u](www.example.com)e[ ](www.example.com)i[t](www.example.com)s[e](www.example.com)l[f](www.example.com).
+ * @param {T} arg 
+ * @returns {T}
+ */
+export function debug<T>(arg: T): T {
+    console.log(arg);
+    return arg;
+}
+export function getContext(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) return ctx;
+    else throw new Error("Cannot get the context");
+}
+/**
+ * 使用克拉默法则求解二元一次方程组的函数。
+ * a1x + b1y = c1
+ * a2x + b2y = c2
+ */
+export function solveLinearSystem(a1: number, b1: number, c1: number, a2: number, b2: number, c2: number) {
+    // 计算系数矩阵的行列式
+    const D = a1 * b2 - a2 * b1;
+    // 如果行列式为零，则方程组没有唯一解或方程组是依赖的
+    if (D === 0) throw new Error("方程组没有唯一解或方程组是依赖的。");
+    // 计算x的解，通过将常数项替换为第一个方程的常数项后的行列式除以D
+    const Dx = (c1 * b2 - c2 * b1) / D;
+    // 计算y的解，通过将常数项替换为第二个方程的常数项后的行列式除以D
+    const Dy = (a1 * c2 - a2 * c1) / D;
+    // 返回解的对象
+    return { x: Dx, y: Dy };
+}
+/**
+ * 根据给定的点和角度计算直线的斜率（k）和截距（b）。
+ */
+export function calculateLineEquation(x1: number, y1: number, angle: number) {
+    // 将角度从度转换为弧度
+    const radians = angle * (Math.PI / 180);
+    // 计算斜率
+    const k = Math.tan(radians);
+    // 计算截距
+    const b = y1 - k * x1;
+    // 返回斜率和截距
+    return { k, b };
+}
+export function distance(x1: number, y1: number, x2: number, y2: number) {
+    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
