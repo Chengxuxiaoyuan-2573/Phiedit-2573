@@ -1,11 +1,12 @@
+import { Box } from "./classes/box"
 import { ChartPackage } from "./classes/chartPackage"
-import { NumberEvent, ColorEvent, TextEvent } from "./classes/event"
+import { NumberEvent } from "./classes/event"
+import { Note } from "./classes/note"
 import { ResourcePackage } from "./classes/resourcePackage"
 export type Beats = [number, number, number]
 export type RGBcolor = [number, number, number]
 export type RGBAcolor = [number, number, number, number]
 export type BezierPoints = [number, number, number, number]
-export type Bool = 0 | 1
 export type Ctx = CanvasRenderingContext2D
 export enum EasingType {
     Linear = 1,
@@ -16,23 +17,6 @@ export enum EasingType {
     ElasticOut, ElacticIn, BounceOut, BounceIn, BounceIO, ElasticIO
 }
 export enum NoteType { Tap = 1, Hold, Flick, Drag }
-export enum HitState { NotHitted, HoldingPerfect, HoldingGood, Perfect, Good, Bad, Miss }
-export type BaseEventLayer = {
-    moveXEvents: NumberEvent[],
-    moveYEvents: NumberEvent[],
-    rotateEvents: NumberEvent[],
-    alphaEvents: NumberEvent[],
-    speedEvents: NumberEvent[]
-}
-export type ExtendedEventLayer = {
-    scaleXEvents: NumberEvent[],
-    scaleYEvents: NumberEvent[],
-    colorEvents: ColorEvent[],
-    paintEvents: NumberEvent[],// unsupported
-    textEvents: TextEvent[]
-    /*inclineEvents: NumberEvent[]// unsupported */
-}
-
 export type BPM = {
     bpm: number,
     startTime: Beats
@@ -44,8 +28,7 @@ export type ChartData = {
     textSize: number,
     chartSpeed: number,
     chartPackage: ChartPackage,
-    resourcePackage: ResourcePackage,
-    autoplay: boolean & true
+    resourcePackage: ResourcePackage
 }
 
 export enum MainState {
@@ -68,6 +51,19 @@ export type UI = {
     verticalStretch: number,
     selectedJudgeLine: number,
     selectedEventLayer: number,
-    playbackRate: number,
-    wheelSpeed: number
+    boxes: Boxes,
+    selectedNotes: Note[],
+    selectedMoveXEvents: NumberEvent[],
+    selectedMoveYEvents: NumberEvent[],
+    selectedRotateEvents: NumberEvent[],
+    selectedAlphaEvents: NumberEvent[],
+    selectedSpeedEvents: NumberEvent[]
+}
+export type Boxes = {
+    noteBoxes: Box<Note>[],
+    moveXEventBoxes: Box<NumberEvent>[],
+    moveYEventBoxes: Box<NumberEvent>[],
+    rotateEventBoxes: Box<NumberEvent>[],
+    alphaEventBoxes: Box<NumberEvent>[],
+    speedEventBoxes: Box<NumberEvent>[]
 }

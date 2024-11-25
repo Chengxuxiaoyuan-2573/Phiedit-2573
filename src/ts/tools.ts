@@ -179,3 +179,61 @@ export function calculateLineEquation(x1: number, y1: number, angle: number) {
 export function distance(x1: number, y1: number, x2: number, y2: number) {
     return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
+/**
+ * 根据谱面坐标系中的X坐标计算Canvas坐标系中的X坐标。
+ */
+export function convertXToCanvas(x: number) {
+    return x + 675;
+}
+/**
+ * 根据谱面坐标系中的Y坐标计算Canvas坐标系中的Y坐标。
+ */
+export function convertYToCanvas(y: number) {
+    return 450 - y;
+}
+/**
+ * 根据Canvas坐标系中的X坐标计算谱面坐标系中的X坐标。
+ */
+export function convertXToChart(x: number) {
+    return x - 675;
+}
+/**
+ * 根据Canvas坐标系中的Y坐标计算谱面坐标系中的Y坐标。
+ */
+export function convertYToChart(y: number) {
+    return 450 - y;
+}
+/**
+ * 将三元组拍数转换成"a.b/c"的格式  
+ * 为了方便打字所以把RPE格式拍数中间的冒号换成点了
+ */
+export function formatBeats(beats: Beats) {
+    return beats[0] + '.' + beats[1] + '/' + beats[2];
+}
+/**
+ * 将"a.b/c"格式的字符串转换成三元组  
+ * 为了兼容RPE格式的拍数所以三个数字中间以任何符号分隔都可以
+ */
+export function parseBeats(str: string) {
+    let beats: Beats | null = null;
+    const beatsRegex = /([0-9]+)\D([0-9]+)\D([0-9]+)/;
+    if (!isNaN(+str)) {
+        beats = [+str, 0, 1];
+    }
+    else {
+        const match = str.match(beatsRegex);
+        if (match) {
+            beats = [+match[1], +match[2], +match[3]];
+        }
+    }
+    return beats;
+}
+export function downloadText(text: string, fileName: string, mime = "text/plain") {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+}

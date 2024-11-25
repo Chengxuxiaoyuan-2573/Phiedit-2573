@@ -4,8 +4,8 @@ import { isObject, isArrayOf2Numbers, isNumber, isBoolean } from "../typeCheck";
 import { FileReaderExtends } from "./classExtends";
 import { EditableImage } from "./editableImage";
 import jsyaml from "js-yaml";
-
-export class ResourcePackage {
+import { NoteType } from "../typeDefinitions";
+interface IResourcePackage {
     tap: HTMLImageElement;
     flick: HTMLImageElement;
     drag: HTMLImageElement;
@@ -35,7 +35,68 @@ export class ResourcePackage {
     holdCompact: boolean; // 是否把 Hold 的头部和尾部与 Hold 中间重叠
     colorPerfect: number; // AP（全 Perfect）情况下的判定线颜色
     colorGood: number; // FC（全连）情况下的判定线颜色
-    constructor(resourcePackage: ResourcePackage) {
+}
+export class ResourcePackage implements IResourcePackage {
+    tap: HTMLImageElement;
+    flick: HTMLImageElement;
+    drag: HTMLImageElement;
+    holdHead: HTMLCanvasElement;
+    holdEnd: HTMLCanvasElement;
+    holdBody: HTMLCanvasElement;
+    tapHL: HTMLImageElement;
+    flickHL: HTMLImageElement;
+    dragHL: HTMLImageElement;
+    holdHLHead: HTMLCanvasElement;
+    holdHLEnd: HTMLCanvasElement;
+    holdHLBody: HTMLCanvasElement;
+    audioContext: AudioContext;
+    tapSound: AudioBuffer;
+    dragSound: AudioBuffer;
+    flickSound: AudioBuffer;
+    perfectHitFxFrames: HTMLCanvasElement[];
+    goodHitFxFrames: HTMLCanvasElement[];
+    hitFxDuration: number;
+    hitFxFrequency: number;
+    hitFxRotate: boolean;
+    hideParticles: boolean;
+    holdKeepHead: boolean;
+    holdRepeat: boolean;
+    holdCompact: boolean;
+    colorPerfect: number;
+    colorGood: number;
+    getSkin(noteType: NoteType.Hold, highlight: boolean): { head: HTMLCanvasElement, body: HTMLCanvasElement, end: HTMLCanvasElement };
+    getSkin(noteType: NoteType.Tap | NoteType.Drag | NoteType.Flick, highlight: boolean): HTMLImageElement;
+    getSkin(noteType: NoteType, highlight: boolean) {
+        if (noteType == NoteType.Drag)
+            if (highlight)
+                return this.dragHL;
+            else
+                return this.drag;
+        else if (noteType == NoteType.Flick)
+            if (highlight)
+                return this.flickHL;
+            else
+                return this.flick;
+        else if (noteType == NoteType.Tap)
+            if (highlight)
+                return this.tapHL;
+            else
+                return this.tap;
+        else
+            if (highlight)
+                return {
+                    head: this.holdHLHead,
+                    body: this.holdHLBody,
+                    end: this.holdHLEnd
+                }
+            else
+                return {
+                    head: this.holdHead,
+                    body: this.holdBody,
+                    end: this.holdEnd
+                }
+    }
+    constructor(resourcePackage: IResourcePackage) {
         this.tap = resourcePackage.tap;
         this.drag = resourcePackage.drag;
         this.flick = resourcePackage.flick;

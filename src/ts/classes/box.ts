@@ -1,3 +1,5 @@
+import { getContext } from "../tools";
+
 export class Box<T> {
     left = 0;
     right = 0;
@@ -16,7 +18,15 @@ export class Box<T> {
     overlap(left: number, top: number, right: number, bottom: number) {
         return this.right > left && this.left < right && this.bottom > top && this.top < bottom;
     }
+    show(canvas: HTMLCanvasElement) {
+        const ctx = getContext(canvas);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(this.left, this.top, this.width, this.height);
+    }
     constructor(top: number, bottom: number, left: number, right: number, data: T) {
+        if (top > bottom) [bottom, top] = [top, bottom];
+        if (left > right) [right, left] = [left, right];
         this.top = top;
         this.bottom = bottom;
         this.left = left;

@@ -54,19 +54,6 @@ import { ElMenu, ElMenuItem } from "element-plus";
 import { onMounted, provide, Ref, ref } from 'vue';
 const loadingText: Ref<HTMLElement | null> = ref(null);
 const loadingMask: Ref<HTMLElement | null> = ref(null);
-const styleElement = document.createElement('style');
-const fontFaceRule = `
-@font-face {
-    font-family: 'PhiFont';
-    src: url('${PhigrosFontURL}') ;
-    font-weight: normal;
-    font-style: normal;
-}
-html {
-    font-family: PhiFont;
-}`;
-styleElement.textContent = fontFaceRule;
-document.head.appendChild(styleElement);
 onMounted(() => {
     provide("setLoadingText", function (string: string) {
         loadingMask.value!.classList.remove("hidden");
@@ -80,6 +67,20 @@ onMounted(() => {
         loadingMask.value!.classList.add("hidden");
     })
 })
+const fontImportant = false;
+const styleElement = document.createElement('style');
+const fontFaceRule = `
+@font-face {
+    font-family: 'PhiFont';
+    src: url('${PhigrosFontURL}') ;
+    font-weight: normal;
+    font-style: normal;
+}
+body * {
+    font-family: PhiFont ${fontImportant ? "!important" : ""};
+}`;
+styleElement.textContent = fontFaceRule;
+document.head.appendChild(styleElement);
 </script>
 
 <style scoped>

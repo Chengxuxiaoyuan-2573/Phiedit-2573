@@ -2,8 +2,6 @@
 node_modules
 /dist
 
-*.cmd
-
 # local env files
 .env.local
 .env.*.local

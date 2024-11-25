@@ -1,10 +1,9 @@
 import { getBeatsValue } from "../tools"
 import { isObject, isArray, isNumber, isArrayOf3Numbers, isString } from "../typeCheck"
-import { BPM, HitState, NoteType } from "../typeDefinitions"
-import { JudgeLine } from "./judgeLine"
+import { BPM } from "../typeDefinitions"
+import { IJudgeLine, JudgeLine } from "./judgeLine"
 import { Note } from "./note"
-
-export class Chart {
+export interface IChart {
     BPMList: BPM[]
     META: {
         charter: string,
@@ -15,46 +14,54 @@ export class Chart {
         offset: number
     }
     judgeLineGroup: string[]
+    judgeLineList: IJudgeLine[]
+
+}
+export class Chart implements IChart {
+    BPMList: BPM[]
+    META: {
+        charter: string;
+        composer: string;
+        illustrator: string;
+        level: string;
+        name: string;
+        offset: number
+    }
+    judgeLineGroup: string[]
     judgeLineList: JudgeLine[]
-    _highlighted: boolean
-    _allNotes?: Note[]
+    highlighted: boolean
+    toObject(): IChart {
+        return {
+            BPMList: this.BPMList,
+            META: this.META,
+            judgeLineGroup: this.judgeLineGroup,
+            judgeLineList: this.judgeLineList.map(judgeLine => judgeLine.toObject())
+        }
+    }
     getAllNotes() {
         const notes: Note[] = [];
         this.judgeLineList.forEach(judgeLine => {
             notes.push(...judgeLine.notes);
         })
-        return this._allNotes = notes;
+        return notes;
     }
     highlightNotes() {
-        if (!this._highlighted) {
+        if (!this.highlighted) {
             const allNotes = new Map<number, Note>();
             for (const judgeLine of this.judgeLineList) {
                 for (const note of judgeLine.notes) {
                     const anotherNote = allNotes.get(getBeatsValue(note.startTime));
                     if (anotherNote) {
-                        anotherNote._highlight = true;
-                        note._highlight = true;
+                        anotherNote.highlight = true;
+                        note.highlight = true;
                     }
                     else {
                         allNotes.set(getBeatsValue(note.startTime), note);
-                        note._highlight = false;
+                        note.highlight = false;
                     }
                 }
             }
-            this._highlighted = true;
-        }
-    }
-    clearHitSound(seconds: number) {
-        for (const judgeLine of this.judgeLineList) {
-            for (const note of judgeLine.notes) {
-                const { startSeconds, endSeconds } = note.caculateSeconds(this.BPMList);
-                if (seconds < startSeconds)
-                    note._hitState = HitState.NotHitted;
-                else if (note.type == NoteType.Hold && seconds >= startSeconds && seconds < endSeconds)
-                    note._hitState = HitState.HoldingPerfect;
-                else
-                    note._hitState = HitState.Perfect;
-            }
+            this.highlighted = true;
         }
     }
     constructor(chart: unknown) {
@@ -69,7 +76,7 @@ export class Chart {
         }
         this.judgeLineGroup = ["default"];
         this.judgeLineList = [];
-        this._highlighted = false;
+        this.highlighted = false;
 
         if (isObject(chart)) {
             if ("BPMList" in chart && isArray(chart.BPMList)) for (const bpm of chart.BPMList) {

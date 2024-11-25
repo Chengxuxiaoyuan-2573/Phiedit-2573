@@ -3,12 +3,18 @@ import { data, avg, createAudio, createImage } from "../tools";
 import { isObject, isString } from "../typeCheck";
 import { Chart } from "./chart";
 import { FileReaderExtends } from "./classExtends";
-export class ChartPackage {
+interface IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
     music: HTMLAudioElement;
     textures: Record<string, HTMLImageElement>
-    constructor(chartPackage: ChartPackage) {
+}
+export class ChartPackage implements IChartPackage {
+    chart: Chart;
+    background: HTMLImageElement;
+    music: HTMLAudioElement;
+    textures: Record<string, HTMLImageElement>;
+    constructor(chartPackage: IChartPackage) {
         this.chart = new Chart(chartPackage.chart);
         this.music = chartPackage.music;
         this.background = chartPackage.background;
@@ -137,7 +143,12 @@ export class ChartPackage {
                         return textureImages;
                     })
                 ])
-                return new ChartPackage({ chart, music, background, textures });
+                return new ChartPackage({
+                    chart,
+                    music,
+                    background,
+                    textures
+                });
             }))
         })
     }

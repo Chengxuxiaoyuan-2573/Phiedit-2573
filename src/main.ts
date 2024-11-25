@@ -6,7 +6,7 @@ import 'element-plus/dist/index.css';
 import App from '@/App.vue';
 import IndexPage from '@/pages/index/MainPage.vue';
 import AboutPage from '@/pages/about/MainPage.vue';
-import DocumentPage from './pages/document/MainPage.vue';
+import DocumentPage from '@/pages/document/MainPage.vue';
 
 const app = createApp(App);
 const routes = [

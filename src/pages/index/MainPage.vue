@@ -14,34 +14,49 @@
                 controls
             />
             <ElSelect
-                v-model="ui.playbackRate"
+                v-model="userOperation.playbackRate"
                 style="width:100px;"
-                @change="audio.playbackRate = ui.playbackRate;"
+                @change="audio.playbackRate = userOperation.playbackRate;"
             >
-                <ElOption value="0.125">
-                    0.125x
-                </ElOption>
-                <ElOption value="0.25">
-                    0.25x
-                </ElOption>
-                <ElOption value="0.5">
-                    0.5x
-                </ElOption>
                 <ElOption
-                    value="1"
+                    :value="0"
+                    label="0x"
+                />
+                <ElOption
+                    :value="0.125"
+                    label="0.125x"
+                />
+                <ElOption
+                    :value="0.25"
+                    label="0.25x"
+                />
+                <ElOption
+                    :value="0.5"
+                    label="0.5x"
+                />
+                <ElOption
+                    :value="1"
+                    label="原速"
                     selected
-                >
-                    原速
-                </ElOption>
-                <ElOption value="2">
-                    2x
-                </ElOption>
-                <ElOption value="4">
-                    4x
-                </ElOption>
+                />
+                <ElOption
+                    :value="2"
+                    label="2x"
+                />
+                <ElOption
+                    :value="4"
+                    label="4x"
+                />
             </ElSelect>
-            <ElInputNumber v-model="ui.horzionalLines" />
-            <ElInputNumber v-model="ui.verticalSpace" />
+            <ElInputNumber
+                v-model="ui.horzionalLines"
+                :min="1"
+            />
+            <ElInputNumber
+                v-model="ui.verticalSpace"
+                :min="1"
+                :max="675"
+            />
             <ElButton @click="ui.main == MainState.Editing ? ui.main = MainState.Playing : ui.main = MainState.Editing">
                 <span v-if="ui.main == MainState.Editing">切换到播放器界面</span>
                 <span v-else>切换到编辑器界面</span>
@@ -53,39 +68,111 @@
                 class="canvas"
                 width="1350"
                 height="900"
+                @click="canvasClickHandler"
             />
         </ElMain>
         <ElAside
             class="right"
             :class="{ open: ui.rightOpen }"
         >
-            <span
-                class="handle"
-                @click="ui.rightOpen = !ui.rightOpen"
-            >
-                <span v-if="ui.rightOpen">点击收起</span>
-                <span v-else>点击展开</span>
-            </span>
-            <label for="chartPackageFileInput">
+            <template v-if="ui.selectedNotes.length == 1">
+                <ElSelect v-model="ui.selectedNotes[0].type">
+                    <ElOption
+                        :value="1"
+                        label="Tap"
+                    />
+                    <ElOption
+                        :value="2"
+                        label="Hold"
+                    />
+                    <ElOption
+                        :value="3"
+                        label="Flick"
+                    />
+                    <ElOption
+                        :value="4"
+                        label="Drag"
+                    />
+                </ElSelect>
+                <ElInput
+                    v-model="userOperation.startString"
+                    @input="ui.selectedNotes[0].startString = userOperation.startString;"
+                    @change="userOperation.startString = ui.selectedNotes[0].startString;"
+                >
+                    <template #prepend>
+                        开始时间
+                    </template>
+                </ElInput>
+                <ElInput
+                    v-model="userOperation.endString"
+                    @input="ui.selectedNotes[0].endString = userOperation.endString;"
+                    @change="userOperation.endString = ui.selectedNotes[0].endString;"
+                >
+                    <template #prepend>
+                        结束时间
+                    </template>
+                </ElInput>
+                <ElCheckbox v-model="ui.selectedNotes[0].isFake">
+                    假音符
+                </ElCheckbox>
+                <ElSwitch
+                    v-model="ui.selectedNotes[0].above"
+                    active-text="正落"
+                    inactive-text="倒落"
+                >
+                    <template #default>
+                        下落方向
+                    </template>
+                </ElSwitch>
+                <ElInputNumber v-model="ui.selectedNotes[0].positionX">
+                    <template #prefix>
+                        X坐标
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model="ui.selectedNotes[0].speed">
+                    <template #prefix>
+                        速度倍率
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model="ui.selectedNotes[0].size">
+                    <template #prefix>
+                        大小
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model="ui.selectedNotes[0].alpha">
+                    <template #prefix>
+                        透明度
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model="ui.selectedNotes[0].yOffset">
+                    <template #prefix>
+                        纵向偏移
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model="ui.selectedNotes[0].visibleTime">
+                    <template #prefix>
+                        可见时间
+                    </template>
+                </ElInputNumber>
+            </template>
+            <template v-else-if="ui.right == RightState.Default">
                 <ElUpload
                     id="chartPackageFileInput"
                     ref="chartPackageFileInput"
                     :before-upload="function (file) {
-                        ChartPackage.load(file, setLoadingText)
+                        return ChartPackage.load(file, setLoadingText)
                             .then(chartPackage => chartData.chartPackage = chartPackage)
                             .then(removeLoadingText, removeLoadingText)
                             .catch(err => console.error(err))
                     }"
                 >
-                    <ElButton>上传谱面文件（仅支持RPE格式）</ElButton>
+                    <ElButton>上传谱面文件压缩包</ElButton>
                 </ElUpload>
-            </label>
-            <label for="resourcePackageFileInput">
                 <ElUpload
                     id="resourcePackageFileInput"
                     ref="resourcePackageFileInput"
                     :before-upload="function (file) {
-                        ResourcePackage.load(file, setLoadingText)
+                        return ResourcePackage.load(file, setLoadingText)
                             .then(resourcePackage => chartData.resourcePackage = resourcePackage)
                             .then(removeLoadingText, removeLoadingText)
                             .catch(err => console.error(err))
@@ -93,66 +180,82 @@
                 >
                     <ElButton>上传资源包</ElButton>
                 </ElUpload>
-            </label>
-            <label>
-                谱面流速：
-                <ElInputNumber v-model="chartData.chartSpeed" />
-            </label>
-            <label>
-                判定线宽度：
-                <ElInputNumber v-model="chartData.lineWidth" />
-            </label>
-            <label>
-                文字大小：
-                <ElInputNumber v-model="chartData.textSize" />
-            </label>
-            <label>
-                背景黑暗度：
-                <input
-                    v-model="chartData.backgroundDarkness"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
+                <ElButton @click="download">
+                    下载谱面文件
+                </ElButton>
+            </template>
+            <template v-else-if="ui.right == RightState.Settings">
+                <ElInputNumber v-model.lazy="chartData.chartSpeed">
+                    <template #prefix>
+                        谱面流速
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model.lazy="chartData.lineWidth">
+                    <template #prefix>
+                        判定线宽度
+                    </template>
+                </ElInputNumber>
+                <ElInputNumber v-model.lazy="chartData.textSize">
+                    <template #prefix>
+                        文字大小
+                    </template>
+                </ElInputNumber>
+                <ElSlider
+                    v-model.lazy="chartData.backgroundDarkness"
+                    :min="0"
+                    :max="1"
+                    :step="0.01"
                 >
-            </label>
-            <label>
-                hitFxDuration
-                <ElInputNumber v-model="chartData.resourcePackage.hitFxDuration" />
-            </label>
-            <label>
-                hitFxRotate
-                <ElCheckbox v-model="chartData.resourcePackage.hitFxRotate" />
-            </label>
-            <label>
-                holdKeepHead
-                <ElCheckbox v-model="chartData.resourcePackage.holdKeepHead" />
-            </label>
-            <label>
-                hideParticles(不支持)
-                <ElCheckbox v-model="chartData.resourcePackage.hideParticles" />
-            </label>
-            <label>
-                holdCompact(不支持)
-                <ElCheckbox v-model="chartData.resourcePackage.holdCompact" />
-            </label>
-            <label>
-                holdRepeat(不支持)
-                <ElCheckbox v-model="chartData.resourcePackage.holdRepeat" />
-            </label>
+                    <template #prefix>
+                        背景黑暗度
+                    </template>
+                </ElSlider>
+                <ElInputNumber v-model.lazy="chartData.resourcePackage.hitFxDuration">
+                    <template #prefix>
+                        打击特效时间
+                    </template>
+                </ElInputNumber>
+                <ElCheckbox v-model.lazy="chartData.resourcePackage.hitFxRotate">
+                    <template #prefix>
+                        打击特效随判定线旋转
+                    </template>
+                </ElCheckbox>
+                <ElCheckbox v-model.lazy="chartData.resourcePackage.holdKeepHead">
+                    <template #prefix>
+                        Hold正在判定时显示头部
+                    </template>
+                </ElCheckbox>
+                <ElCheckbox v-model.lazy="chartData.resourcePackage.hideParticles">
+                    <template #prefix>
+                        隐藏粒子（现在根本没有粒子因为不支持）
+                    </template>
+                </ElCheckbox>
+                <ElCheckbox v-model.lazy="chartData.resourcePackage.holdCompact">
+                    <template #prefix>
+                        Hold中间与头尾重叠（不支持，懒得做）
+                    </template>
+                </ElCheckbox>
+                <ElCheckbox v-model.lazy="chartData.resourcePackage.holdRepeat">
+                    <template #prefix>
+                        Hold中间重复式拉伸（不支持，不知道怎么做）
+                    </template>
+                </ElCheckbox>
+            </template>
         </ElAside>
     </ElContainer>
 </template>
 <script setup lang="ts">
-import { onMounted, ref, Ref, reactive, onBeforeUnmount, shallowReactive, ShallowReactive, inject } from 'vue';
-import { ElContainer, ElAside, ElHeader, ElButton, ElMain, ElInputNumber, ElCheckbox, ElSelect, ElOption, ElUpload } from 'element-plus';
-import renderChart from '@/ts/render';
-import { ChartData, MainState, RightState, TopState, UI } from '@/ts/typeDefinitions';
 import DefaultChartPackageURL from "@/assets/DefaultChartPackage.zip";
 import DefaultResourcePackageURL from "@/assets/DefaultResourcePackage.zip";
-import renderEditorUI from '@/ts/editor';
+import { Box } from '@/ts/classes/box';
 import { ChartPackage } from '@/ts/classes/chartPackage';
 import { ResourcePackage } from '@/ts/classes/resourcePackage';
+import renderEditorUI from '@/ts/editor';
+import renderChart from '@/ts/render';
+import { downloadText } from "@/ts/tools";
+import { ChartData, MainState, RightState, TopState, UI } from '@/ts/typeDefinitions';
+import { ElAside, ElButton, ElCheckbox, ElSwitch, ElContainer, ElHeader, ElInput, ElSlider, ElInputNumber, ElMain, ElOption, ElSelect, ElUpload } from 'element-plus';
+import { inject, onBeforeUnmount, onMounted, reactive, ref, Ref, shallowReactive } from 'vue';
 const canvas: Ref<HTMLCanvasElement | null> = ref(null);
 const audio: Ref<HTMLAudioElement | null> = ref(null);
 const setLoadingText = inject("setLoadingText", () => {
@@ -161,7 +264,7 @@ const setLoadingText = inject("setLoadingText", () => {
 const removeLoadingText = inject("removeLoadingText", () => {
     console.error("Failed to get function removeLoadingText");
 })
-const chartData: ShallowReactive<ChartData> = shallowReactive({
+const chartData: ChartData = shallowReactive({
     backgroundDarkness: 0.9,
     lineWidth: 5,
     lineLength: 2000,
@@ -172,8 +275,7 @@ const chartData: ShallowReactive<ChartData> = shallowReactive({
         .then(blob => ChartPackage.load(blob, setLoadingText)),
     resourcePackage: reactive(await fetch(DefaultResourcePackageURL)
         .then(response => response.blob())
-        .then(blob => ResourcePackage.load(blob, setLoadingText))),
-    autoplay: true
+        .then(blob => ResourcePackage.load(blob, setLoadingText)))
 });
 removeLoadingText();
 const ui: UI = reactive({
@@ -182,14 +284,63 @@ const ui: UI = reactive({
     top: TopState.Default,
     rightOpen: true,
     topOpen: true,
-    playbackRate: 1.0,
     verticalStretch: 300,
     horzionalLines: 4,
     verticalSpace: 50,
     selectedJudgeLine: 0,
     selectedEventLayer: 0,
-    wheelSpeed: 1
+    boxes: {
+        noteBoxes: [],
+        moveXEventBoxes: [],
+        moveYEventBoxes: [],
+        rotateEventBoxes: [],
+        alphaEventBoxes: [],
+        speedEventBoxes: []
+    },
+    selectedNotes: [],
+    selectedMoveXEvents: [],
+    selectedMoveYEvents: [],
+    selectedRotateEvents: [],
+    selectedAlphaEvents: [],
+    selectedSpeedEvents: [],
 })
+
+const userOperation = reactive({
+    wheelSpeed: 1,
+    playbackRate: 1.0,
+    startString: '',
+    endString: ''
+})
+/**
+ * 把用户点击坐标转换成canvas坐标系下的坐标。
+ */
+function clickPosition(x: number, y: number) {
+    const innerWidthCanvasPixels = canvas.value!.width;
+    const innerHeightCanvasPixels = canvas.value!.height;
+    const innerRatio = innerWidthCanvasPixels / innerHeightCanvasPixels;
+    const { width: outerWidthBrowserPixels, height: outerHeightBrowserPixels } = canvas.value!.getBoundingClientRect();
+    const outerRatio = outerWidthBrowserPixels / outerHeightBrowserPixels;
+    const { browserToCanvasRatio, padding } = (() => {
+        if (innerRatio > outerRatio) {
+            const width = outerWidthBrowserPixels;
+            const height = width / innerRatio;
+            const padding = (outerHeightBrowserPixels - height) / 2;
+            return { padding, browserToCanvasRatio: innerWidthCanvasPixels / width };
+        }
+        else {
+            const height = outerHeightBrowserPixels;
+            const width = height * innerRatio;
+            const padding = (outerWidthBrowserPixels - width) / 2;
+            return { padding, browserToCanvasRatio: innerHeightCanvasPixels / height };
+        }
+    })();
+    if (innerRatio > outerRatio) {
+        return { x: x * browserToCanvasRatio, y: (y - padding) * browserToCanvasRatio };
+    }
+    else {
+        return { y: y * browserToCanvasRatio, x: (x - padding) * browserToCanvasRatio };
+    }
+}
 /*
 function handleDown(e: TouchEvent | MouseEvent) {
     if (e instanceof TouchEvent) {
@@ -216,10 +367,41 @@ function handleUp(e: TouchEvent | MouseEvent) {
     }
 }
 */
+function canvasClickHandler(e: MouseEvent) {
+    const { x, y } = clickPosition(e.offsetX, e.offsetY);
+    if (!ui.boxes) return;
+    function _select<T>(boxes: Box<T>[]) {
+        for (const box of boxes) {
+            if (box.touch(x, y)) {
+                console.debug("touched");
+                return [box.data];
+            }
+        }
+        return [];
+    }
+    ui.selectedNotes = _select(ui.boxes.noteBoxes);
+    /**
+     * 这里的startString和endString是要经过手动处理的，所以要单独赋值
+     */
+    if (ui.selectedNotes.length == 1) {
+        userOperation.startString = ui.selectedNotes[0].startString;
+        userOperation.endString = ui.selectedNotes[0].endString;
+    }
+
+    ui.selectedMoveXEvents = _select(ui.boxes.moveXEventBoxes);
+    ui.selectedMoveYEvents = _select(ui.boxes.moveYEventBoxes);
+    ui.selectedRotateEvents = _select(ui.boxes.rotateEventBoxes);
+    ui.selectedAlphaEvents = _select(ui.boxes.alphaEventBoxes);
+    ui.selectedSpeedEvents = _select(ui.boxes.speedEventBoxes);
+}
+function download() {
+    const { chartPackage: { chart } } = chartData;
+    downloadText(JSON.stringify(chart.toObject()), chart.META.name + ".json", "application/json");
+}
 onMounted(() => {
     const interval = setInterval(() => {
         if (ui.main == MainState.Editing) {
-            renderEditorUI(canvas.value!, chartData, audio.value!.currentTime, ui);
+            ui.boxes = renderEditorUI(canvas.value!, chartData, audio.value!.currentTime, ui);
         }
         else if (ui.main == MainState.Playing) {
             renderChart(canvas.value!, chartData, audio.value!.currentTime);
@@ -227,9 +409,21 @@ onMounted(() => {
     }, 16);
     onBeforeUnmount(() => {
         clearInterval(interval);
+        window.onwheel = null;
+        window.onkeydown = null;
     })
     window.onwheel = e => {
-        audio.value!.currentTime += e.deltaY * ui.wheelSpeed * 0.01;
+        audio.value!.currentTime += e.deltaY * userOperation.wheelSpeed * -0.01;
+    }
+    window.onkeydown = e => {
+        switch (e.key) {
+            case ' ':
+                if (audio.value!.paused) audio.value!.play();
+                else audio.value!.pause();
+                return;
+            default:
+                console.log(e.key);
+        }
     }
 });
 </script>
@@ -290,7 +484,14 @@ i {
 .el-header:hover,
 .el-aside:hover {
     opacity: 1;
+}
 
+.el-aside>* {
+    width: 100%;
+}
+
+.el-upload>.el-button {
+    width: 100%;
 }
 
 .el-header {

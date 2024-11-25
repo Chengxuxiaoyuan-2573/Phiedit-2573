@@ -1,30 +1,54 @@
 import { getBeatsValue, beatsToSeconds } from "../tools";
 import { isObject, isArrayOf4Numbers, isNumber, isArrayOf3Numbers, isString } from "../typeCheck";
-import { Bool, EasingType, Beats, BPM, RGBcolor } from "../typeDefinitions";
-export abstract class BaseEvent {
-    bezier: Bool = 0; // unsupported 
+import { EasingType, Beats, BPM, RGBcolor } from "../typeDefinitions";
+export interface IEvent<T> {
+    bezier: boolean;
+    bezierPoints: [number, number, number, number];
+    easingLeft: number;
+    easingRight: number;
+    easingType: EasingType;
+    start: T;
+    end: T;
+    startTime: Beats;
+    endTime: Beats;
+}
+export abstract class BaseEvent<T> implements IEvent<T> {
+    bezier: boolean = false; // unsupported 
     bezierPoints: [number, number, number, number] = [0, 0, 1, 1]; // unsupported 
     easingLeft: number = 0;
     easingRight: number = 1;
     easingType: EasingType = EasingType.Linear;
-    abstract end: unknown;
-    endTime: Beats = [1, 0, 1];
-    abstract start: unknown;
+    abstract start: T;
+    abstract end: T;
     startTime: Beats = [0, 0, 1];
-    _startSeconds?: number;
-    _endSeconds?: number;
+    endTime: Beats = [1, 0, 1];
+    _startSecondsCache: number | undefined = undefined;
+    _endSecondsCache: number | undefined = undefined;
     get durationBeats() {
         return getBeatsValue(this.endTime) - getBeatsValue(this.startTime);
     }
     caculateSeconds(BPMList: BPM[]) {
-        const startSeconds = this._startSeconds || (this._startSeconds = beatsToSeconds(BPMList, this.startTime));
-        const endSeconds = this._endSeconds || (this._endSeconds = beatsToSeconds(BPMList, this.endTime));
+        const startSeconds = this._startSecondsCache || (this._startSecondsCache = beatsToSeconds(BPMList, this.startTime));
+        const endSeconds = this._endSecondsCache || (this._endSecondsCache = beatsToSeconds(BPMList, this.endTime));
         return { startSeconds, endSeconds };
+    }
+    toObject(): IEvent<T> {
+        return {
+            bezier: this.bezier,
+            bezierPoints: this.bezierPoints,
+            easingLeft: this.easingLeft,
+            easingRight: this.easingRight,
+            easingType: this.easingType,
+            start: this.start,
+            end: this.end,
+            startTime: this.startTime,
+            endTime: this.endTime
+        }
     }
     constructor(event: unknown) {
         if (isObject(event)) {
-            if ("bezier" in event && (event.bezier == 0 || event.bezier == 1))
-                this.bezier = event.bezier as Bool;
+            if ("bezier" in event)
+                this.bezier = event.bezier == 1;
             if ("bezierPoints" in event && isArrayOf4Numbers(event.bezierPoints) && event.bezierPoints.length == 4)
                 this.bezierPoints = event.bezierPoints;
             if ("easingLeft" in event && "easingRight" in event && isNumber(event.easingLeft) && isNumber(event.easingRight)
@@ -41,7 +65,7 @@ export abstract class BaseEvent {
         }
     }
 }
-export class NumberEvent extends BaseEvent {
+export class NumberEvent extends BaseEvent<number> {
     start: number = 0;
     end: number = 0;
     constructor(event: unknown) {
@@ -54,7 +78,7 @@ export class NumberEvent extends BaseEvent {
         }
     }
 }
-export class ColorEvent extends BaseEvent {
+export class ColorEvent extends BaseEvent<RGBcolor> {
     start: RGBcolor = [255, 255, 255];
     end: RGBcolor = [255, 255, 255];
     constructor(event: unknown) {
@@ -67,7 +91,7 @@ export class ColorEvent extends BaseEvent {
         }
     }
 }
-export class TextEvent extends BaseEvent {
+export class TextEvent extends BaseEvent<string> {
     start: string = "";
     end: string = "";
     constructor(event: unknown) {

@@ -3,7 +3,7 @@ import { Box } from "./classes/box";
 import { BaseEvent } from "./classes/event";
 import { Note } from "./classes/note";
 import { beatsToSeconds, secondsToBeatsValue, drawLine, getContext } from "./tools";
-import { Beats, ChartData, Ctx, NoteType, UI } from "./typeDefinitions";
+import { Beats, Boxes, ChartData, Ctx, NoteType, UI } from "./typeDefinitions";
 const lineWidth = 5,
     horzionalMainLineColor = "rgba(255, 255, 255, 0.5)",
     horzionalLineColor = "rgba(255, 255, 255, 0.2)",
@@ -21,7 +21,7 @@ const lineWidth = 5,
     height = bottom - top,
     eventSpace = 20,
     selectPadding = 10;
-export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: ChartData, seconds: number, ui: UI) {
+export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: ChartData, seconds: number, ui: UI): Boxes {
     const { chartPackage, resourcePackage } = chartData;
     const { chart } = chartPackage;
     chart.highlightNotes();
@@ -31,6 +31,7 @@ export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: Cha
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = lineWidth;
+    ctx.globalAlpha = 1;
     const offsetY = ui.verticalStretch * seconds;
     const bottomSeconds = offsetY / ui.verticalStretch;
     const topSeconds = (offsetY + height) / ui.verticalStretch;
@@ -93,26 +94,24 @@ export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: Cha
     const selectedJudgeLine = chart.judgeLineList[ui.selectedJudgeLine];
     const noteBoxes: Box<Note>[] = [];
     for (const note of selectedJudgeLine.notes) {
-        const noteStartSeconds = note._startSeconds || (note._startSeconds = beatsToSeconds(chart.BPMList, note.startTime));
+        const { startSeconds: noteStartSeconds, endSeconds: noteEndSeconds } = note.caculateSeconds(chart.BPMList);
+        ctx.globalAlpha = note.alpha / 255;
         if (note.type == NoteType.Hold) {
-            const noteEndSeconds = note._endSeconds || (note._endSeconds = beatsToSeconds(chart.BPMList, note.endTime));
             const noteX = note.positionX * (width / 1350) + left1 + width / 2;
             const noteStartY = _position(noteStartSeconds);
             const noteEndY = _position(noteEndSeconds);
             const noteWidth = (() => {
                 let size = width / 1350 * 200 * note.size;
-                if (note._highlight) size *= resourcePackage.holdHLBody.width / resourcePackage.holdBody.width;
+                if (note.highlight) size *= resourcePackage.holdHLBody.width / resourcePackage.holdBody.width;
                 return size;
             })()
             const noteHeight = noteStartY - noteEndY;
-            const holdHead = note._highlight ? resourcePackage.holdHLHead : resourcePackage.holdHead;
-            const holdBody = note._highlight ? resourcePackage.holdHLBody : resourcePackage.holdBody;
-            const holdEnd = note._highlight ? resourcePackage.holdHLEnd : resourcePackage.holdEnd;
-            const noteHeadHeight = holdHead.height / holdBody.width * noteWidth;
-            const noteEndHeight = holdEnd.height / holdBody.width * noteWidth;
-            ctx.drawImage(holdHead, noteX - noteWidth / 2, noteStartY, noteWidth, noteHeadHeight);
-            ctx.drawImage(holdBody, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
-            ctx.drawImage(holdEnd, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
+            const { head, body, end } = resourcePackage.getSkin(note.type, note.highlight);
+            const noteHeadHeight = head.height / body.width * noteWidth;
+            const noteEndHeight = end.height / body.width * noteWidth;
+            ctx.drawImage(head, noteX - noteWidth / 2, noteStartY, noteWidth, noteHeadHeight);
+            ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
+            ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
             noteBoxes.push(new Box(
                 noteEndY - selectPadding,
                 noteStartY + selectPadding,
@@ -122,28 +121,10 @@ export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: Cha
             ));
         }
         else {
-            const noteImage = (() => {
-                switch (note.type) {
-                    case NoteType.Flick:
-                        if (note._highlight)
-                            return resourcePackage.flickHL;
-                        else
-                            return resourcePackage.flick;
-                    case NoteType.Drag:
-                        if (note._highlight)
-                            return resourcePackage.dragHL;
-                        else
-                            return resourcePackage.drag;
-                    default:
-                        if (note._highlight)
-                            return resourcePackage.tapHL;
-                        else
-                            return resourcePackage.tap;
-                }
-            })();
+            const noteImage = resourcePackage.getSkin(note.type, note.highlight);
             const noteWidth = (() => {
                 let size = width / 1350 * 200 * note.size;
-                if (note._highlight) {
+                if (note.highlight) {
                     size *= (() => {
                         switch (note.type) {
                             case NoteType.Drag: return resourcePackage.dragHL.width / resourcePackage.drag.width;
@@ -158,11 +139,19 @@ export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: Cha
             const noteX = note.positionX * (width / 1350) + left1 + width / 2;
             const noteY = _position(noteStartSeconds);
             ctx.drawImage(noteImage, noteX - noteWidth / 2, noteY - noteHeight / 2, noteWidth, noteHeight);
+            const box = new Box(
+                noteY - selectPadding,
+                noteY + selectPadding,
+                noteX - noteWidth / 2 - selectPadding,
+                noteX + noteWidth / 2 + selectPadding,
+                note
+            );
+            if (box.overlap(0, 0, 1350, 900)) noteBoxes.push(box);
         }
     }
     ctx.fillStyle = "#eee";
     const eventWidth = width / 5 - 2 * eventSpace;
-    function _drawEvents<T extends BaseEvent>(ctx: Ctx, events: T[], column: 0 | 1 | 2 | 3 | 4) {
+    function _drawEvents<T extends BaseEvent<unknown>>(ctx: Ctx, events: T[], column: 0 | 1 | 2 | 3 | 4) {
         const boxes: Box<T>[] = [];
         for (const event of events) {
             const { startSeconds, endSeconds } = event.caculateSeconds(chart.BPMList);
@@ -170,7 +159,14 @@ export default function renderEditorUI(canvas: HTMLCanvasElement, chartData: Cha
             const eventEndY = _position(endSeconds);
             const eventHeight = eventStartY - eventEndY;
             ctx.fillRect(width * column / 5 + eventSpace + left2, eventStartY, eventWidth, eventHeight);
-            boxes.push(new Box(eventStartY, eventEndY, width * column / 5 + eventSpace + left2, width * (column + 1) / 5 - eventSpace + left2, event));
+            const box = new Box(
+                eventStartY,
+                eventEndY,
+                width * column / 5 + eventSpace + left2,
+                width * (column + 1) / 5 - eventSpace + left2,
+                event
+            );
+            if (box.overlap(0, 0, 1350, 900)) boxes.push(box);
         }
         return boxes;
     }
