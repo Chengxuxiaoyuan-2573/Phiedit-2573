@@ -158,6 +158,33 @@
 			margin: 0;
 			padding: 0;
 		}
+
+		* {
+			margin: 0;
+			padding: 0;
+		}
+
+		.loadingMask {
+			position: fixed;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background: #2228;
+			backdrop-filter: blur(10px);
+			z-index: 6;
+			color: white;
+			font-size: 2em;
+		}
+
+		.hidden {
+			display: none !important;
+			width: 0 !important;
+			height: 0 !important;
+		}
 	</style>
 	<title>Phiedit 2573 Online</title>
 </head>

@@ -1,5 +1,6 @@
 import { getContext } from "../tools";
-import { RGBcolor, RGBAcolor, Ctx } from "../typeDefinitions";
+import { Ctx } from "../typeDefinitions";
+import { RGBcolor, RGBAcolor } from "./color";
 export class EditableImage {
     canvas: HTMLCanvasElement;
     ctx: Ctx;
@@ -16,7 +17,7 @@ export class EditableImage {
         canvas.height = height;
         return new EditableImage(canvas);
     }
-    static text(text: string, font = "Arial", size = 50, color: RGBcolor = [255, 255, 255]) {
+    static text(text: string, font = "Arial", size = 50, color: RGBcolor) {
         const canvas = document.createElement("canvas");
         const ctx = getContext(canvas);
         ctx.font = size + "px " + font;

@@ -1,6 +1,10 @@
-import { getBeatsValue, beatsToSeconds } from "../tools";
-import { isObject, isArrayOf4Numbers, isNumber, isArrayOf3Numbers, isString } from "../typeCheck";
-import { EasingType, Beats, BPM, RGBcolor } from "../typeDefinitions";
+import { EasingType } from "../easing";
+import { formatBeats, parseBeats } from "../tools";
+import { getBeatsValue, beatsToSeconds } from "./beats"
+import { isObject, isNumber, isString, isArrayOfNumbers } from "../typeCheck";
+import { BPM } from "../typeDefinitions";
+import { Beats } from "./beats";
+import { RGBcolor } from "./color";
 export interface IEvent<T> {
     bezier: boolean;
     bezierPoints: [number, number, number, number];
@@ -13,23 +17,57 @@ export interface IEvent<T> {
     endTime: Beats;
 }
 export abstract class BaseEvent<T> implements IEvent<T> {
-    bezier: boolean = false; // unsupported 
-    bezierPoints: [number, number, number, number] = [0, 0, 1, 1]; // unsupported 
+    bezier: boolean = false;
+    bezierPoints: [number, number, number, number] = [0, 0, 1, 1];
     easingLeft: number = 0;
     easingRight: number = 1;
     easingType: EasingType = EasingType.Linear;
     abstract start: T;
     abstract end: T;
-    startTime: Beats = [0, 0, 1];
-    endTime: Beats = [1, 0, 1];
-    _startSecondsCache: number | undefined = undefined;
-    _endSecondsCache: number | undefined = undefined;
+    _startTime: Beats = [0, 0, 1]
+    _endTime: Beats = [0, 0, 1]
+    get startTime() {
+        return this._startTime;
+    }
+    get endTime() {
+        return this._endTime;
+    }
+    set startTime(beats: Beats) {
+        if (beats[2] == 0) beats[2] = 1;
+        this._startTime = beats;
+    }
+    set endTime(beats: Beats) {
+        if (beats[2] == 0) beats[2] = 1;
+        this._endTime = beats;
+    }
+    get startString() {
+        return formatBeats(this.startTime);
+    }
+    get endString() {
+        return formatBeats(this.endTime);
+    }
+    set startString(str: string) {
+        const beats = parseBeats(str);
+        if (beats == null) return;
+        this.startTime = beats;
+    }
+    set endString(str: string) {
+        const beats = parseBeats(str);
+        if (beats == null) return;
+        this.endTime = beats;
+    }
+    get easingLeftRight() {
+        return [this.easingLeft, this.easingRight];
+    }
+    set easingLeftRight(easingLeftRight: [number, number]) {
+        [this.easingLeft, this.easingRight] = easingLeftRight;
+    }
     get durationBeats() {
         return getBeatsValue(this.endTime) - getBeatsValue(this.startTime);
     }
     caculateSeconds(BPMList: BPM[]) {
-        const startSeconds = this._startSecondsCache || (this._startSecondsCache = beatsToSeconds(BPMList, this.startTime));
-        const endSeconds = this._endSecondsCache || (this._endSecondsCache = beatsToSeconds(BPMList, this.endTime));
+        const startSeconds = beatsToSeconds(BPMList, this.startTime);
+        const endSeconds = beatsToSeconds(BPMList, this.endTime);
         return { startSeconds, endSeconds };
     }
     toObject(): IEvent<T> {
@@ -49,7 +87,7 @@ export abstract class BaseEvent<T> implements IEvent<T> {
         if (isObject(event)) {
             if ("bezier" in event)
                 this.bezier = event.bezier == 1;
-            if ("bezierPoints" in event && isArrayOf4Numbers(event.bezierPoints) && event.bezierPoints.length == 4)
+            if ("bezierPoints" in event && isArrayOfNumbers(event.bezierPoints, 4))
                 this.bezierPoints = event.bezierPoints;
             if ("easingLeft" in event && "easingRight" in event && isNumber(event.easingLeft) && isNumber(event.easingRight)
                 && event.easingLeft >= 0 && event.easingRight <= 1 && event.easingLeft < event.easingRight) {
@@ -58,10 +96,10 @@ export abstract class BaseEvent<T> implements IEvent<T> {
             }
             if ("easingType" in event && event.easingType as number >= 1 && event.easingType as number <= 29 && Number.isInteger(event.easingType))
                 this.easingType = event.easingType as EasingType;
-            if ("startTime" in event && isArrayOf3Numbers(event.startTime) && event.startTime.length == 3)
-                this.startTime = event.startTime;
-            if ("endTime" in event && isArrayOf3Numbers(event.endTime) && event.endTime.length == 3)
-                this.endTime = event.endTime;
+            if ("startTime" in event && isArrayOfNumbers(event.startTime, 3))
+                this._startTime = event.startTime;
+            if ("endTime" in event && isArrayOfNumbers(event.endTime, 3))
+                this._endTime = event.endTime;
         }
     }
 }
@@ -79,15 +117,15 @@ export class NumberEvent extends BaseEvent<number> {
     }
 }
 export class ColorEvent extends BaseEvent<RGBcolor> {
-    start: RGBcolor = [255, 255, 255];
-    end: RGBcolor = [255, 255, 255];
+    start: RGBcolor = [128, 128, 255];
+    end: RGBcolor = [128, 128, 255];
     constructor(event: unknown) {
         super(event);
         if (isObject(event)) {
-            if ("start" in event && isArrayOf3Numbers(event.start))
-                this.start = event.start;
-            if ("end" in event && isArrayOf3Numbers(event.end))
-                this.end = event.end;
+            if ("start" in event && isArrayOfNumbers(event.start, 3))
+                this.start = [event.start[0], event.start[1], event.start[2]];
+            if ("end" in event && isArrayOfNumbers(event.end, 3))
+                this.end = [event.end[0], event.end[1], event.end[2]];
         }
     }
 }

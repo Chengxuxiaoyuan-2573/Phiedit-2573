@@ -171,10 +171,8 @@
                 <h2>event.easingType</h2>
                 <p>缓动编号，为1到29之间的整数</p>
                 <p>缓动编号从1到29所对应的缓动类型依次是：</p>
-                <p>Linear,SineOut,SineIn,QuadOut,QuadIn,SineInOut,QuadInOut,CubicOut,CubicIn,QuartOut,QuartIn,CubicInOut,QuartInOut,QuintOut,QuintIn,ExpoOut,ExpoIn,CircOut,CircIn,BackOut,BackIn,CircInOut,BackInOut,ElasticOut,ElacticIn,BounceOut,BounceIn,BounceIO,ElasticIO
-                </p>
-                <p>其中Linear是线性函数，Sine是正弦函数，Quad是二次函数，Cubic是三次函数，Quart是四次函数，Quint是五次函数，Expo是指数函数，Circ是圆形函数，Back是掉头函数，Elastic是摇摆函数，Bounce是反弹函数
-                </p>
+                <p>Linear,SineOut,SineIn,QuadOut,QuadIn,SineInOut,QuadInOut,CubicOut,CubicIn,QuartOut,QuartIn,CubicInOut,QuartInOut,QuintOut,QuintIn,ExpoOut,ExpoIn,CircOut,CircIn,BackOut,BackIn,CircInOut,BackInOut,ElasticOut,ElacticIn,BounceOut,BounceIn,BounceIO,ElasticIO</p>
+                <p>其中Linear是线性函数，Sine是正弦函数，Quad是二次函数，Cubic是三次函数，Quart是四次函数，Quint是五次函数，Expo是指数函数，Circ是圆形函数，Back是掉头函数，Elastic是摇摆函数，Bounce是反弹函数</p>
                 <p>Out表示逐渐减速，In表示逐渐加速，InOut表示先加速后减速</p>
                 <p>缓动函数表示事件值随着时间变化而变化的关系，所有缓动函数在0处的值都为0（表示事件值未开始变化），在1处的值都为1（表示事件值变化完成）</p>
             </div>

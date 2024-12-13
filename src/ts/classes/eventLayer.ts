@@ -1,6 +1,6 @@
-import { isObject, isArray } from "lodash"
+import { isObject, isArray } from "../typeCheck"
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event"
-import { RGBcolor } from "../typeDefinitions"
+import { RGBcolor } from "./color"
 export interface IBaseEventLayer {
     moveXEvents: IEvent<number>[]
     moveYEvents: IEvent<number>[]

@@ -1,6 +1,6 @@
-import { getBeatsValue } from "../tools"
-import { isObject, isArray, isNumber, isArrayOf3Numbers, isString } from "../typeCheck"
+import { isObject, isArray, isNumber, isArrayOfNumbers, isString } from "../typeCheck"
 import { BPM } from "../typeDefinitions"
+import { getBeatsValue } from "./beats"
 import { IJudgeLine, JudgeLine } from "./judgeLine"
 import { Note } from "./note"
 export interface IChart {
@@ -29,7 +29,6 @@ export class Chart implements IChart {
     }
     judgeLineGroup: string[]
     judgeLineList: JudgeLine[]
-    highlighted: boolean
     toObject(): IChart {
         return {
             BPMList: this.BPMList,
@@ -46,22 +45,19 @@ export class Chart implements IChart {
         return notes;
     }
     highlightNotes() {
-        if (!this.highlighted) {
-            const allNotes = new Map<number, Note>();
-            for (const judgeLine of this.judgeLineList) {
-                for (const note of judgeLine.notes) {
-                    const anotherNote = allNotes.get(getBeatsValue(note.startTime));
-                    if (anotherNote) {
-                        anotherNote.highlight = true;
-                        note.highlight = true;
-                    }
-                    else {
-                        allNotes.set(getBeatsValue(note.startTime), note);
-                        note.highlight = false;
-                    }
+        const allNotes = new Map<number, Note>();
+        for (const judgeLine of this.judgeLineList) {
+            for (const note of judgeLine.notes) {
+                const anotherNote = allNotes.get(getBeatsValue(note.startTime));
+                if (anotherNote) {
+                    anotherNote.highlight = true;
+                    note.highlight = true;
+                }
+                else {
+                    allNotes.set(getBeatsValue(note.startTime), note);
+                    note.highlight = false;
                 }
             }
-            this.highlighted = true;
         }
     }
     constructor(chart: unknown) {
@@ -76,7 +72,6 @@ export class Chart implements IChart {
         }
         this.judgeLineGroup = ["default"];
         this.judgeLineList = [];
-        this.highlighted = false;
 
         if (isObject(chart)) {
             if ("BPMList" in chart && isArray(chart.BPMList)) for (const bpm of chart.BPMList) {
@@ -87,7 +82,7 @@ export class Chart implements IChart {
                 if (isObject(bpm)) {
                     if ("bpm" in bpm && isNumber(bpm.bpm))
                         formatedBPM.bpm = bpm.bpm;
-                    if ("startTime" in bpm && isArrayOf3Numbers(bpm.startTime))
+                    if ("startTime" in bpm && isArrayOfNumbers(bpm.startTime, 3))
                         formatedBPM.startTime = bpm.startTime;
                 }
                 this.BPMList.push(formatedBPM);

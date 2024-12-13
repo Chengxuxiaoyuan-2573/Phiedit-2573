@@ -1,4 +1,3 @@
-import { EasingType } from "./typeDefinitions";
 type SimpleFunction = (t: number) => number;
 const easingFuncs: Record<EasingType, SimpleFunction> = {
     1: (t) => t,
@@ -31,4 +30,12 @@ const easingFuncs: Record<EasingType, SimpleFunction> = {
     28: (t) => (t *= 2) < 1 ? easingFuncs[26](t) / 2 : easingFuncs[27](t - 1) / 2 + .5,
     29: (t) => t < .5 ? 2 ** (20 * t - 11) * Math.sin((160 * t + 1) * Math.PI / 18) : 1 - 2 ** (9 - 20 * t) * Math.sin((160 * t + 1) * Math.PI / 18)
 };
+export enum EasingType {
+    Linear = 1,
+    SineOut, SineIn, QuadOut, QuadIn, SineInOut, QuadInOut,
+    CubicOut, CubicIn, QuartOut, QuartIn, CubicInOut, QuartInOut,
+    QuintOut, QuintIn, ExpoOut, ExpoIn,
+    CircOut, CircIn, BackOut, BackIn, CircInOut, BackInOut,
+    ElasticOut, ElacticIn, BounceOut, BounceIn, BounceIO, ElasticIO
+}
 export default easingFuncs;

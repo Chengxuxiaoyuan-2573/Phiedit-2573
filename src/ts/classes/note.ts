@@ -1,7 +1,8 @@
-import { beatsToSeconds, formatBeats, parseBeats, playSound } from "../tools"
-import { isObject, isNumber, isArrayOf3Numbers } from "../typeCheck"
-import { Beats, NoteType, BPM } from "../typeDefinitions"
-import { ResourcePackage } from "./resourcePackage"
+import { formatBeats, parseBeats } from "../tools"
+import { beatsToSeconds } from "./beats"
+import { isObject, isNumber, isArrayOfNumbers } from "../typeCheck"
+import { NoteType, BPM } from "../typeDefinitions"
+import { Beats } from "./beats"
 export interface INote {
     above: boolean
     alpha: number
@@ -37,55 +38,43 @@ export class Note implements INote {
         return this._startTime;
     }
     get endTime() {
-        return this._endTime;
+        return this.type == NoteType.Hold ? this._endTime : this._startTime;
     }
     set startTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        if (this.type != NoteType.Hold) {
-            this._endTime = beats;
-        }
         this._startTime = beats;
-        this._startSecondsCache = undefined;
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        if (this.type != NoteType.Hold) {
+        if (this.type == NoteType.Hold)
+            this._endTime = beats;
+        else
             this._startTime = beats;
-        }
-        this._endTime = beats;
-        this._endSecondsCache = undefined;
     }
     get startString() {
-        return formatBeats(this.startTime);
+        const beats = formatBeats(this.startTime);
+        console.log("Getter startString: beats =", beats)
+        return beats;
     }
     get endString() {
-        return formatBeats(this.endTime);
+        const beats = formatBeats(this.endTime);
+        console.log("Getter endString: beats =", beats)
+        return beats;
     }
     set startString(str: string) {
         const beats = parseBeats(str);
-        if (beats == null) return;
+        console.log("Setter startString: beats =", beats)
         this.startTime = beats;
     }
     set endString(str: string) {
         const beats = parseBeats(str);
-        if (beats == null) return;
+        console.log("Setter endString: beats =", beats)
         this.endTime = beats;
     }
-    _type = NoteType.Tap
-    get type() {
-        return this._type;
-    }
-    set type(type: NoteType) {
-        if (this._type == NoteType.Hold && type != NoteType.Hold) {
-            this.endTime = this.startTime;
-        }
-        this._type = type;
-    }
+    type = NoteType.Tap
     highlight = false
     hitSeconds: number | undefined = undefined
-    _startSecondsCache: number | undefined = undefined
-    _endSecondsCache: number | undefined = undefined
-    toObject():INote {
+    toObject(): INote {
         return {
             startTime: this.startTime,
             endTime: this.endTime,
@@ -100,27 +89,9 @@ export class Note implements INote {
             yOffset: this.yOffset
         }
     }
-    playSound(resourcePackage: ResourcePackage) {
-        const audioBuffer =
-            this.type == NoteType.Drag ? resourcePackage.dragSound :
-                this.type == NoteType.Flick ? resourcePackage.flickSound :
-                    this.type == NoteType.Tap ? resourcePackage.tapSound : resourcePackage.tapSound;
-        playSound(resourcePackage.audioContext, audioBuffer);
-    }
     caculateSeconds(BPMList: BPM[]) {
-        /*
-        // 用这个代码会有bug，但是牺牲一点性能还是可以接受的吧
-        const startSeconds = (() => {
-            if (this._startSecondsCache) return this._startSecondsCache;
-            else return this._startSecondsCache = beatsToSeconds(BPMList, this.startTime);
-        })();
-        const endSeconds = (() => {
-            if (this._endSecondsCache) return this._endSecondsCache;
-            else return this._endSecondsCache = beatsToSeconds(BPMList, this.endTime);
-        })();
-        */
-        const startSeconds = this._startSecondsCache = beatsToSeconds(BPMList, this.startTime);
-        const endSeconds = this._endSecondsCache = beatsToSeconds(BPMList, this.endTime);
+        const startSeconds = beatsToSeconds(BPMList, this.startTime);
+        const endSeconds = beatsToSeconds(BPMList, this.endTime);
         return { startSeconds, endSeconds };
     }
     getJudgement(BPMList: BPM[]) {
@@ -149,9 +120,9 @@ export class Note implements INote {
     }
     constructor(note: unknown) {
         if (isObject(note)) {
-            if ("startTime" in note && isArrayOf3Numbers(note.startTime))
+            if ("startTime" in note && isArrayOfNumbers(note.startTime, 3))
                 this._startTime = note.startTime;
-            if ("endTime" in note && isArrayOf3Numbers(note.endTime))
+            if ("endTime" in note && isArrayOfNumbers(note.endTime, 3))
                 this._endTime = note.endTime;
             if ("positionX" in note && isNumber(note.positionX))
                 this.positionX = note.positionX;
@@ -160,7 +131,7 @@ export class Note implements INote {
             if ("alpha" in note && isNumber(note.alpha) && note.alpha >= 0 && note.alpha <= 255)
                 this.alpha = note.alpha;
             if ("type" in note && isNumber(note.type) && note.type >= 1 && note.type <= 4 && Number.isInteger(note.type))
-                this._type = note.type;
+                this.type = note.type;
             if ("isFake" in note)
                 this.isFake = note.isFake == 1;
             if ("size" in note && isNumber(note.size))

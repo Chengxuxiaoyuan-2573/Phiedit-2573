@@ -1,18 +1,18 @@
 import JSZip from "jszip";
-import { data, avg, createAudio, createImage } from "../tools";
+import { data, avg, createImage, createObjectURL } from "../tools";
 import { isObject, isString } from "../typeCheck";
 import { Chart } from "./chart";
 import { FileReaderExtends } from "./classExtends";
 interface IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
-    music: HTMLAudioElement;
+    music: string;
     textures: Record<string, HTMLImageElement>
 }
 export class ChartPackage implements IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
-    music: HTMLAudioElement;
+    music: string;
     textures: Record<string, HTMLImageElement>;
     constructor(chartPackage: IChartPackage) {
         this.chart = new Chart(chartPackage.chart);
@@ -120,7 +120,7 @@ export class ChartPackage implements IChartPackage {
                     musicFile.async('blob', meta => {
                         progress.music = meta.percent;
                         _showProgress();
-                    }).then(createAudio),
+                    }).then(createObjectURL),
                     backgroundFile.async('blob', meta => {
                         progress.background = meta.percent;
                         _showProgress();

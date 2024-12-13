@@ -1,36 +1,21 @@
-import { Box } from "./classes/box"
-import { ChartPackage } from "./classes/chartPackage"
+import { Beats } from "./classes/beats"
 import { NumberEvent } from "./classes/event"
 import { Note } from "./classes/note"
-import { ResourcePackage } from "./classes/resourcePackage"
-export type Beats = [number, number, number]
-export type RGBcolor = [number, number, number]
-export type RGBAcolor = [number, number, number, number]
 export type BezierPoints = [number, number, number, number]
 export type Ctx = CanvasRenderingContext2D
-export enum EasingType {
-    Linear = 1,
-    SineOut, SineIn, QuadOut, QuadIn, SineInOut, QuadInOut,
-    CubicOut, CubicIn, QuartOut, QuartIn, CubicInOut, QuartInOut,
-    QuintOut, QuintIn, ExpoOut, ExpoIn,
-    CircOut, CircIn, BackOut, BackIn, CircInOut, BackInOut,
-    ElasticOut, ElacticIn, BounceOut, BounceIn, BounceIO, ElasticIO
-}
+
 export enum NoteType { Tap = 1, Hold, Flick, Drag }
 export type BPM = {
     bpm: number,
     startTime: Beats
 }
-export type ChartData = {
+export type ChartSettings = {
     backgroundDarkness: number,
     lineWidth: number,
     lineLength: number,
     textSize: number,
-    chartSpeed: number,
-    chartPackage: ChartPackage,
-    resourcePackage: ResourcePackage
+    chartSpeed: number
 }
-
 export enum MainState {
     Playing, Editing
 }
@@ -38,32 +23,35 @@ export enum TopState {
     Default
 }
 export enum RightState {
-    Default, Settings
+    Default, Settings, Editing
 }
 export type UI = {
+    /**
+     * 主界面
+     */
     main: MainState,
+    /**
+     * 顶部菜单栏
+     */
     top: TopState,
+    /**
+     * 右侧菜单栏
+     */
     right: RightState,
     topOpen: boolean,
     rightOpen: boolean,
-    horzionalLines: number,
-    verticalSpace: number,
-    verticalStretch: number,
-    selectedJudgeLine: number,
-    selectedEventLayer: number,
-    boxes: Boxes,
-    selectedNotes: Note[],
-    selectedMoveXEvents: NumberEvent[],
-    selectedMoveYEvents: NumberEvent[],
-    selectedRotateEvents: NumberEvent[],
-    selectedAlphaEvents: NumberEvent[],
-    selectedSpeedEvents: NumberEvent[]
+    segmentPerBeat: number,
+    trackSpace: number,
+    pxPerSecond: number,
+    currentJudgeLineNumber: number,
+    currentEventLayerNumber: number,
+    selection: ObjectCanBeEdited[],
+    wheelSpeed: number,
+    playbackRate:number
 }
-export type Boxes = {
-    noteBoxes: Box<Note>[],
-    moveXEventBoxes: Box<NumberEvent>[],
-    moveYEventBoxes: Box<NumberEvent>[],
-    rotateEventBoxes: Box<NumberEvent>[],
-    alphaEventBoxes: Box<NumberEvent>[],
-    speedEventBoxes: Box<NumberEvent>[]
-}
+export type ObjectCanBeEdited = Note | NumberEvent;
+export type UpperString = Uppercase<string>;
+export type LowerString = Lowercase<string>;
+export type ArrayRepeat<S, N extends number, Acc extends S[] = []> =
+    Acc['length'] extends N ? Acc : ArrayRepeat<S, N, [...Acc, S]>
+export type Add<A extends number, B extends number> = [...ArrayRepeat<'a', A>, ...ArrayRepeat<'a', B>]["length"];

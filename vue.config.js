@@ -10,11 +10,15 @@ module.exports = defineConfig({
 			rules: [
 				{
 					test: /\.zip$/,
-					use: [
-						{
-							loader: 'file-loader'
-						}
-					]
+					use: ['file-loader']
+				},
+				{
+					test: /\.html$/,
+					use: ['html-loader']
+				},
+				{
+					test: /\.md$/,
+					use: ['markdown-loader']
 				}
 			]
 		}

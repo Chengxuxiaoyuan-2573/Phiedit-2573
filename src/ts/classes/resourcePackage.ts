@@ -1,10 +1,11 @@
 import JSZip from "jszip";
-import { data, createAudioBuffer, createImage, color } from "../tools";
-import { isObject, isArrayOf2Numbers, isNumber, isBoolean } from "../typeCheck";
+import { data, createAudioBuffer, createImage, playSound } from "../tools";
+import { isObject, isNumber, isBoolean, isArrayOfNumbers } from "../typeCheck";
 import { FileReaderExtends } from "./classExtends";
 import { EditableImage } from "./editableImage";
 import jsyaml from "js-yaml";
 import { NoteType } from "../typeDefinitions";
+import { color } from "./color";
 interface IResourcePackage {
     tap: HTMLImageElement;
     flick: HTMLImageElement;
@@ -96,6 +97,20 @@ export class ResourcePackage implements IResourcePackage {
                     end: this.holdEnd
                 }
     }
+    playSound(noteType: NoteType) {
+        switch (noteType) {
+            case NoteType.Tap:
+            case NoteType.Hold:
+                playSound(this.audioContext, this.tapSound);
+                return;
+            case NoteType.Drag:
+                playSound(this.audioContext, this.dragSound);
+                return;
+            case NoteType.Flick:
+                playSound(this.audioContext, this.flickSound);
+                return;
+        }
+    }
     constructor(resourcePackage: IResourcePackage) {
         this.tap = resourcePackage.tap;
         this.drag = resourcePackage.drag;
@@ -184,11 +199,11 @@ export class ResourcePackage implements IResourcePackage {
                         holdCompact = false,
                         colorPerfect = 0xe1ffec9f,
                         colorGood = 0xebb4e1ff;
-                    if ("hitFx" in infoObj && isArrayOf2Numbers(infoObj.hitFx)) hitFx = infoObj.hitFx;
+                    if ("hitFx" in infoObj && isArrayOfNumbers(infoObj.hitFx, 2)) hitFx = infoObj.hitFx;
                     else throw new Error("Missing property hitFx in info file");
-                    if ("holdAtlas" in infoObj && isArrayOf2Numbers(infoObj.holdAtlas)) holdAtlas = infoObj.holdAtlas;
+                    if ("holdAtlas" in infoObj && isArrayOfNumbers(infoObj.holdAtlas, 2)) holdAtlas = infoObj.holdAtlas;
                     else throw new Error("Missing property holdAtlas in info file");
-                    if ("holdAtlasMH" in infoObj && isArrayOf2Numbers(infoObj.holdAtlasMH)) holdAtlasMH = infoObj.holdAtlasMH;
+                    if ("holdAtlasMH" in infoObj && isArrayOfNumbers(infoObj.holdAtlasMH, 2)) holdAtlasMH = infoObj.holdAtlasMH;
                     else throw new Error("Missing property holdAtlasMH in info file");
                     if ("hitFxDuration" in infoObj && isNumber(infoObj.hitFxDuration)) hitFxDuration = infoObj.hitFxDuration;
                     if ("hitFxScale" in infoObj && isNumber(infoObj.hitFxScale)) hitFxScale = infoObj.hitFxScale;
