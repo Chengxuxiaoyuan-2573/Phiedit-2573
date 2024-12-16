@@ -4,20 +4,18 @@
         v-model="inputData"
         @input="inputHandler"
     >
-        <!--
         <template #prepend>
-            <slot name="prepend"></slot>
+            <slot name="prepend" />
         </template>
         <template #append>
-            <slot name="append"></slot>
+            <slot name="append" />
         </template>
         <template #prefix>
-            <slot name="prefix"></slot>
+            <slot name="prefix" />
         </template>
         <template #suffix>
-            <slot name="suffix"></slot>
+            <slot name="suffix" />
         </template>
-        -->
     </ElInput>
 </template>
 

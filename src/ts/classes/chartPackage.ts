@@ -6,17 +6,17 @@ import { FileReaderExtends } from "./classExtends";
 interface IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
-    music: string;
+    musicSrc: string;
     textures: Record<string, HTMLImageElement>
 }
 export class ChartPackage implements IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
-    music: string;
+    musicSrc: string;
     textures: Record<string, HTMLImageElement>;
     constructor(chartPackage: IChartPackage) {
         this.chart = new Chart(chartPackage.chart);
-        this.music = chartPackage.music;
+        this.musicSrc = chartPackage.musicSrc;
         this.background = chartPackage.background;
         this.textures = chartPackage.textures;
     }
@@ -116,7 +116,7 @@ export class ChartPackage implements IChartPackage {
                         }));
                     }
                 });
-                const [music, background, chart, textures] = await Promise.all([
+                const [musicSrc, background, chart, textures] = await Promise.all([
                     musicFile.async('blob', meta => {
                         progress.music = meta.percent;
                         _showProgress();
@@ -145,7 +145,7 @@ export class ChartPackage implements IChartPackage {
                 ])
                 return new ChartPackage({
                     chart,
-                    music,
+                    musicSrc,
                     background,
                     textures
                 });

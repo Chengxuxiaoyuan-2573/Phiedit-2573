@@ -1,6 +1,6 @@
-import { NoteType, ObjectCanBeEdited, UI, MainState, RightState, ChartSettings } from "./typeDefinitions";
+import { LeftState, MainState, NoteType, RightState, TopState } from "./typeDefinitions";
 import easingFuncs, { EasingType } from "./easing";
-import { moveAndRotate, convertDegreesToRadians, getContext, convertXToCanvas, convertYToCanvas, drawLine, cubicBezierEase } from "./tools";
+import { moveAndRotate, convertDegreesToRadians, getContext, drawLine, cubicBezierEase } from "./tools";
 import { TaskQueue } from "./classes/taskQueue";
 import { NumberEvent, ColorEvent, TextEvent, BaseEvent } from "./classes/event";
 import { Box } from "./classes/box";
@@ -12,6 +12,7 @@ import DefaultChartPackageURL from "@/assets/DefaultChartPackage.zip";
 import DefaultResourcePackageURL from "@/assets/DefaultResourcePackage.zip";
 import { removeLoadingText, setLoadingText } from "./components/loadingText";
 import { beatsToSeconds, getBeatsValue } from "./classes/beats";
+import { reactive } from "vue";
 const lineWidth = 5,
     horzionalMainLineColor: RGBAcolor = [255, 255, 255, 0.5],
     horzionalLineColor: RGBAcolor = [255, 255, 255, 0.2],
@@ -33,29 +34,95 @@ const lineWidth = 5,
 let boxes: Box<ObjectCanBeEdited>[] = [];
 let _axisX: number, _axisY: number, _spaceX: number, _spaceY: number;
 let canvas: HTMLCanvasElement;
-let _ui: UI;
+type ChartSettings = {
+    backgroundDarkness: number,
+    lineWidth: number,
+    lineLength: number,
+    textSize: number,
+    chartSpeed: number,
+    noteSize: number,
+    viewWidth: number,
+    viewHeight: number
+}
+type UI = {
+    /** 主界面（canvas）的状态 */
+    main: MainState,
+    /** 顶部工具栏的状态 */
+    top: TopState,
+    /** 右侧菜单栏的状态 */
+    right: RightState,
+    /** 左侧菜单栏的状态 */
+    left: LeftState,
+    /** 横线数（即一拍分成几份） */
+    segmentsPerBeat: number,
+    /** 每两条竖线之间的间隔（可以间接算出来竖线数） */
+    trackSpace: number,
+    /** 纵向拉伸（一秒的时间在编辑器里时间轴上是多少像素） */
+    pxPerSecond: number,
+    /** 选中的判定线号 */
+    currentJudgeLineNumber: number,
+    /** 选中的事件层级编号 */
+    currentEventLayerNumber: number,
+    /** 选中的所有note和事件 */
+    selection: ObjectCanBeEdited[],
+    /** 滚轮速度 */
+    wheelSpeed: number,
+    /** 正在放置的note类型 */
+    currentNoteType: NoteType,
+}
 type ChartData = {
     chartPackage: ChartPackage,
     resourcePackage: ResourcePackage,
-    chartSettings: ChartSettings
+    chartSettings: ChartSettings,
+    ui: UI
 }
 
+type ObjectCanBeEdited = Note | NumberEvent;
 export const data: ChartData = {
     chartPackage: await fetch(DefaultChartPackageURL)
         .then(response => response.blob())
         .then(blob => ChartPackage.load(blob, setLoadingText)),
-    resourcePackage: await fetch(DefaultResourcePackageURL)
+    resourcePackage: reactive(await fetch(DefaultResourcePackageURL)
         .then(response => response.blob())
-        .then(blob => ResourcePackage.load(blob, setLoadingText)),
-    chartSettings: {
-        backgroundDarkness: 0.9,
+        .then(blob => ResourcePackage.load(blob, setLoadingText))),
+    chartSettings: reactive({
+        backgroundDarkness: 90,
         lineWidth: 5,
         lineLength: 2000,
         textSize: 50,
-        chartSpeed: 120
-    }
+        chartSpeed: 120,
+        noteSize: 200,
+        viewWidth: 1350,
+        viewHeight: 900
+    }),
+    ui: reactive({
+        main: MainState.Playing,
+        right: RightState.Default,
+        left: LeftState.Default,
+        top: TopState.Default,
+        pxPerSecond: 300,
+        segmentsPerBeat: 4,
+        trackSpace: 50,
+        currentJudgeLineNumber: 0,
+        currentEventLayerNumber: 0,
+        selection: [],
+        wheelSpeed: 1,
+        currentNoteType: NoteType.Tap
+    })
 }
+
 removeLoadingText();
+export function setCanvas(_canvas: HTMLCanvasElement) {
+    canvas = _canvas;
+    canvas.onmousedown = canvasOnMouseDown;
+    canvas.onmousemove = canvasOnMouseMove;
+}
+export function setChartPackage(chartPackage: ChartPackage) {
+    data.chartPackage = chartPackage;
+}
+export function setResourcePackage(resourcePackage: ResourcePackage) {
+    data.resourcePackage = resourcePackage;
+}
 /**
  * 把用户点击坐标转换成canvas坐标系下的坐标。
  */
@@ -86,16 +153,37 @@ function clickPosition(x: number, y: number) {
         return { y: y * browserToCanvasRatio, x: (x - padding) * browserToCanvasRatio };
     }
 }
-function canvasMouseMoveHandler() { 
+function canvasOnMouseMove() {
     // there is nothing
 }
 
-function canvasClickHandler(e: MouseEvent) {
-    if (_ui.main == MainState.Editing) {
-        canvasClickEditorHandler(e);
+function canvasOnMouseDown(e: MouseEvent) {
+    if (data.ui.main == MainState.Editing) {
+        switch (e.button) {
+            case 0:
+                canvasOnLeftClick(e);
+                return;
+            case 2:
+                canvasOnRightClick(e);
+                return;
+        }
     }
 }
-function canvasClickEditorHandler(e: MouseEvent) {
+function canvasOnRightClick(e: MouseEvent) {
+    const { x, y } = clickPosition(e.offsetX, e.offsetY);
+    const a = Math.round((x - _axisY) / _spaceY);
+    const b = -Math.round((y - _axisX) / (_spaceX / data.ui.segmentsPerBeat));
+    const judgeLine = data.chartPackage.chart.judgeLineList[data.ui.currentJudgeLineNumber];
+    const addedNote = new Note({
+        startTime: [Math.floor(b / data.ui.segmentsPerBeat), b % data.ui.segmentsPerBeat, data.ui.segmentsPerBeat],
+        positionX: a * data.ui.trackSpace,
+        type: data.ui.currentNoteType
+    });
+    judgeLine.notes.push(addedNote);
+    data.ui.selection = [addedNote];
+    data.ui.right = RightState.Editing;
+}
+function canvasOnLeftClick(e: MouseEvent) {
     const { x, y } = clickPosition(e.offsetX, e.offsetY);
     const { ctrlKey: ctrl } = e;
     function _select<T>(boxes: Box<T>[]) {
@@ -107,46 +195,31 @@ function canvasClickEditorHandler(e: MouseEvent) {
         return null;
     }
     const editedObject = _select(boxes);
-    if (!ctrl) _ui.selection = [];
+    if (!ctrl) data.ui.selection = [];
     if (editedObject) {
-        if (ctrl && _ui.selection.includes(editedObject))
-            _ui.selection = _ui.selection.filter(obj => obj != editedObject);
+        if (ctrl && data.ui.selection.includes(editedObject))
+            data.ui.selection = data.ui.selection.filter(obj => obj != editedObject);
         else
-            _ui.selection.push(editedObject);
+            data.ui.selection.push(editedObject);
     }
-    if (_ui.selection.length > 0) {
-        _ui.right = RightState.Editing;
+    if (data.ui.selection.length > 0) {
+        data.ui.right = RightState.Editing;
     }
     else {
-
-        _ui.right = RightState.Default;
+        data.ui.right = RightState.Default;
     }
 }
 export default function render(seconds: number) {
-    if (!canvas || !_ui) return;
-    if (_ui.main == MainState.Editing) {
+    if (!canvas || !data.ui) return;
+    if (data.ui.main == MainState.Editing) {
         renderEditorUI(seconds);
     }
     else {
         renderChart(seconds);
     }
 }
-export function setCanvas(_canvas: HTMLCanvasElement) {
-    canvas = _canvas;
-    canvas.onclick = canvasClickHandler;
-    canvas.onmousemove = canvasMouseMoveHandler;
-}
-export function setChartPackage(chartPackage: ChartPackage) {
-    data.chartPackage = chartPackage;
-}
-export function setResourcePackage(resourcePackage: ResourcePackage) {
-    data.resourcePackage = resourcePackage;
-}
-export function setUI(ui: UI) {
-    _ui = ui;
-}
 function renderEditorUI(seconds: number) {
-    const { chartPackage, resourcePackage } = data;
+    const { chartPackage, resourcePackage, chartSettings } = data;
     if (!chartPackage || !resourcePackage) return;
     const { chart } = chartPackage;
     chart.highlightNotes();
@@ -157,16 +230,16 @@ function renderEditorUI(seconds: number) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = lineWidth;
     ctx.globalAlpha = 1;
-    const offsetY = _ui.pxPerSecond * seconds;
+    const offsetY = data.ui.pxPerSecond * seconds;
     function _position(s: number) {
-        return bottom - (s * _ui.pxPerSecond - offsetY);
+        return bottom - (s * data.ui.pxPerSecond - offsetY);
     }
     // axisX: 第0拍的横线位置
     // axisY: X坐标为0的竖线位置
     // spaceX: 相邻两拍的间隔
     // spaceY: 相邻两条竖线的间隔
     const axisY = left1 + (right1 - left1) / 2;
-    const spaceY = _ui.trackSpace / canvas.width * width;
+    const spaceY = data.ui.trackSpace / canvas.width * width;
     const axisX = _position(beatsToSeconds(chart.BPMList, [0, 0, 1]));
     const spaceX = axisX - _position(beatsToSeconds(chart.BPMList, [1, 0, 1]));
     [_axisX, _axisY, _spaceX, _spaceY] = [axisX, axisY, spaceX, spaceY];
@@ -179,15 +252,15 @@ function renderEditorUI(seconds: number) {
         ctx.textBaseline = "middle";
         let beats = 0;
         for (let i = axisX; i >= top; i -= spaceX) {
-            for (let j = 0; j < _ui.segmentPerBeat; j++) {
-                const pos = i - spaceX / _ui.segmentPerBeat * j;
+            for (let j = 0; j < data.ui.segmentsPerBeat; j++) {
+                const pos = i - spaceX / data.ui.segmentsPerBeat * j;
                 if (j == 0) {
                     ctx.strokeStyle = ctx.fillStyle = colorToString(horzionalMainLineColor);
                     ctx.fillText(beats.toString(), (left2 + right1) / 2, pos);
                 }
                 else {
                     ctx.strokeStyle = ctx.fillStyle = colorToString(horzionalLineColor);
-                    ctx.fillText("." + j.toString(), (left2 + right1) / 2, pos);
+                    ctx.fillText(j.toString(), (left2 + right1) / 2, pos);
                 }
                 drawLine(ctx, left1, pos, right1, pos);
                 drawLine(ctx, left2, pos, right2, pos);
@@ -211,12 +284,13 @@ function renderEditorUI(seconds: number) {
         ctx.strokeRect(left1, top, width, height);
         ctx.strokeRect(left2, top, width, height);
     }
-    const currentJudgeLine = chart.judgeLineList[_ui.currentJudgeLineNumber];
-    const currentEventLayer = currentJudgeLine.eventLayers[_ui.currentEventLayerNumber];
+    const judgeLine = chart.judgeLineList[data.ui.currentJudgeLineNumber];
+    const eventLayer = judgeLine.eventLayers[data.ui.currentEventLayerNumber];
     function drawNotes() {
         if (!chartPackage || !resourcePackage) return [];
         const noteBoxes: Box<Note>[] = [];
-        for (const note of currentJudgeLine.notes) {
+        for (const note of judgeLine.notes) {
+            if (note._willBeDeleted) judgeLine.notes = judgeLine.notes.filter(x => x != note);
             const { startSeconds: noteStartSeconds, endSeconds: noteEndSeconds } = note.caculateSeconds(chart.BPMList);
             if (seconds >= noteStartSeconds && note.hitSeconds == undefined && !note.isFake) {
                 note.hitSeconds = noteStartSeconds; // You should use this instead of that ↓
@@ -228,11 +302,11 @@ function renderEditorUI(seconds: number) {
             }
             // ctx.globalAlpha = note.alpha / 255;
             if (note.type == NoteType.Hold) {
-                const noteX = note.positionX * (width / 1350) + left1 + width / 2;
+                const noteX = note.positionX * (width / chartSettings.viewWidth) + left1 + width / 2;
                 const noteStartY = _position(noteStartSeconds);
                 const noteEndY = _position(noteEndSeconds);
                 const noteWidth = (() => {
-                    let size = width / 1350 * 200 * note.size;
+                    let size = width / chartSettings.viewWidth * chartSettings.noteSize * note.size;
                     if (note.highlight) size *= resourcePackage.holdHLBody.width / resourcePackage.holdBody.width;
                     return size;
                 })()
@@ -243,7 +317,7 @@ function renderEditorUI(seconds: number) {
                 ctx.drawImage(head, noteX - noteWidth / 2, noteStartY, noteWidth, noteHeadHeight);
                 ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
                 ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
-                if (_ui.selection.includes(note)) {
+                if (data.ui.selection.includes(note)) {
                     ctx.fillStyle = colorToString([selectionColor[0], selectionColor[1], selectionColor[2], 0.6]);
                     ctx.fillRect(noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight + noteHeight + noteHeadHeight);
                 }
@@ -257,7 +331,7 @@ function renderEditorUI(seconds: number) {
             }
             else {
                 const noteImage = resourcePackage.getSkin(note.type, note.highlight);
-                const baseSize = width / 1350 * 200;
+                const baseSize = width / chartSettings.viewWidth * chartSettings.noteSize;
                 const noteWidth = (() => {
                     let size = baseSize * note.size;
                     if (note.highlight) {
@@ -273,10 +347,10 @@ function renderEditorUI(seconds: number) {
                 })();
                 const noteHeight = noteImage.height / noteImage.width * baseSize;
                 //const noteHeight = noteImage.height / noteImage.width * noteWidth;
-                const noteX = note.positionX * (width / 1350) + left1 + width / 2;
+                const noteX = note.positionX * (width / chartSettings.viewWidth) + left1 + width / 2;
                 const noteY = _position(noteStartSeconds);
                 ctx.drawImage(noteImage, noteX - noteWidth / 2, noteY - noteHeight / 2, noteWidth, noteHeight);
-                if (_ui.selection.includes(note)) {
+                if (data.ui.selection.includes(note)) {
                     ctx.fillStyle = colorToString([selectionColor[0], selectionColor[1], selectionColor[2], 0.6]);
                     ctx.fillRect(noteX - noteWidth / 2, noteY - noteHeight / 2, noteWidth, noteHeight);
                 }
@@ -297,7 +371,8 @@ function renderEditorUI(seconds: number) {
         const eventWidth = width / 5 - 2 * eventSpace;
         const boxes: Box<T>[] = [];
         for (const event of events) {
-            if (_ui.selection.includes(event))
+            if (event._willBeDeleted) events = events.filter(x => x != event);
+            if (data.ui.selection.includes(event))
                 ctx.fillStyle = colorToString(selectionColor);
             else
                 ctx.fillStyle = "#fff";
@@ -320,14 +395,14 @@ function renderEditorUI(seconds: number) {
     drawGrid();
     boxes = [
         ...drawNotes(),
-        ...drawEvents(currentEventLayer.moveXEvents, 0),
-        ...drawEvents(currentEventLayer.moveYEvents, 1),
-        ...drawEvents(currentEventLayer.rotateEvents, 2),
-        ...drawEvents(currentEventLayer.alphaEvents, 3),
-        ...drawEvents(currentEventLayer.speedEvents, 4)
+        ...drawEvents(eventLayer.moveXEvents, 0),
+        ...drawEvents(eventLayer.moveYEvents, 1),
+        ...drawEvents(eventLayer.rotateEvents, 2),
+        ...drawEvents(eventLayer.alphaEvents, 3),
+        ...drawEvents(eventLayer.speedEvents, 4)
     ]
     /*
-    _ui.attatch = (x, y) => {
+    data.ui.attatch = (x, y) => {
         if (x >= left1 && x <= right1 && y > top && y <= bottom) {
             
         }
@@ -379,8 +454,8 @@ function renderChart(seconds: number) {
             cropX, cropY, cropWidth, cropHeight,
             0, 0, canvasWidth, canvasHeight
         );
-        ctx.fillStyle = "#000";
-        ctx.globalAlpha = chartSettings.backgroundDarkness;
+        ctx.fillStyle = "black";
+        ctx.globalAlpha = chartSettings.backgroundDarkness / 100;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     function drawJudgeLines() {
@@ -565,6 +640,7 @@ function renderChart(seconds: number) {
             });
             for (let noteNumber = 0; noteNumber < judgeLine.notes.length; noteNumber++) {
                 const note = judgeLine.notes[noteNumber];
+                if (note._willBeDeleted) judgeLine.notes = judgeLine.notes.filter(x => x != note);
                 const noteInfo = getNoteInfo(judgeLineNumber, noteNumber, seconds, judgeLineInfo);
                 const radians = convertDegreesToRadians(noteInfo.angle);
                 const missSeconds = note.type == NoteType.Tap ? Note.TAP_BAD : note.type == NoteType.Hold ? Note.HOLD_BAD : Note.DRAGFLICK_PERFECT;
@@ -715,8 +791,8 @@ function renderChart(seconds: number) {
                         const holdBody = note.highlight ? resourcePackage.holdHLBody : resourcePackage.holdBody;
                         const holdEnd = note.highlight ? resourcePackage.holdHLEnd : resourcePackage.holdEnd;
                         const noteWidth = note.highlight ?
-                            note.size * 200 * (resourcePackage.holdHLBody.width / resourcePackage.holdBody.width) :
-                            note.size * 200;
+                            note.size * chartSettings.noteSize * (resourcePackage.holdHLBody.width / resourcePackage.holdBody.width) :
+                            note.size * chartSettings.noteSize;
                         const noteHeadHeight = holdHead.height / holdBody.width * noteWidth;
                         const noteEndHeight = holdEnd.height / holdBody.width * noteWidth;
                         // 显示主体
@@ -772,7 +848,7 @@ function renderChart(seconds: number) {
                             }
                         })();
                         const noteWidth = (() => {
-                            let size = note.size * 200;
+                            let size = note.size * chartSettings.noteSize;
                             if (note.highlight) {
                                 size *= (() => {
                                     switch (note.type) {
@@ -784,7 +860,7 @@ function renderChart(seconds: number) {
                             }
                             return size;
                         })();
-                        const noteHeight = noteImage.height / noteImage.width * 200;
+                        const noteHeight = noteImage.height / noteImage.width * chartSettings.noteSize;
                         //const noteHeight = noteImage.height / noteImage.width * noteWidth;
                         ctx.save();
                         ctx.translate(convertXToCanvas(judgeLineInfo.x), convertYToCanvas(judgeLineInfo.y));
@@ -829,46 +905,46 @@ function renderChart(seconds: number) {
                     const h = currentEndSeconds - l2;
                     const a = interpolateNumberEventValue(current, l2);
                     const b = currentEnd;
-                    endPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    endPositionY += (a + b) * h / 2;
                 }
                 else if (l2 <= currentStartSeconds && currentStartSeconds <= r2 && r2 <= currentEndSeconds) {
                     const h = r2 - currentStartSeconds;
                     const a = currentStart;
                     const b = interpolateNumberEventValue(current, r2);
-                    endPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    endPositionY += (a + b) * h / 2;
                 }
                 else if (l2 <= currentStartSeconds && currentEndSeconds <= r2) {
                     const h = currentEndSeconds - currentStartSeconds;
                     const a = currentStart;
                     const b = currentEnd;
-                    endPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    endPositionY += (a + b) * h / 2;
                 }
                 else if (currentStartSeconds <= l2 && r2 <= currentEndSeconds) {
                     const h = r2 - l2;
                     const a = interpolateNumberEventValue(current, l2);
                     const b = interpolateNumberEventValue(current, r2);
-                    endPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    endPositionY += (a + b) * h / 2;
                 }
 
                 if (currentEndSeconds <= l2 && l2 <= nextStartSeconds && nextStartSeconds <= r2) {
                     const h = nextStartSeconds - l2;
                     const a = currentEnd;
-                    endPositionY += a * h * chartSettings.chartSpeed;
+                    endPositionY += a * h;
                 }
                 else if (l2 <= currentEndSeconds && nextStartSeconds <= r2) {
                     const h = nextStartSeconds - currentEndSeconds;
                     const a = currentEnd;
-                    endPositionY += a * h * chartSettings.chartSpeed;
+                    endPositionY += a * h;
                 }
                 else if (l2 <= currentEndSeconds && currentEndSeconds <= r2 && r2 <= nextStartSeconds) {
                     const h = r2 - currentEndSeconds;
                     const a = currentEnd;
-                    endPositionY += a * h * chartSettings.chartSpeed;
+                    endPositionY += a * h;
                 }
                 else if (currentEndSeconds <= l2 && r2 <= nextStartSeconds) {
                     const h = r2 - l2;
                     const a = currentEnd;
-                    endPositionY += a * h * chartSettings.chartSpeed;
+                    endPositionY += a * h;
                 }
                 if (type == 2 && noteStartSeconds < seconds) {
                     continue;
@@ -877,49 +953,51 @@ function renderChart(seconds: number) {
                     const h = currentEndSeconds - l1;
                     const a = interpolateNumberEventValue(current, l1);
                     const b = currentEnd;
-                    startPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    startPositionY += (a + b) * h / 2;
                 }
                 else if (l1 <= currentStartSeconds && currentStartSeconds <= r1 && r1 <= currentEndSeconds) {
                     const h = r1 - currentStartSeconds;
                     const a = currentStart;
                     const b = interpolateNumberEventValue(current, r1);
-                    startPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    startPositionY += (a + b) * h / 2;
                 }
                 else if (l1 <= currentStartSeconds && currentEndSeconds <= r1) {
                     const h = currentEndSeconds - currentStartSeconds;
                     const a = currentStart;
                     const b = currentEnd;
-                    startPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    startPositionY += (a + b) * h / 2;
                 }
                 else if (currentStartSeconds <= l1 && r1 <= currentEndSeconds) {
                     const h = r1 - l1;
                     const a = interpolateNumberEventValue(current, l1);
                     const b = interpolateNumberEventValue(current, r1);
-                    startPositionY += (a + b) * h / 2 * chartSettings.chartSpeed;
+                    startPositionY += (a + b) * h / 2;
                 }
 
                 if (currentEndSeconds <= l1 && l1 <= nextStartSeconds && nextStartSeconds <= r1) {
                     const h = nextStartSeconds - l1;
                     const a = currentEnd;
-                    startPositionY += a * h * chartSettings.chartSpeed;
+                    startPositionY += a * h;
                 }
                 else if (l1 <= currentEndSeconds && nextStartSeconds <= r1) {
                     const h = nextStartSeconds - currentEndSeconds;
                     const a = currentEnd;
-                    startPositionY += a * h * chartSettings.chartSpeed;
+                    startPositionY += a * h;
                 }
                 else if (l1 <= currentEndSeconds && currentEndSeconds <= r1 && r1 <= nextStartSeconds) {
                     const h = r1 - currentEndSeconds;
                     const a = currentEnd;
-                    startPositionY += a * h * chartSettings.chartSpeed;
+                    startPositionY += a * h;
                 }
                 else if (currentEndSeconds <= l1 && r1 <= nextStartSeconds) {
                     const h = r1 - l1;
                     const a = currentEnd;
-                    startPositionY += a * h * chartSettings.chartSpeed;
+                    startPositionY += a * h;
                 }
             }
         }
+        startPositionY *= chartSettings.chartSpeed;
+        endPositionY *= chartSettings.chartSpeed;
         if (seconds >= noteStartSeconds) startPositionY = -startPositionY;// 已经过了那个时间就求相反数
         if (seconds >= noteEndSeconds) endPositionY = -endPositionY;
         const isCovered = endPositionY < 0 && judgeLine.isCover && seconds < noteEndSeconds;
@@ -930,4 +1008,17 @@ function renderChart(seconds: number) {
             startPositionY, endPositionY, isCovered
         };
     }
+}
+
+/**
+ * 根据谱面坐标系中的X坐标计算Canvas坐标系中的X坐标。
+ */
+function convertXToCanvas(x: number) {
+    return x + (data.chartSettings.viewWidth / 2);
+}
+/**
+ * 根据谱面坐标系中的Y坐标计算Canvas坐标系中的Y坐标。
+ */
+function convertYToCanvas(y: number) {
+    return (data.chartSettings.viewHeight / 2) - y;
 }

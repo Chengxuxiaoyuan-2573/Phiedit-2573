@@ -42,7 +42,7 @@ export class Chart implements IChart {
         this.judgeLineList.forEach(judgeLine => {
             notes.push(...judgeLine.notes);
         })
-        return notes;
+        return notes.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
     highlightNotes() {
         const allNotes = new Map<number, Note>();

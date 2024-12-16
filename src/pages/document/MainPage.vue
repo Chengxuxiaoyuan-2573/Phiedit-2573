@@ -39,11 +39,11 @@
                 <p>BPM列表（变速曲会有多个BPM）</p>
             </div>
             <div>
-                <h2>chart.BPMList[].startTime</h2>
+                <h2>BPM.startTime</h2>
                 <p>BPM的开始生效时间</p>
             </div>
             <div>
-                <h2>chart.BPMList[].bpm</h2>
+                <h2>BPM.bpm</h2>
                 <p>BPM的值，表示每分钟拍数</p>
             </div>
             <div>
@@ -55,81 +55,81 @@
                 <p>判定线列表，包含谱面所有的判定线</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].Group</h2>
+                <h2>judgeLine.Group</h2>
                 <p>判定线属于的组的编号（暂不知道有啥用）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].Name</h2>
+                <h2>judgeLine.Name</h2>
                 <p>判定线的名字（暂不知道有啥用）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].Texture</h2>
+                <h2>judgeLine.Texture</h2>
                 <p>判定线的贴图（默认为line.png）</p>
                 <p>贴图文件放在压缩包中</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].father</h2>
+                <h2>judgeLine.father</h2>
                 <p>判定线的父线编号（取决于判定线在谱面文件中的顺序），判定线会以父线位置和方向建立坐标系后使用其坐标，默认为-1，表示使用舞台坐标系</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].zOrder</h2>
+                <h2>judgeLine.zOrder</h2>
                 <p>判定线的叠加顺序（越大则贴图越靠前）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].isCover</h2>
+                <h2>judgeLine.isCover</h2>
                 <p>判定线的遮罩</p>
                 <p>如果该属性为1，那么在判定线下方的note将不可见（假设该note下落方向为从上往下）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes</h2>
+                <h2>judgeLine.notes</h2>
                 <p>判定线上的note列表</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].type</h2>
+                <h2>note.type</h2>
                 <p>note的种类（1=Tap, 2=Hold, 3=Flick, 4=Drag）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].startTime</h2>
+                <h2>note.startTime</h2>
                 <p>note的开始时间</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].endTime</h2>
+                <h2>note.endTime</h2>
                 <p>note的结束时间（只对Hold有效，其他note结束时间与开始时间相同）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].positionX</h2>
+                <h2>note.positionX</h2>
                 <p>note相对于所在判定线的X坐标</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].above</h2>
+                <h2>note.above</h2>
                 <p>note的方向，1表示从上往下落，0表示倒着落</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].isFake</h2>
+                <h2>note.isFake</h2>
                 <p>note的真假，0表示真note，1表示假note（假note没有打击特效，不计入combo）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].alpha</h2>
+                <h2>note.alpha</h2>
                 <p>note的透明度，0表示完全透明，255表示完全不透明</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].size</h2>
+                <h2>note.size</h2>
                 <p>note的大小，1表示正常大小</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].speed</h2>
+                <h2>note.speed</h2>
                 <p>note的速度倍率，1表示直接使用判定线速度</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].visibleTime</h2>
+                <h2>note.visibleTime</h2>
                 <p>note的可见时间，note会在被打击前visibleTime秒的时间内保持可见</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].notes[].yOffset</h2>
+                <h2>note.yOffset</h2>
                 <p>note的y轴偏移，note会在判定线上方yOffset像素的距离被打击</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers</h2>
+                <h2>judgeLine.eventLayers</h2>
                 <p>判定线上的普通事件层列表</p>
                 <p>事件是分层的，一般来说有4层普通事件和1层特殊事件。判定线在某个时间点的某种事件值是把每个层的这种事件值加到一起得出来的</p>
                 <p>事件也是分种类的，每种事件是很多个事件组成的列表。除特殊事件外，事件列表在某个时间点的值以下面的方式计算：</p>
@@ -139,23 +139,23 @@
                 <p>事件正在发生指事件开始时间 &le; 当前时间 &LT; 事件结束时间</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers[].moveXEvents</h2>
+                <h2>eventLayer.moveXEvents</h2>
                 <p>事件层级的X坐标移动事件列表（屏幕X坐标范围为-675到675，比Scratch舞台范围大，Scratcher们可要注意了）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers[].moveYEvents</h2>
+                <h2>eventLayer.moveYEvents</h2>
                 <p>事件层级的Y坐标移动事件列表（屏幕Y坐标范围为-450到450）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers[].rotateEvents</h2>
+                <h2>eventLayer.rotateEvents</h2>
                 <p>事件层级的旋转事件列表（事件值为0表示判定线水平，事件值为正数表示顺时针旋转相应度数）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers[].alphaEvents</h2>
+                <h2>eventLayer.alphaEvents</h2>
                 <p>事件层级的透明度事件列表（事件值为0表示完全透明，事件值为255表示完全不透明）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].eventLayers[].speedEvents</h2>
+                <h2>eventLayer.speedEvents</h2>
                 <p>事件层级的速度事件列表</p>
                 <p>速度为1表示其上的note每秒钟向下运动120像素（假设该note是从上往下落的），可以为负数，表示note向上运动，但不论如何note被打击时一定会落到判定线上</p>
             </div>
@@ -201,42 +201,42 @@
                 <p>事件的结束值（文字事件暂不支持结束值与开始值不同）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended</h2>
+                <h2>judgeLine.extended</h2>
                 <p>判定线上的特殊事件层（只有一层）</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.scaleXEvents</h2>
+                <h2>judgeLine.extended.scaleXEvents</h2>
                 <p>X轴缩放倍率事件列表，多用于有贴图或文字的判定线使其拉伸</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.scaleYEvents</h2>
+                <h2>judgeLine.extended.scaleYEvents</h2>
                 <p>Y轴缩放倍率事件列表，多用于有贴图或文字的判定线使其拉伸</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.colorEvents</h2>
+                <h2>judgeLine.extended.colorEvents</h2>
                 <p>颜色事件列表，控制判定线的颜色，事件值为3个元素的列表，表示rgb分量，对有贴图的判定线不生效</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.paintEvents</h2>
+                <h2>judgeLine.extended.paintEvents</h2>
                 <p>画笔事件列表，表示画笔粗细（暂不支持该属性，因为没几个人写谱用到这玩意的，应该是cmdysj自己发明出来的，我可不想支持）</p>
                 <p>有了画笔事件之后判定线会变成画笔，不会再显示线，其他事件都会用来控制画笔（画笔形状为圆形，所以旋转事件对其无效），画笔事件值为负数表示清空该判定线的画板</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.textEvents</h2>
+                <h2>judgeLine.extended.textEvents</h2>
                 <p>文字事件列表，事件值为字符串，使用文字事件之后判定线会被指定的文字代替，对有贴图的判定线不生效</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].extended.inclineEvents</h2>
+                <h2>judgeLine.extended.inclineEvents</h2>
                 <p>倾斜事件列表，由于我不会做3D所以不支持</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].alphaControl</h2>
+                <h2>judgeLine.alphaControl</h2>
                 <p>控制note到判定线的距离与note的透明度之间的关系，但是不支持该属性</p>
-                <p>这玩意也没多大卵用，根本不想费时间支持alphaControl以及posControl，sizeControl，skewControl，yControl这些没用玩意</p>
+                <p>这玩意也没多大卵用，根本不想费时间支持alphaControl，posControl，sizeControl，skewControl，yControl这些没用玩意</p>
             </div>
             <div>
-                <h2>chart.judgelineList[].bpmfactor</h2>
-                <p>应用bpm列表的倍率，然鹅还是不支持</p>
+                <h2>judgeLine.bpmfactor</h2>
+                <p>应用bpm列表的倍率，不支持</p>
             </div>
         </div>
     </div>

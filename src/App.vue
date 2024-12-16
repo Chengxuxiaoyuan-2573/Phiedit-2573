@@ -66,6 +66,9 @@ body * {
 }`;
 styleElement.textContent = fontFaceRule;
 document.head.appendChild(styleElement);
+document.oncontextmenu = e => {
+    e.preventDefault();
+}
 </script>
 
 <style scoped>
@@ -80,5 +83,4 @@ nav {
 .content {
     height: calc(100% - 50px);
 }
-
 </style>

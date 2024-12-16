@@ -1,3 +1,4 @@
+import { gcd } from "../tools";
 import { BPM } from "../typeDefinitions";
 
 export type Beats = [number, number, number];
@@ -22,20 +23,11 @@ export function getBeatsValue(beats: Beats) {
     return beats[0] + beats[1] / beats[2];
 }
 
-export function secondsToBeatsValue(BPMList: BPM[], seconds: number) {
-    let beatsValue = 0;
-    for (let i = 0; i < BPMList.length; i++) {
-        const thisBpm = BPMList[i];
-        const nextBpm = BPMList[i + 1];
-        const thisSeconds = beatsToSeconds(BPMList, thisBpm.startTime);
-        const nextSeconds = i == BPMList.length - 1 ? Infinity : beatsToSeconds(BPMList, nextBpm.startTime);
-        if (seconds >= thisSeconds && seconds < nextSeconds) {
-            beatsValue += thisBpm.bpm * (seconds - thisSeconds) / 60;
-            break;
-        }
-        else if (seconds >= nextSeconds) {
-            beatsValue += thisBpm.bpm * (nextSeconds - thisSeconds) / 60;
-        }
-    }
-    return beatsValue;
+export function validateBeats(beats: Beats) {
+    beats[0] += Math.floor(beats[1] / beats[2]);
+    beats[1] %= beats[2];
+    const g = gcd(beats[1], beats[2]);
+    beats[1] /= g;
+    beats[2] /= g;
+    return beats;
 }

@@ -23,7 +23,3 @@ declare module '*.zip' {
     const a: string
     export default a
 }
-declare module '*.json' {
-    const a: object | Array
-    export default a
-}

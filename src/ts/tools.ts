@@ -1,6 +1,6 @@
-import { BPM, Ctx } from "@/ts/typeDefinitions";
+import { Ctx } from "@/ts/typeDefinitions";
 import { Beats } from "./classes/beats";
-import { clamp, memoize } from "lodash";
+import { clamp } from "lodash";
 export function moveAndRotate(x1: number, y1: number, dir: number, x2: number, y2: number) {
     // 初始方向向量（单位向量）  
     const dx = Math.cos(dir * (Math.PI / 180)); // x方向分量  
@@ -70,6 +70,22 @@ export function createImage(blob: Blob) {
         }
     })
 }
+export function createAudio(blob: Blob) {
+    return new Promise<HTMLAudioElement>((resolve, reject) => {
+        const objectUrl = URL.createObjectURL(blob);
+        const audio = new Audio();
+        window.addEventListener('beforeunload', () => {
+            URL.revokeObjectURL(objectUrl);
+        })
+        audio.src = objectUrl;
+        audio.oncanplay = () => {
+            resolve(audio);
+        }
+        audio.onerror = (e) => {
+            reject(e);
+        }
+    })
+}
 export function createObjectURL(blob: Blob) {
     return new Promise<string>((resolve) => {
         const objectUrl = URL.createObjectURL(blob);
@@ -89,12 +105,15 @@ export function drawLine(ctx: Ctx, x1: number, y1: number, x2: number, y2: numbe
     ctx.lineTo(x2, y2);
     ctx.stroke();
 }
-/**
- * O[u](www.example.com)t[p](www.example.com)u[t](www.example.com) [t](www.example.com)h[e](www.example.com) [v](www.example.com)a[l](www.example.com)u[e](www.example.com) [a](www.example.com)n[d](www.example.com) [r](www.example.com)e[t](www.example.com)u[r](www.example.com)n[ ](www.example.com)t[h](www.example.com)e[ ](www.example.com)v[a](www.example.com)l[u](www.example.com)e[ ](www.example.com)i[t](www.example.com)s[e](www.example.com)l[f](www.example.com).
- */
 export function debug<T>(arg: T) {
     console.log(arg);
     return arg;
+}
+export function debugFunction<T extends unknown[], Q>(func: (...args: T) => Q) {
+    return (...args: T) => {
+        console.log(args);
+        return func(...args);
+    }
 }
 export function getContext(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -103,30 +122,6 @@ export function getContext(canvas: HTMLCanvasElement) {
 }
 export function distance(x1: number, y1: number, x2: number, y2: number) {
     return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-}
-/**
- * 根据谱面坐标系中的X坐标计算Canvas坐标系中的X坐标。
- */
-export function convertXToCanvas(x: number) {
-    return x + 675;
-}
-/**
- * 根据谱面坐标系中的Y坐标计算Canvas坐标系中的Y坐标。
- */
-export function convertYToCanvas(y: number) {
-    return 450 - y;
-}
-/**
- * 根据Canvas坐标系中的X坐标计算谱面坐标系中的X坐标。
- */
-export function convertXToChart(x: number) {
-    return x - 675;
-}
-/**
- * 根据Canvas坐标系中的Y坐标计算谱面坐标系中的Y坐标。
- */
-export function convertYToChart(y: number) {
-    return 450 - y;
 }
 /**
  * 将三元组拍数转换成"a.b/c"的格式  
@@ -169,4 +164,12 @@ export function cubicBezierEase(p1x: number, p1y: number, p2x: number, p2y: numb
         else
             return y;
     };
+}
+export function gcd(a: number, b: number) {
+    for (let i = Math.max(a, b); i >= 1; i--) {
+        if (a % i == 0 && b % i == 0) {
+            return i;
+        }
+    }
+    return 1;
 }

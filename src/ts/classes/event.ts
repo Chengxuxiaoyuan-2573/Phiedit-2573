@@ -1,13 +1,14 @@
 import { EasingType } from "../easing";
 import { formatBeats, parseBeats } from "../tools";
-import { getBeatsValue, beatsToSeconds } from "./beats"
+import { getBeatsValue, beatsToSeconds, validateBeats } from "./beats"
 import { isObject, isNumber, isString, isArrayOfNumbers } from "../typeCheck";
 import { BPM } from "../typeDefinitions";
 import { Beats } from "./beats";
 import { RGBcolor } from "./color";
+type BezierPoints = [number, number, number, number]
 export interface IEvent<T> {
     bezier: boolean;
-    bezierPoints: [number, number, number, number];
+    bezierPoints: BezierPoints;
     easingLeft: number;
     easingRight: number;
     easingType: EasingType;
@@ -18,7 +19,7 @@ export interface IEvent<T> {
 }
 export abstract class BaseEvent<T> implements IEvent<T> {
     bezier: boolean = false;
-    bezierPoints: [number, number, number, number] = [0, 0, 1, 1];
+    bezierPoints: BezierPoints = [0, 0, 1, 1];
     easingLeft: number = 0;
     easingRight: number = 1;
     easingType: EasingType = EasingType.Linear;
@@ -26,6 +27,7 @@ export abstract class BaseEvent<T> implements IEvent<T> {
     abstract end: T;
     _startTime: Beats = [0, 0, 1]
     _endTime: Beats = [0, 0, 1]
+    _willBeDeleted = false
     get startTime() {
         return this._startTime;
     }
@@ -47,12 +49,12 @@ export abstract class BaseEvent<T> implements IEvent<T> {
         return formatBeats(this.endTime);
     }
     set startString(str: string) {
-        const beats = parseBeats(str);
+        const beats = validateBeats(parseBeats(str));
         if (beats == null) return;
         this.startTime = beats;
     }
     set endString(str: string) {
-        const beats = parseBeats(str);
+        const beats = validateBeats(parseBeats(str));
         if (beats == null) return;
         this.endTime = beats;
     }
@@ -69,6 +71,9 @@ export abstract class BaseEvent<T> implements IEvent<T> {
         const startSeconds = beatsToSeconds(BPMList, this.startTime);
         const endSeconds = beatsToSeconds(BPMList, this.endTime);
         return { startSeconds, endSeconds };
+    }
+    delete(){
+        this._willBeDeleted = true;
     }
     toObject(): IEvent<T> {
         return {
@@ -100,6 +105,8 @@ export abstract class BaseEvent<T> implements IEvent<T> {
                 this._startTime = event.startTime;
             if ("endTime" in event && isArrayOfNumbers(event.endTime, 3))
                 this._endTime = event.endTime;
+            else
+                this._endTime = this._startTime;
         }
     }
 }

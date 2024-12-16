@@ -1,5 +1,5 @@
 import { formatBeats, parseBeats } from "../tools"
-import { beatsToSeconds } from "./beats"
+import { beatsToSeconds, validateBeats } from "./beats"
 import { isObject, isNumber, isArrayOfNumbers } from "../typeCheck"
 import { NoteType, BPM } from "../typeDefinitions"
 import { Beats } from "./beats"
@@ -34,6 +34,10 @@ export class Note implements INote {
     visibleTime = 999999.99
     _startTime: Beats = [0, 0, 1]
     _endTime: Beats = [0, 0, 1]
+    type = NoteType.Tap
+    highlight = false
+    hitSeconds: number | undefined = undefined
+    _willBeDeleted = false
     get startTime() {
         return this._startTime;
     }
@@ -53,27 +57,23 @@ export class Note implements INote {
     }
     get startString() {
         const beats = formatBeats(this.startTime);
-        console.log("Getter startString: beats =", beats)
         return beats;
     }
     get endString() {
         const beats = formatBeats(this.endTime);
-        console.log("Getter endString: beats =", beats)
         return beats;
     }
     set startString(str: string) {
-        const beats = parseBeats(str);
-        console.log("Setter startString: beats =", beats)
+        const beats = validateBeats(parseBeats(str));
         this.startTime = beats;
     }
     set endString(str: string) {
-        const beats = parseBeats(str);
-        console.log("Setter endString: beats =", beats)
+        const beats = validateBeats(parseBeats(str));
         this.endTime = beats;
     }
-    type = NoteType.Tap
-    highlight = false
-    hitSeconds: number | undefined = undefined
+    delete(){
+        this._willBeDeleted = true;
+    }
     toObject(): INote {
         return {
             startTime: this.startTime,
@@ -124,6 +124,8 @@ export class Note implements INote {
                 this._startTime = note.startTime;
             if ("endTime" in note && isArrayOfNumbers(note.endTime, 3))
                 this._endTime = note.endTime;
+            else
+                this._endTime = this._startTime;
             if ("positionX" in note && isNumber(note.positionX))
                 this.positionX = note.positionX;
             if ("above" in note)
