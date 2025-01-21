@@ -1,3 +1,1 @@
-start npm run serve
-code .\
-exit
+code . && npm run serve

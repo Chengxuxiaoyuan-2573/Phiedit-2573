@@ -1,14 +1,11 @@
 {
     "name": "phiedit2573online",
+    "version": "0.1.0",
+    "private": true,
+    "description": "",
     "author": {
         "name": "Chengxuxiaoyuan_2573"
     },
-    "version": "0.1.0",
-    "description": "",
-    "repository": {
-        "url": "https://github.com/yhn222/my-first-repository.git"
-    },
-    "private": true,
     "scripts": {
         "serve": "vue-cli-service serve",
         "build": "vue-cli-service build",
@@ -20,20 +17,26 @@
         "jszip": "^3.10.1",
         "lodash": "^4.17.21",
         "vue": "^3.2.13",
-        "vue-router": "^4.4.3"
+        "vuex": "^4.0.2"
     },
     "devDependencies": {
         "@babel/core": "^7.12.16",
         "@babel/eslint-parser": "^7.12.16",
+        "@babel/plugin-proposal-async-generator-functions": "^7.20.7",
+        "@babel/plugin-syntax-top-level-await": "^7.14.5",
+        "@babel/preset-env": "^7.26.0",
+        "@babel/preset-typescript": "^7.26.0",
         "@types/js-yaml": "^4.0.9",
         "@typescript-eslint/eslint-plugin": "^8.8.0",
         "@typescript-eslint/parser": "^8.8.0",
-        "@typescript-eslint/typescript-estree": "^8.8.1-alpha.0",
+        "@typescript-eslint/typescript-estree": "^8.20.0",
         "@vue/cli-plugin-babel": "~5.0.0",
         "@vue/cli-plugin-eslint": "~5.0.0",
         "@vue/cli-plugin-typescript": "~5.0.0",
+        "@vue/cli-plugin-vuex": "~5.0.0",
         "@vue/cli-service": "~5.0.0",
         "@vue/eslint-config-typescript": "^13.0.0",
+        "babel-loader": "^9.2.1",
         "eslint": "^8.57.1",
         "eslint-plugin-vue": "^9.28.0",
         "file-loader": "^6.2.0",
@@ -41,12 +44,6 @@
         "markdown-loader": "^8.0.0",
         "typescript": "^5.6.2"
     },
-    "browserslist": [
-        "> 1%",
-        "last 2 versions",
-        "not dead",
-        "not ie 11"
-    ],
     "eslintConfig": {
         "root": true,
         "env": {
@@ -74,5 +71,42 @@
                 4
             ]
         }
+    },
+    "browserslist": [
+        "> 1%",
+        "last 2 versions",
+        "not dead",
+        "not ie 11"
+    ],
+    "repository": {
+        "url": "https://github.com/yhn222/my-first-repository.git"
+    },
+    "babel": {
+        "presets": [
+            "@vue/cli-plugin-babel/preset",
+            [
+                "@babel/preset-env",
+                {
+                    "targets": {
+                        "browsers": [
+                            "last 2 versions",
+                            "ie >= 11"
+                        ],
+                        "node": "current"
+                    },
+                    "useBuiltIns": "usage",
+                    "corejs": 3
+                }
+            ],
+            "@babel/preset-typescript"
+        ],
+        "plugins": [
+            [
+                "@babel/plugin-proposal-async-generator-functions"
+            ],
+            [
+                "@babel/plugin-syntax-top-level-await"
+            ]
+        ]
     }
 }

@@ -3,7 +3,7 @@ declare module '*.vue' {
     const component: DefineComponent
     export default component
 }
-declare module '*.mp3' {
+declare module '*.wav' {
     const a: string
     export default a
 }
@@ -21,5 +21,9 @@ declare module '*.ttf' {
 }
 declare module '*.zip' {
     const a: string
+    export default a
+}
+declare module '*.json' {
+    const a: unknown
     export default a
 }
