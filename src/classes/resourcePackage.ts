@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { formatData } from "../tools";
-import { isArrayOfNumbers } from "../typeCheck";
+import { isArrayOfNumbers } from "../tools/typeCheck";
 import { FileReaderExtends } from "./classExtends";
 import EditableImage from "./editableImage";
 import jsyaml from "js-yaml";
@@ -28,6 +28,9 @@ interface IResourcePackage {
     flickSound: AudioBuffer;
     perfectHitFxFrames: Image[];
     goodHitFxFrames: Image[];
+    config: ResourceConfig;
+}
+interface ResourceConfig {
     hitFxDuration: number; // 打击特效的持续时间，以秒为单位
     //hitFxScale: number; // 打击特效缩放比例
     hitFxRotate: boolean; // 打击特效是否随 Note 旋转
@@ -57,14 +60,7 @@ export class ResourcePackage implements IResourcePackage {
     flickSound: AudioBuffer;
     perfectHitFxFrames: Image[];
     goodHitFxFrames: Image[];
-    hitFxDuration = 0.5;
-    hitFxRotate = false;
-    hideParticles = false;
-    holdKeepHead = false;
-    holdRepeat = false;
-    holdCompact = false;
-    colorPerfect: RGBAcolor = [0xff, 0xec, 0x9f, 0xe1];
-    colorGood: RGBAcolor = [0xb4, 0xe1, 0xff, 0xeb];
+    config: ResourceConfig;
     getSkin(noteType: NoteType.Hold, highlight: boolean): { head: Image, body: Image, end: Image };
     getSkin(noteType: NoteType.Tap | NoteType.Drag | NoteType.Flick, highlight: boolean): Image;
     getSkin(noteType: NoteType, highlight: boolean) {
@@ -129,14 +125,7 @@ export class ResourcePackage implements IResourcePackage {
         this.flickSound = resourcePackage.flickSound;
         this.perfectHitFxFrames = resourcePackage.perfectHitFxFrames;
         this.goodHitFxFrames = resourcePackage.goodHitFxFrames;
-        this.hitFxDuration = resourcePackage.hitFxDuration;
-        this.hitFxRotate = resourcePackage.hitFxRotate;
-        this.hideParticles = resourcePackage.hideParticles;
-        this.holdKeepHead = resourcePackage.holdKeepHead;
-        this.holdRepeat = resourcePackage.holdRepeat;
-        this.holdCompact = resourcePackage.holdCompact;
-        this.colorPerfect = resourcePackage.colorPerfect;
-        this.colorGood = resourcePackage.colorGood;
+        this.config = resourcePackage.config;
     }
     static load(file: Blob, progressHandler?: (progress: string) => void, p = 2) {
         return new Promise<IResourcePackage>((resolve) => {
@@ -338,7 +327,11 @@ export class ResourcePackage implements IResourcePackage {
                         tapHL, dragHL, flickHL, holdHLHead, holdHLEnd, holdHLBody,
                         tapSound, dragSound, flickSound,
                         perfectHitFxFrames, goodHitFxFrames,
-                        hitFxDuration, hitFxRotate, holdKeepHead, holdRepeat, holdCompact, hideParticles, colorPerfect, colorGood
+                        config: {
+                            hitFxDuration, hitFxRotate, hideParticles,
+                            holdKeepHead, holdRepeat, holdCompact,
+                            colorPerfect, colorGood
+                        }
                     }
                 })
             );

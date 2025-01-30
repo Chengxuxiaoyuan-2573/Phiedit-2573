@@ -1,18 +1,18 @@
 
 import { beatsToSeconds, BPM, formatBeats, parseBeats, validateBeats } from "./beats"
-import { isArrayOfNumbers } from "../typeCheck"
+import { isArrayOfNumbers } from "../tools/typeCheck"
 import { Beats, getBeatsValue } from "./beats"
 import { isObject, isNumber } from "lodash"
 export enum NoteAbove {
     Above = 1,
     Below = 2
 }
-export interface INote<T extends NoteType = NoteType> {
+export interface INote {
     above: NoteAbove
     alpha: number
     startTime: Beats
     endTime: Beats
-    type: T
+    type: NoteType
     isFake: 0 | 1
     positionX: number
     size: number
@@ -21,7 +21,7 @@ export interface INote<T extends NoteType = NoteType> {
     visibleTime: number
 }
 export enum NoteType { Tap = 1, Hold, Flick, Drag }
-export class Note<T extends NoteType = NoteType> implements INote<T> {
+export class Note implements INote {
     static readonly TAP_PERFECT = 0.08
     static readonly TAP_GOOD = 0.16
     static readonly TAP_BAD = 0.18
@@ -29,17 +29,20 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
     static readonly HOLD_GOOD = 0.16
     static readonly HOLD_BAD = 0.18
     static readonly DRAGFLICK_PERFECT = 0.18
-    above: NoteAbove
-    alpha: number
-    type: T
-    isFake: 0 | 1
-    positionX: number
-    size: number
-    speed: number
-    yOffset: number
-    visibleTime: number
-    _startTime: Beats
-    _endTime: Beats
+    above = NoteAbove.Above
+    alpha = 255
+    isFake: 0 | 1 = 0
+    positionX = 0
+    size = 1
+    speed = 1
+    yOffset = 0
+    visibleTime = 999999
+    _startTime: Beats = [0, 0, 1]
+    _endTime: Beats = [0, 0, 1]
+    type = NoteType.Tap
+    cachedStartSeconds: number
+    cachedEndSeconds: number
+    BPMList: BPM[]
     get typeString() {
         switch (this.type) {
             case NoteType.Tap: return 'Tap';
@@ -48,17 +51,13 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
             default: return 'Hold';
         }
     }
-    isHold(): this is Note<NoteType.Hold> {
-        return this.type == NoteType.Hold;
-    }
     highlight = false
     hitSeconds: number | undefined = undefined
-    _willBeDeleted = false
     get startTime() {
         return this._startTime;
     }
     get endTime() {
-        if (this.isHold())
+        if (this.type == NoteType.Hold)
             return this._endTime;
         else
             return this._startTime;
@@ -69,16 +68,18 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
         if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
             [this._startTime, this._endTime] = [this._endTime, this._startTime];
         }
+        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this._startTime);
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        if (this.isHold())
+        if (this.type == NoteType.Hold)
             this._endTime = beats;
         else
             this._startTime = beats;
         if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
             [this._startTime, this._endTime] = [this._endTime, this._startTime];
         }
+        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this._endTime);
     }
     get startString() {
         const beats = formatBeats(this.startTime);
@@ -96,10 +97,7 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
         const beats = validateBeats(parseBeats(str));
         this.endTime = beats;
     }
-    delete() {
-        this._willBeDeleted = true;
-    }
-    toObject(): INote<T> {
+    toObject(): INote {
         return {
             startTime: this.startTime,
             endTime: this.endTime,
@@ -117,11 +115,12 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
     calculateSeconds(BPMList: BPM[]) {
         const startSeconds = beatsToSeconds(BPMList, this.startTime);
         const endSeconds = beatsToSeconds(BPMList, this.endTime);
-        return { startSeconds, endSeconds };
+        this.cachedStartSeconds = startSeconds;
+        this.cachedEndSeconds = endSeconds;
     }
-    getJudgement(BPMList: BPM[]) {
+    getJudgement() {
         if (this.hitSeconds == undefined) return 'none';
-        const { startSeconds } = this.calculateSeconds(BPMList);
+        const startSeconds = this.cachedStartSeconds;
         const delta = this.hitSeconds - startSeconds;
         const { perfect, good, bad } = (() => {
             switch (this.type) {
@@ -147,59 +146,35 @@ export class Note<T extends NoteType = NoteType> implements INote<T> {
         else if (delta >= -bad && delta < bad) return "bad";
         else return "none";
     }
-    static load(note: unknown) {
-        let above = NoteAbove.Above
-        let alpha = 255
-        let isFake: 0 | 1 = 0
-        let positionX = 0
-        let size = 1
-        let speed = 1
-        let yOffset = 0
-        let visibleTime = 999999
-        let startTime: Beats = [0, 0, 1]
-        let endTime: Beats = [0, 0, 1]
-        let type = NoteType.Tap
+    constructor(note: unknown, BPMList: BPM[]) {
         if (isObject(note)) {
             if ("startTime" in note && isArrayOfNumbers(note.startTime, 3))
-                startTime = note.startTime;
+                this._startTime = note.startTime;
             if ("endTime" in note && isArrayOfNumbers(note.endTime, 3))
-                endTime = note.endTime;
+                this._endTime = note.endTime;
             else
-                endTime = startTime;
+                this._endTime = this._startTime;
             if ("positionX" in note && isNumber(note.positionX))
-                positionX = note.positionX;
+                this.positionX = note.positionX;
             if ("above" in note)
-                above = note.above == NoteAbove.Above ? NoteAbove.Above : NoteAbove.Below;
+                this.above = note.above == NoteAbove.Above ? NoteAbove.Above : NoteAbove.Below;
             if ("alpha" in note && isNumber(note.alpha) && note.alpha >= 0 && note.alpha <= 255)
-                alpha = note.alpha;
+                this.alpha = note.alpha;
             if ("type" in note && isNumber(note.type) && note.type >= 1 && note.type <= 4 && Number.isInteger(note.type))
-                type = note.type;
+                this.type = note.type;
             if ("isFake" in note)
-                isFake = note.isFake ? 1 : 0;
+                this.isFake = note.isFake ? 1 : 0;
             if ("size" in note && isNumber(note.size))
-                size = note.size;
+                this.size = note.size;
             if ("speed" in note && isNumber(note.speed))
-                speed = note.speed;
+                this.speed = note.speed;
             if ("yOffset" in note && isNumber(note.yOffset))
-                yOffset = note.yOffset;
+                this.yOffset = note.yOffset;
             if ("visibleTime" in note && isNumber(note.visibleTime))
-                visibleTime = note.visibleTime;
+                this.visibleTime = note.visibleTime;
         }
-        return new Note({
-            startTime, endTime, type, positionX, above, isFake, size, speed, alpha, yOffset, visibleTime
-        });
-    }
-    constructor(note: INote<T>) {
-        this._startTime = note.startTime;
-        this._endTime = note.endTime;
-        this.type = note.type;
-        this.positionX = note.positionX;
-        this.above = note.above;
-        this.isFake = note.isFake;
-        this.speed = note.speed;
-        this.alpha = note.alpha;
-        this.size = note.size;
-        this.visibleTime = note.visibleTime;
-        this.yOffset = note.yOffset;
+        this.BPMList = BPMList;
+        this.cachedStartSeconds = beatsToSeconds(BPMList, this.startTime);
+        this.cachedEndSeconds = beatsToSeconds(BPMList, this.endTime);
     }
 }

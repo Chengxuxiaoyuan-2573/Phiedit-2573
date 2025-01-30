@@ -1,5 +1,5 @@
 import { isObject, isArray, isNumber, isString } from "lodash"
-import { BPM, getBeatsValue, IBPM } from "./beats"
+import { beatsToSeconds, BPM, getBeatsValue, IBPM } from "./beats"
 import { ChartMeta, IChartMeta } from "./chartMeta"
 import { IJudgeLine, JudgeLine } from "./judgeLine"
 import { Note } from "./note"
@@ -40,22 +40,7 @@ export class Chart implements IChart {
     getAllEvents() {
         const events: BaseEvent[] = [];
         this.judgeLineList.forEach(judgeLine => {
-            judgeLine.eventLayers.forEach(eventLayer => {
-                events.push(
-                    ...eventLayer.moveXEvents,
-                    ...eventLayer.moveYEvents,
-                    ...eventLayer.rotateEvents,
-                    ...eventLayer.alphaEvents,
-                    ...eventLayer.speedEvents
-                )
-            })
-            events.push(
-                ...judgeLine.extended.scaleXEvents,
-                ...judgeLine.extended.scaleYEvents,
-                ...judgeLine.extended.colorEvents,
-                ...judgeLine.extended.paintEvents,
-                ...judgeLine.extended.textEvents
-            )
+            events.push(...judgeLine.getAllEvents());
         })
         return events.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
@@ -74,25 +59,15 @@ export class Chart implements IChart {
             }
         }
     }
-    deleteNotesAndEvents() {
-        for (const judgeline of this.judgeLineList) {
-            judgeline.notes = judgeline.notes.filter(note => !note._willBeDeleted);
-            for (const eventLayer of judgeline.eventLayers) {
-                eventLayer.moveXEvents = eventLayer.moveXEvents.filter(event => !event._willBeDeleted);
-                eventLayer.moveYEvents = eventLayer.moveYEvents.filter(event => !event._willBeDeleted);
-                eventLayer.rotateEvents = eventLayer.rotateEvents.filter(event => !event._willBeDeleted);
-                eventLayer.alphaEvents = eventLayer.alphaEvents.filter(event => !event._willBeDeleted);
-                eventLayer.speedEvents = eventLayer.speedEvents.filter(event => !event._willBeDeleted);
-            }
-            judgeline.extended.scaleXEvents = judgeline.extended.scaleXEvents.filter(event => !event._willBeDeleted);
-            judgeline.extended.scaleYEvents = judgeline.extended.scaleYEvents.filter(event => !event._willBeDeleted);
-            judgeline.extended.colorEvents = judgeline.extended.colorEvents.filter(event => !event._willBeDeleted);
-            judgeline.extended.paintEvents = judgeline.extended.paintEvents.filter(event => !event._willBeDeleted);
-            judgeline.extended.textEvents = judgeline.extended.textEvents.filter(event => !event._willBeDeleted);
+    calculateSeconds() {
+        for(const note of this.getAllNotes()){
+            note.cachedStartSeconds = beatsToSeconds(this.BPMList, note.startTime);
+            note.cachedEndSeconds = beatsToSeconds(this.BPMList, note.endTime);
         }
-    }
-    update() {
-        this.deleteNotesAndEvents();
+        for(const event of this.getAllEvents()){
+            event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
+            event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
+        }
     }
     constructor(chart: unknown) {
         this.BPMList = [];
@@ -114,12 +89,12 @@ export class Chart implements IChart {
                 this.judgeLineGroup.push(formatedGroup);
             }
             if ("judgeLineList" in chart && isArray(chart.judgeLineList)) for (const [i, judgeLine] of chart.judgeLineList.entries()) {
-                this.judgeLineList.push(new JudgeLine(judgeLine, i));
+                this.judgeLineList.push(new JudgeLine(judgeLine, i, this.BPMList));
             }
         }
         else if (isNumber(chart)) {
             for (let i = 0; i < chart; i++) {
-                this.judgeLineList.push(new JudgeLine(null, i));
+                this.judgeLineList.push(new JudgeLine(null, i, this.BPMList));
             }
         }
         this.META ??= new ChartMeta(null);

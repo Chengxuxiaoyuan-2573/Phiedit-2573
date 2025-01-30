@@ -1,6 +1,7 @@
 import { isObject, isArray } from "lodash"
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event"
 import { RGBcolor } from "./color"
+import { BPM } from "./beats"
 export interface IBaseEventLayer {
     moveXEvents: IEvent<number>[]
     moveYEvents: IEvent<number>[]
@@ -14,23 +15,23 @@ export class BaseEventLayer implements IBaseEventLayer {
     rotateEvents: NumberEvent<'rotate'>[] = []
     alphaEvents: NumberEvent<'alpha'>[] = []
     speedEvents: NumberEvent<'speed'>[] = []
-    constructor(eventLayer: unknown) {
+    constructor(eventLayer: unknown, BPMList: BPM[]) {
         if (isObject(eventLayer)) {
             if ("moveXEvents" in eventLayer && isArray(eventLayer.moveXEvents))
                 for (const event of eventLayer.moveXEvents)
-                    this.moveXEvents.push(new NumberEvent(event, 'moveX'));
+                    this.moveXEvents.push(new NumberEvent(event, BPMList, 'moveX'));
             if ("moveYEvents" in eventLayer && isArray(eventLayer.moveYEvents))
                 for (const event of eventLayer.moveYEvents)
-                    this.moveYEvents.push(new NumberEvent(event, 'moveY'));
+                    this.moveYEvents.push(new NumberEvent(event, BPMList, 'moveY'));
             if ("rotateEvents" in eventLayer && isArray(eventLayer.rotateEvents))
                 for (const event of eventLayer.rotateEvents)
-                    this.rotateEvents.push(new NumberEvent(event, 'rotate'));
+                    this.rotateEvents.push(new NumberEvent(event, BPMList, 'rotate'));
             if ("alphaEvents" in eventLayer && isArray(eventLayer.alphaEvents))
                 for (const event of eventLayer.alphaEvents)
-                    this.alphaEvents.push(new NumberEvent(event, 'alpha'));
+                    this.alphaEvents.push(new NumberEvent(event, BPMList, 'alpha'));
             if ("speedEvents" in eventLayer && isArray(eventLayer.speedEvents))
                 for (const event of eventLayer.speedEvents)
-                    this.speedEvents.push(new NumberEvent(event, 'speed'));
+                    this.speedEvents.push(new NumberEvent(event, BPMList, 'speed'));
         }
     }
 }
@@ -49,23 +50,23 @@ export class ExtendedEventLayer implements IExtendedEventLayer {
     colorEvents: ColorEvent<'color'>[] = []
     paintEvents: NumberEvent<'paint'>[] = []// unsupported
     textEvents: TextEvent<'text'>[] = []
-    constructor(eventLayer: unknown) {
+    constructor(eventLayer: unknown, BPMList: BPM[]) {
         if (isObject(eventLayer)) {
             if ("scaleXEvents" in eventLayer && isArray(eventLayer.scaleXEvents))
                 for (const event of eventLayer.scaleXEvents)
-                    this.scaleXEvents.push(new NumberEvent(event, 'scaleX'));
+                    this.scaleXEvents.push(new NumberEvent(event, BPMList, 'scaleX'));
             if ("scaleYEvents" in eventLayer && isArray(eventLayer.scaleYEvents))
                 for (const event of eventLayer.scaleYEvents)
-                    this.scaleYEvents.push(new NumberEvent(event, 'scaleY'));
+                    this.scaleYEvents.push(new NumberEvent(event, BPMList, 'scaleY'));
             if ("colorEvents" in eventLayer && isArray(eventLayer.colorEvents))
                 for (const event of eventLayer.colorEvents)
-                    this.colorEvents.push(new ColorEvent(event, 'color'));
+                    this.colorEvents.push(new ColorEvent(event, BPMList, 'color'));
             if ("paintEvents" in eventLayer && isArray(eventLayer.paintEvents))
                 for (const event of eventLayer.paintEvents)
-                    this.paintEvents.push(new NumberEvent(event, 'paint'));
+                    this.paintEvents.push(new NumberEvent(event, BPMList, 'paint'));
             if ("textEvents" in eventLayer && isArray(eventLayer.textEvents))
                 for (const event of eventLayer.textEvents)
-                    this.textEvents.push(new TextEvent(event, 'text'));
+                    this.textEvents.push(new TextEvent(event, BPMList, 'text'));
         }
     }
 }

@@ -1,9 +1,13 @@
 export default {
-    playSound(this: AudioContext, audioBuffer: AudioBuffer) {
+    playSound(this: AudioContext, audioBuffer: AudioBuffer, time = 0) {
+        if (time >= audioBuffer.duration) return;
         const bufferSource = this.createBufferSource();
         bufferSource.buffer = audioBuffer;
         bufferSource.connect(this.destination);
-        bufferSource.start();
+        bufferSource.start(0, time);
+        bufferSource.onended = () => {
+            bufferSource.disconnect();
+        }
         return bufferSource;
     },
     async createAudioBuffer(this: AudioContext, arraybuffer: ArrayBuffer) {
@@ -61,9 +65,17 @@ export default {
             resolve(objectUrl);
         })
     },
-    Image(src: string){
+    Image(src: string) {
         const image = new Image();
         image.src = src;
         return image;
+    },
+    togglePlay(audio: HTMLAudioElement) {
+        if (audio.paused) {
+            audio.play();
+        }
+        else {
+            audio.pause();
+        }
     }
 }

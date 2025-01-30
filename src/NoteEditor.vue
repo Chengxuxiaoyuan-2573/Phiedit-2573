@@ -39,30 +39,26 @@
             结束时间
         </template>
     </MyInput>
-    <ElSwitch
+    <MySwitch
         v-model="model.isFake"
-        active-text="假音符"
-        inactive-text="真音符"
         :active-value="1"
         :inactive-value="0"
-    />
-    <ElSwitch
-        v-model="model.above"
-        active-text="正落"
-        inactive-text="倒落"
-        :active-value="NoteAbove.Above"
-        :inactive-value="NoteAbove.Below"
-    />
-    <MyInputNumber
-        v-model="model.positionX"
     >
+        假音符
+    </MySwitch>
+    <MySwitch
+        v-model="model.above"
+        :active-value="NoteAbove.Below"
+        :inactive-value="NoteAbove.Above"
+    >
+        反向音符
+    </MySwitch>
+    <MyInputNumber v-model="model.positionX">
         <template #prepend>
             X坐标
         </template>
     </MyInputNumber>
-    <MyInputNumber
-        v-model="model.speed"
-    >
+    <MyInputNumber v-model="model.speed">
         <template #prepend>
             速度倍率
         </template>
@@ -84,9 +80,7 @@
             透明度
         </template>
     </MyInputNumber>
-    <MyInputNumber
-        v-model="model.yOffset"
-    >
+    <MyInputNumber v-model="model.yOffset">
         <template #prepend>
             纵向偏移
         </template>
@@ -101,10 +95,11 @@
     </MyInputNumber>
 </template>
 <script setup lang='ts'>
-import { ElSwitch } from 'element-plus';
 import { Note, NoteAbove } from './classes/note';
-import MyInput from './MyInput.vue';
-import MyInputNumber from './MyInputNumber.vue';
+import MyInput from './myElements/MyInput.vue';
+import MyInputNumber from './myElements/MyInputNumber.vue';
+import MySwitch from './myElements/MySwitch.vue';
+
 const model = defineModel<Note>({
     required: true
 });

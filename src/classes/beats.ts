@@ -1,6 +1,6 @@
 import { isNumber, isObject } from "lodash";
 import math from "../tools/math";
-import { isArrayOfNumbers } from "@/typeCheck";
+import { isArrayOfNumbers } from "@/tools/typeCheck";
 export interface IBPM {
     bpm: number
     startTime: Beats
@@ -42,9 +42,8 @@ export class BPM implements IBPM {
 }
 export type Beats = [number, number, number];
 
-export function beatsToSeconds(BPMList: BPM[], beats: Beats): number {
-
-    const beatsValue = getBeatsValue(beats);
+export function beatsToSeconds(BPMList: BPM[], beats: Beats | number): number {
+    const beatsValue = isNumber(beats) ? beats : getBeatsValue(beats);
     let seconds = 0;
 
     // 找到第一个 startTime 大于等于 beatsValue 的 BPM 元素

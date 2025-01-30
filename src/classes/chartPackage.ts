@@ -5,23 +5,33 @@ import { Chart, IChart } from "./chart";
 import { FileReaderExtends } from "./classExtends";
 import math from "../tools/math";
 import mediaUtils from "@/tools/mediaUtils";
-interface IChartPackage {
+export interface IChartPackage {
     chart: IChart;
     background: HTMLImageElement;
     musicSrc: string;
     textures: Record<string, HTMLImageElement>
+}
+export interface ChartConfig {
+    backgroundDarkness: number,
+    lineWidth: number,
+    lineLength: number,
+    textSize: number,
+    chartSpeed: number,
+    noteSize: number,
 }
 export class ChartPackage implements IChartPackage {
     chart: Chart;
     background: HTMLImageElement;
     musicSrc: string;
     textures: Record<string, HTMLImageElement>;
-    backgroundDarkness = 90
-    lineWidth = 5
-    lineLength = 2000
-    textSize = 50
-    chartSpeed = 120
-    noteSize = 200
+    config: ChartConfig = {
+        backgroundDarkness: 90,
+        lineWidth: 5,
+        lineLength: 2000,
+        textSize: 50,
+        chartSpeed: 120,
+        noteSize: 175
+    }
     constructor(chartPackage: IChartPackage) {
         this.chart = new Chart(chartPackage.chart);
         this.musicSrc = chartPackage.musicSrc;

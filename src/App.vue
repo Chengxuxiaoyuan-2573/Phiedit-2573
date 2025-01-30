@@ -37,7 +37,7 @@
                     type="primary"
                     @click="editor.switchMainState()"
                 >
-                    {{ editor.canvasState == CanvasState.Editing ? "切换到播放器界面" : "切换到编辑器界面" }}
+                    {{ editor.state.canvas == CanvasState.Editing ? "切换到播放器界面" : "切换到编辑器界面" }}
                 </ElButton>
                 <ElText :style="{ color: fps > 30 ? 'green' : fps > 20 ? 'orange' : 'red' }">
                     FPS: {{ fps.toFixed(5) }}
@@ -54,11 +54,12 @@
         >
             <h1>Phiedit 2573 线上制谱器</h1>
             <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
-            <ElUpload :before-upload="file => ChartPackage.load(file).then(a => {
+            <ElUpload :before-upload="file => ChartPackage.load(file, str => loadingText.show(str)).then(a => {
                 chartPackage.chart = new Chart(a.chart);
                 chartPackage.background = a.background;
                 chartPackage.textures = a.textures;
                 chartPackage.musicSrc = a.musicSrc;
+                loadingText.hide();
                 // eslint-disable-next-line vue/html-closing-bracket-newline
             })">
                 <template #trigger>
@@ -67,35 +68,14 @@
                     </ElButton>
                 </template>
             </ElUpload>
-            <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
-            <ElUpload :before-upload="file => ResourcePackage.load(file).then(a => {
-                resourcePackage.tap = a.tap;
-                resourcePackage.flick = a.flick;
-                resourcePackage.drag = a.drag;
-                resourcePackage.holdHead = a.holdHead;
-                resourcePackage.holdEnd = a.holdEnd;
-                resourcePackage.holdBody = a.holdBody;
-                resourcePackage.tapHL = a.tapHL;
-                resourcePackage.flickHL = a.flickHL;
-                resourcePackage.dragHL = a.dragHL;
-                resourcePackage.holdHLHead = a.holdHLHead;
-                resourcePackage.holdHLEnd = a.holdHLEnd;
-                resourcePackage.holdHLBody = a.holdHLBody;
-                resourcePackage.tapSound = a.tapSound;
-                resourcePackage.dragSound = a.dragSound;
-                resourcePackage.flickSound = a.flickSound;
-                resourcePackage.perfectHitFxFrames = a.perfectHitFxFrames;
-                resourcePackage.goodHitFxFrames = a.goodHitFxFrames;
-                resourcePackage.hitFxDuration = a.hitFxDuration;
-                resourcePackage.hitFxRotate = a.hitFxRotate;
-                resourcePackage.hideParticles = a.hideParticles;
-                resourcePackage.holdKeepHead = a.holdKeepHead;
-                resourcePackage.holdRepeat = a.holdRepeat;
-                resourcePackage.holdCompact = a.holdCompact;
-                resourcePackage.colorPerfect = a.colorPerfect;
-                resourcePackage.colorGood = a.colorGood;
-                // eslint-disable-next-line vue/html-closing-bracket-newline
-            })">
+            <ElUpload
+                :before-upload="async file => {
+                    const a = await ResourcePackage.load(file, str => loadingText.show(str));
+                    Object.assign(resourcePackage, a);
+                    loadingText.hide();
+                }"
+                useless-attribute
+            >
                 <template #trigger>
                     <ElButton type="primary">
                         上传资源包
@@ -122,18 +102,30 @@
             @wheel.stop
             @keydown.stop
         >
-            <template v-if="editor.rightState == RightState.Default">
+            <template v-if="editor.state.right == RightState.Default">
                 <ElButton
                     type="primary"
-                    @click="editor.rightState = RightState.Settings"
+                    @click="editor.state.right = RightState.Settings"
                 >
                     设置
                 </ElButton>
                 <ElButton
                     type="primary"
-                    @click="editor.rightState = RightState.BPMList"
+                    @click="editor.state.right = RightState.BPMList"
                 >
                     BPM编辑
+                </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="editor.state.right = RightState.Meta"
+                >
+                    谱面信息编辑
+                </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="editor.state.right = RightState.JudgeLine"
+                >
+                    判定线编辑
                 </ElButton>
                 <ElSelect v-model="editor.currentNoteType">
                     <ElOption
@@ -206,11 +198,11 @@
                             height: 100%;
                             vertical-align: middle;
                         "
-                        @click="editor.rightState = RightState.Default"
+                        @click="editor.state.right = RightState.Default"
                     />
                     <span>返回</span>
                 </ElHeader>
-                <template v-if="editor.rightState == RightState.Editing && editor.selection.length == 1">
+                <template v-if="editor.state.right == RightState.Editing && editor.selection.length == 1">
                     <NoteEditor
                         v-if="(editor.selection[0] instanceof Note)"
                         v-model="editor.selection[0]"
@@ -220,16 +212,15 @@
                         v-model="editor.selection[0]"
                     />
                 </template>
-                <template v-else-if="editor.rightState == RightState.Editing && editor.selection.length > 1">
-                    <!-- nothing -->
+                <template v-else-if="editor.state.right == RightState.Editing && editor.selection.length > 1">
+                    暂不支持多选编辑
                 </template>
-                <BPMListEditor
-                    v-else-if="editor.rightState == RightState.BPMList"
-                    v-model="chartPackage.chart.BPMList"
-                />
-                <template v-else-if="editor.rightState == RightState.Settings">
+                <BPMListEditor v-else-if="editor.state.right == RightState.BPMList" />
+                <ChartMetaEditor v-else-if="editor.state.right == RightState.Meta" />
+                <JudgeLineEditor v-else-if="editor.state.right == RightState.JudgeLine" />
+                <template v-else-if="editor.state.right == RightState.Settings">
                     <MyInputNumber
-                        v-model="chartPackage.chartSpeed"
+                        v-model="chartPackage.config.chartSpeed"
                         :min="0"
                     >
                         <template #prepend>
@@ -240,7 +231,7 @@
                         </template>
                     </MyInputNumber>
                     <MyInputNumber
-                        v-model="chartPackage.lineWidth"
+                        v-model="chartPackage.config.lineWidth"
                         :min="0"
                     >
                         <template #prepend>
@@ -251,7 +242,7 @@
                         </template>
                     </MyInputNumber>
                     <MyInputNumber
-                        v-model="chartPackage.textSize"
+                        v-model="chartPackage.config.textSize"
                         :min="0"
                     >
                         <template #prepend>
@@ -262,7 +253,7 @@
                         </template>
                     </MyInputNumber>
                     <MyInputNumber
-                        v-model="chartPackage.backgroundDarkness"
+                        v-model="chartPackage.config.backgroundDarkness"
                         :min="0"
                         :max="100"
                     >
@@ -274,7 +265,7 @@
                         </template>
                     </MyInputNumber>
                     <MyInputNumber
-                        v-model="chartPackage.noteSize"
+                        v-model="chartPackage.config.noteSize"
                         :min="0"
                     >
                         <template #prepend>
@@ -285,7 +276,7 @@
                         </template>
                     </MyInputNumber>
                     <MyInputNumber
-                        v-model="resourcePackage.hitFxDuration"
+                        v-model="resourcePackage.config.hitFxDuration"
                         :min="0"
                     >
                         <template #prepend>
@@ -295,19 +286,19 @@
                             秒
                         </template>
                     </MyInputNumber>
-                    <ElCheckbox v-model="resourcePackage.hitFxRotate">
+                    <ElCheckbox v-model="resourcePackage.config.hitFxRotate">
                         打击特效随判定线旋转
                     </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.holdKeepHead">
+                    <ElCheckbox v-model="resourcePackage.config.holdKeepHead">
                         Hold正在判定时显示头部
                     </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.hideParticles">
+                    <ElCheckbox v-model="resourcePackage.config.hideParticles">
                         隐藏粒子
                     </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.holdCompact">
+                    <ElCheckbox v-model="resourcePackage.config.holdCompact">
                         Hold中间与头尾重叠（不支持，懒得做）
                     </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.holdRepeat">
+                    <ElCheckbox v-model="resourcePackage.config.holdRepeat">
                         Hold中间重复式拉伸
                     </ElCheckbox>
                 </template>
@@ -317,79 +308,175 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElIcon, ElButton, ElCheckbox, ElContainer, ElHeader, ElMain, ElOption, ElSelect, ElUpload, ElText, ElRow, ElSlider } from "element-plus";
-import { VideoPlay, VideoPause } from "@element-plus/icons-vue"
-import { onMounted, Ref, ref } from "vue";
+import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElOption, ElRow, ElSelect, ElSlider, ElText, ElUpload } from "element-plus";
+import { onMounted, provide, reactive, Ref, ref } from "vue";
 
+import { Chart } from "./classes/chart";
+import { ChartPackage } from "./classes/chartPackage";
 import { NumberEvent } from "./classes/event";
 import { Note, NoteType } from "./classes/note";
-import { RightState, CanvasState } from "./classes/editor";
-import { ChartPackage } from "./classes/chartPackage";
 import { ResourcePackage } from "./classes/resourcePackage";
-import { cache, chartPackage, editor, resourcePackage } from "./store";
-import { Chart } from "./classes/chart";
+import { CanvasState, Editor, RightState } from "./editor";
+import { chartPackage, resourcePackage } from "./store";
 
-import Renderer from "./render";
-import EventListener from "./eventListener";
+import ChartRenderer from "./chartRenderer";
 import { downloadText } from "./tools";
 
+import BPMListEditor from "./BPMListEditor.vue";
+import ChartMetaEditor from "./ChartMetaEditor.vue";
+import JudgeLineEditor from "./JudgeLineEditor.vue";
 import NoteEditor from "./NoteEditor.vue";
 import NumberEventEditor from "./NumberEventEditor.vue";
-import MyInputNumber from "./MyInputNumber.vue";
+import MyInputNumber from "./myElements/MyInputNumber.vue";
 
-import loadingText from "./components/loadingText";
-import BPMListEditor from "./BPMListEditor.vue";
-document.oncontextmenu = e => {
-    e.preventDefault();
-}
-loadingText.hide();
+import eventEmitter from "./eventEmitter";
+import loadingText from "./tools/loadingText";
+import mediaUtils from "./tools/mediaUtils";
+import math from "./tools/math";
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null);
 const audioRef: Ref<HTMLAudioElement | null> = ref(null);
 const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
+const editor = reactive(new Editor(chartPackage, resourcePackage));
+
+provide("editor", editor);
+provide("textures", chartPackage.textures);
+
 onMounted(() => {
     const canvas = canvasRef.value!;
     const audio = audioRef.value!;
-    const eventListener = new EventListener({
-        canvas,
-        audio,
-        editor,
-        chart: chartPackage.chart,
-        cache
-    })
-    const renderer = new Renderer({
+    const renderer = new ChartRenderer({
         canvas,
         chartPackage,
         resourcePackage,
-        editor,
-        cache
     });
-    canvas.onmousedown = e => eventListener.mouseDown(e);
-    canvas.onmousemove = e => eventListener.mouseMove(e);
-    canvas.onmouseup = () => eventListener.mouseUp();
-    window.onresize = () => eventListener.windowResize();
-    window.onwheel = e => eventListener.wheel(e);
+    let cachedRect = canvas.getBoundingClientRect();
+    function getClickedPosition({ offsetX: x, offsetY: y }: MouseEvent) {
+        /** canvas的内宽度（单位为canvas绘制上下文的像素） */
+        const innerWidthCanvasPixels = canvas.width;
+        /** canvas的内高度（单位为canvas绘制上下文的像素） */
+        const innerHeightCanvasPixels = canvas.height;
+        /** canvas内部的宽高比 */
+        const innerRatio = innerWidthCanvasPixels / innerHeightCanvasPixels;
+        /** canvas的外宽度（单位为浏览器像素） */
+        const outerWidthBrowserPixels = cachedRect.width;
+        /** canvas的外高度（单位为浏览器像素） */
+        const outerHeightBrowserPixels = cachedRect.height;
+        /** canvas外部的宽高比 */
+        const outerRatio = outerWidthBrowserPixels / outerHeightBrowserPixels;
+        /** canvas的缩放比和单边边距 */
+        const { browserToCanvasRatio, padding } = (() => {
+            if (innerRatio > outerRatio) {
+                const width = outerWidthBrowserPixels;
+                const height = width / innerRatio;
+                const padding = (outerHeightBrowserPixels - height) / 2;
+                return { padding, browserToCanvasRatio: innerWidthCanvasPixels / width };
+            }
+            else {
+                const height = outerHeightBrowserPixels;
+                const width = height * innerRatio;
+                const padding = (outerWidthBrowserPixels - width) / 2;
+                return { padding, browserToCanvasRatio: innerHeightCanvasPixels / height };
+            }
+        })();
+        if (innerRatio > outerRatio) {
+            return { x: x * browserToCanvasRatio, y: (y - padding) * browserToCanvasRatio };
+        }
+        else {
+            return { y: y * browserToCanvasRatio, x: (x - padding) * browserToCanvasRatio };
+        }
+    }
+    canvas.onmousedown = e => {
+        const { x, y } = getClickedPosition(e);
+        const options = {
+            ctrl: e.ctrlKey,
+            shift: e.shiftKey,
+            alt: e.altKey,
+            meta: e.metaKey
+        }
+        const seconds = audio.currentTime - chartPackage.chart.META.offset / 1000;
+        switch (e.button) {
+            case 0:
+                eventEmitter.emit("MOUSE_LEFT_CLICK", x, y, seconds, options);
+                return;
+            case 2:
+                eventEmitter.emit("MOUSE_RIGHT_CLICK", x, y, seconds);
+                return;
+        }
+    };
+    canvas.onmousemove = e => {
+        const options = {
+            ctrl: e.ctrlKey,
+            shift: e.shiftKey,
+            alt: e.altKey,
+            meta: e.metaKey
+        }
+        const { x, y } = getClickedPosition(e);
+        const seconds = audio.currentTime - chartPackage.chart.META.offset / 1000;
+        eventEmitter.emit("MOUSE_MOVE", x, y, seconds, options);
+    }
+    canvas.onmouseup = () => {
+        eventEmitter.emit("MOUSE_UP");
+    }
+    window.onresize = () => {
+        cachedRect = canvas.getBoundingClientRect();
+    }
+    window.onwheel = e => {
+        audio.currentTime += e.deltaY * editor.wheelSpeed * -0.005;
+    }
     window.onkeydown = e => {
         //const { ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = e;
         switch (e.key.toLowerCase()) {
             case " ":
-                eventListener.pressSpace();
+                mediaUtils.togglePlay(audio);
                 return;
             case "escape":
-                eventListener.pressEscape();
+                editor.state.right = RightState.Default;
+                editor.selection.splice(0, editor.selection.length);
                 return;
             case "delete":
-                eventListener.pressDelete();
+                editor.currentJudgeLine.notes = editor.currentJudgeLine.notes.filter(note => !editor.selection.includes(note));
+                editor.currentEventLayer.moveXEvents = editor.currentEventLayer.moveXEvents.filter(event => !editor.selection.includes(event));
+                editor.currentEventLayer.moveYEvents = editor.currentEventLayer.moveYEvents.filter(event => !editor.selection.includes(event));
+                editor.currentEventLayer.rotateEvents = editor.currentEventLayer.rotateEvents.filter(event => !editor.selection.includes(event));
+                editor.currentEventLayer.alphaEvents = editor.currentEventLayer.alphaEvents.filter(event => !editor.selection.includes(event));
+                editor.currentEventLayer.speedEvents = editor.currentEventLayer.speedEvents.filter(event => !editor.selection.includes(event));
+                editor.selection.splice(0, editor.selection.length);
                 return;
             default:
                 console.log(e.key);
         }
     }
+    document.oncontextmenu = e => e.preventDefault();
+    editor.provideCanvas(canvas);
+    let fpsHistory = [];
+    let renderTime = performance.now();
     setInterval(() => {
-        renderer.render(audio.currentTime);
-        fps.value = renderer.fps;
+        if (editor.state.canvas == CanvasState.Editing) {
+            editor.showUI(audio.currentTime);
+        }
+        else {
+            renderer.renderChart(audio.currentTime);
+        }
+        
+        const now = performance.now();
+        const delta = now - renderTime;
+
+        if (delta > 0) {
+            const currentFPS = 1000 / delta;
+            fpsHistory.push(currentFPS);
+            // 限制FPS历史数组的大小
+            if (fpsHistory.length > 10) {
+                fpsHistory.shift();
+            }
+            // 计算平均FPS
+            fps.value = math.avenage(fpsHistory);
+        } else {
+            fps.value = 0; // 或者设置为一个合理的默认值
+        }
+        renderTime = now;
         time.value = audio.currentTime;
         audioIsPlaying.value = !audio.paused;
     }, 0);
@@ -435,7 +522,7 @@ onMounted(() => {
     grid-area: header;
 }
 
-.el-header>.el-row {
+.el-row {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
@@ -444,7 +531,7 @@ onMounted(() => {
 .el-aside {
     display: flex;
     flex-direction: column;
-    align-content: stretch;
+    align-items: stretch;
 }
 
 .el-aside.left {

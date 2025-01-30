@@ -2,6 +2,8 @@ import { isObject, isNumber, isString, isArray } from "lodash"
 import { EasingType } from "./easing"
 import { BaseEventLayer, ExtendedEventLayer, IBaseEventLayer, IExtendedEventLayer } from "./eventLayer"
 import { INote, Note } from "./note"
+import { BaseEvent } from "./event"
+import { BPM } from "./beats"
 export interface IJudgeLine {
     /** 没用属性，可以不用 */
     Group: number
@@ -17,7 +19,7 @@ export interface IJudgeLine {
     father: number
     /** 是否显示在判定线下面的note，0表示显示，1表示不显示 */
     isCover: 0 | 1
-    /** 该判定线上面的所有note */
+    /** 该判定线的所有note */
     notes: INote[]
     /** 显示的层号，越大越靠前 */
     zOrder: number,
@@ -117,6 +119,27 @@ export class JudgeLine implements IJudgeLine {
     }]
     zOrder: number = 0
     readonly num: number
+    getAllEvents() {
+        const events: BaseEvent[] = [];
+        this.eventLayers.forEach(eventLayer => {
+            events.push(
+                ...eventLayer.moveXEvents,
+                ...eventLayer.moveYEvents,
+                ...eventLayer.rotateEvents,
+                ...eventLayer.alphaEvents,
+                ...eventLayer.speedEvents
+            )
+        })
+        events.push(
+            ...this.extended.scaleXEvents,
+            ...this.extended.scaleYEvents,
+            ...this.extended.colorEvents,
+            ...this.extended.paintEvents,
+            ...this.extended.textEvents
+        )
+        return events;
+    }
+
     toObject(): IJudgeLine {
         return {
             Group: this.Group,
@@ -148,7 +171,7 @@ export class JudgeLine implements IJudgeLine {
             notes: this.notes.map(note => note.toObject())
         }
     }
-    constructor(judgeLine: unknown, num: number) {
+    constructor(judgeLine: unknown, num: number, BPMList: BPM[]) {
         if (isObject(judgeLine)) {
             if ("Group" in judgeLine && isNumber(judgeLine.Group))
                 this.Group = judgeLine.Group;
@@ -164,11 +187,11 @@ export class JudgeLine implements IJudgeLine {
                 this.zOrder = judgeLine.zOrder;
             if ("eventLayers" in judgeLine && isArray(judgeLine.eventLayers))
                 for (const eventLayer of judgeLine.eventLayers)
-                    this.eventLayers.push(new BaseEventLayer(eventLayer));
+                    this.eventLayers.push(new BaseEventLayer(eventLayer, BPMList));
             if ("extended" in judgeLine)
-                this.extended = new ExtendedEventLayer(judgeLine.extended);
+                this.extended = new ExtendedEventLayer(judgeLine.extended, BPMList);
             if ("notes" in judgeLine && isArray(judgeLine.notes)) for (const note of judgeLine.notes)
-                this.notes.push(Note.load(note));
+                this.notes.push(new Note(note, BPMList));
         }
         this.num = num;
     }
