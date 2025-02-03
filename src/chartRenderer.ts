@@ -5,16 +5,21 @@ import { NumberEvent, ColorEvent, TextEvent, BaseEvent } from "./classes/event";
 import { RGBcolor } from "./classes/color";
 import { Note, NoteAbove, NoteType } from "./classes/note";
 import { getBeatsValue } from "./classes/beats";
-import { getContext, sortAndForEach } from "./tools";
+import { getContext } from "./tools";
 import canvasUtils from "./tools/canvasUtils";
 import math from "./tools/math";
 import { ChartPackage } from "./classes/chartPackage";
 import { ResourcePackage } from "./classes/resourcePackage";
+import { Ref } from "vue";
+import { sortAndForEach } from "./tools/algorithm";
 
 export default class ChartRenderer {
-    chartPackage: ChartPackage;
-    resourcePackage: ResourcePackage;
-    canvas: HTMLCanvasElement;
+    chartPackage: ChartPackage
+    resourcePackage: ResourcePackage
+    canvasRef: Ref<HTMLCanvasElement>
+    get canvas(){
+        return this.canvasRef.value;
+    }
     get chart() {
         return this.chartPackage.chart;
     }
@@ -22,12 +27,11 @@ export default class ChartRenderer {
     constructor(options: {
         chartPackage: ChartPackage,
         resourcePackage: ResourcePackage,
-        canvas: HTMLCanvasElement
+        canvasRef: Ref<HTMLCanvasElement>
     }) {
         this.chartPackage = options.chartPackage;
         this.resourcePackage = options.resourcePackage;
-        this.canvas = options.canvas;
-        this.renderTime = Date.now();
+        this.canvasRef = options.canvasRef;
         this.ctx = getContext(this.canvas);
     }
     /** 显示谱面到canvas上 */
@@ -128,10 +132,10 @@ export default class ChartRenderer {
             if (startSeconds - seconds > note.visibleTime) return; // note不在可见时间内
             if (judgeLineInfo.alpha < 0) return; // 线的透明度是负数把note给隐藏了
             if (noteInfo.isCovered) return; // note在线下面
-            this.ctx.globalAlpha = note.alpha / 255;
             if (note.type == NoteType.Hold) {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
+                    this.ctx.globalAlpha = note.alpha / 255;
                     // 以判定线为坐标系
                     this.ctx.save();
                     this.ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
@@ -196,8 +200,9 @@ export default class ChartRenderer {
             else {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
+                    this.ctx.globalAlpha = note.alpha / 255;
                     if (seconds >= startSeconds) {
-                        this.ctx.globalAlpha = Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
+                        this.ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
                     }
                     const image = this.resourcePackage.getSkin(type, highlight);
                     const width = note.size * this.chartPackage.config.noteSize *
@@ -588,7 +593,7 @@ export default class ChartRenderer {
         let lastEvent: T | null = null;
         let smallestDifference = Infinity;
         for (const event of events) {
-            const startSeconds = event?.cachedStartSeconds ?? 0;
+            const startSeconds = event.cachedStartSeconds;
             if (startSeconds <= seconds) {
                 const difference = seconds - startSeconds;
                 if (difference < smallestDifference) {

@@ -34,11 +34,11 @@
 </template>
 <script setup lang="ts">
 import { ElButton, ElRow } from 'element-plus';
-import { BPM, getBeatsValue } from './classes/beats';
-import MyInput from './myElements/MyInput.vue';
-import MyInputNumber from './myElements/MyInputNumber.vue';
+import { BPM, getBeatsValue } from '../classes/beats';
+import MyInput from '../myElements/MyInput.vue';
+import MyInputNumber from '../myElements/MyInputNumber.vue';
 import { inject, onBeforeUnmount, ref } from 'vue';
-import { Editor } from './classes/editor';
+import { Editor } from '../editor';
 const editor = inject('editor') as Editor;
 
 const u = ref(false);

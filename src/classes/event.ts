@@ -37,19 +37,20 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     }
     set startTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        this._startTime = beats;
-        if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
-            [this._startTime, this._endTime] = [this._endTime, this._startTime];
-        }
-        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this._startTime);
+        this._startTime = validateBeats(beats);
+        this.calculateSeconds(this.BPMList);
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        this._endTime = beats;
-        if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
-            [this._startTime, this._endTime] = [this._endTime, this._startTime];
+        this._endTime = validateBeats(beats);
+        this.calculateSeconds(this.BPMList);
+    }
+    validateTime() {
+        if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
+            const a = this.startTime, b = this.endTime;
+            this.startTime = b;
+            this.endTime = a;
         }
-        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this._endTime);
     }
     get startString() {
         return formatBeats(this.startTime);
@@ -58,12 +59,12 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
         return formatBeats(this.endTime);
     }
     set startString(str: string) {
-        const beats = validateBeats(parseBeats(str));
+        const beats = parseBeats(str);
         if (beats == null) return;
         this.startTime = beats;
     }
     set endString(str: string) {
-        const beats = validateBeats(parseBeats(str));
+        const beats = parseBeats(str);
         if (beats == null) return;
         this.endTime = beats;
     }

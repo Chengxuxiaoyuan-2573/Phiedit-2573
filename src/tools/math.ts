@@ -24,7 +24,7 @@ export default {
     mod(x: number, y: number) {
         return (x % y + y) % y;
     },
-    avenage(a: number[]) {
+    average(a: number[]) {
         return a.reduce((x, y) => x + y) / a.length;
     },
     distance(x1: number, y1: number, x2: number, y2: number) {

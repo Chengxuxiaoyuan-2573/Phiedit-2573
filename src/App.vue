@@ -39,12 +39,19 @@
                 >
                     {{ editor.state.canvas == CanvasState.Editing ? "切换到播放器界面" : "切换到编辑器界面" }}
                 </ElButton>
-                <ElText :style="{ color: fps > 30 ? 'green' : fps > 20 ? 'orange' : 'red' }">
-                    FPS: {{ fps.toFixed(5) }}
+                <ElText
+                    :style="{
+                        color: fps > 30 ? 'green' : fps > 20 ? 'orange' : 'red',
+                        display: 'block',
+                        whiteSpace: 'nowrap'
+                    }"
+                    useless-attribute
+                >
+                    FPS: {{ fps.toFixed(1) }}
                 </ElText>
             </ElRow>
             <ElRow>
-                12345
+                右键放置，左键选择，选择之后按住拖动，按Alt拖动尾部，QWER切换note种类，方括号切换判定线
             </ElRow>
         </ElHeader>
         <ElAside
@@ -84,7 +91,7 @@
             </ElUpload>
             <ElButton
                 type="primary"
-                @click="downloadText(JSON.stringify(chartPackage.chart.toObject()), chartPackage.chart.META.name + '.json', 'application/json')"
+                @click="mediaUtils.downloadText(JSON.stringify(chartPackage.chart.toObject()), chartPackage.chart.META.name + '.json', 'application/json')"
             >
                 下载谱面文件
             </ElButton>
@@ -127,32 +134,6 @@
                 >
                     判定线编辑
                 </ElButton>
-                <ElSelect v-model="editor.currentNoteType">
-                    <ElOption
-                        :value="NoteType.Tap"
-                        label="放置note的种类：Tap"
-                    >
-                        Tap
-                    </ElOption>
-                    <ElOption
-                        :value="NoteType.Hold"
-                        label="放置note的种类：Hold"
-                    >
-                        Hold
-                    </ElOption>
-                    <ElOption
-                        :value="NoteType.Drag"
-                        label="放置note的种类：Drag"
-                    >
-                        Drag
-                    </ElOption>
-                    <ElOption
-                        :value="NoteType.Flick"
-                        label="放置note的种类：Flick"
-                    >
-                        Flick
-                    </ElOption>
-                </ElSelect>
                 <MyInputNumber
                     v-model="editor.currentJudgeLineNumber"
                     :min="0"
@@ -308,31 +289,33 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElOption, ElRow, ElSelect, ElSlider, ElText, ElUpload } from "element-plus";
-import { onMounted, provide, reactive, Ref, ref } from "vue";
+import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElRow, ElSlider, ElText, ElUpload } from "element-plus";
+import { onMounted, onUnmounted, provide, reactive, Ref, ref } from "vue";
 
 import { Chart } from "./classes/chart";
 import { ChartPackage } from "./classes/chartPackage";
 import { NumberEvent } from "./classes/event";
-import { Note, NoteType } from "./classes/note";
+import { Note } from "./classes/note";
 import { ResourcePackage } from "./classes/resourcePackage";
 import { CanvasState, Editor, RightState } from "./editor";
 import { chartPackage, resourcePackage } from "./store";
 
 import ChartRenderer from "./chartRenderer";
-import { downloadText } from "./tools";
+import eventEmitter from "./eventEmitter";
 
-import BPMListEditor from "./BPMListEditor.vue";
-import ChartMetaEditor from "./ChartMetaEditor.vue";
-import JudgeLineEditor from "./JudgeLineEditor.vue";
-import NoteEditor from "./NoteEditor.vue";
-import NumberEventEditor from "./NumberEventEditor.vue";
+import BPMListEditor from "./editorComponents/BPMListEditor.vue";
+import ChartMetaEditor from "./editorComponents/ChartMetaEditor.vue";
+import JudgeLineEditor from "./editorComponents/JudgeLineEditor.vue";
+import NoteEditor from "./editorComponents/NoteEditor.vue";
+import NumberEventEditor from "./editorComponents/NumberEventEditor.vue";
+
 import MyInputNumber from "./myElements/MyInputNumber.vue";
 
-import eventEmitter from "./eventEmitter";
 import loadingText from "./tools/loadingText";
 import mediaUtils from "./tools/mediaUtils";
 import math from "./tools/math";
+import { clamp } from "lodash";
+import MyCalculator from "./myElements/MyCalculator.vue";
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null);
 const audioRef: Ref<HTMLAudioElement | null> = ref(null);
@@ -348,7 +331,7 @@ onMounted(() => {
     const canvas = canvasRef.value!;
     const audio = audioRef.value!;
     const renderer = new ChartRenderer({
-        canvas,
+        canvasRef: canvasRef as Ref<HTMLCanvasElement>,
         chartPackage,
         resourcePackage,
     });
@@ -388,6 +371,36 @@ onMounted(() => {
             return { y: y * browserToCanvasRatio, x: (x - padding) * browserToCanvasRatio };
         }
     }
+    function formatKey(e: KeyboardEvent) {
+        let str = "";
+        if (e.ctrlKey) str += "Ctrl ";
+        if (e.shiftKey) str += "Shift ";
+        if (e.altKey) str += "Alt ";
+        if (e.metaKey) str += "Meta ";
+        function formatSingleKey(key: string) {
+            switch (key) {
+                case " ":
+                    return "Space";
+                case "Escape":
+                    return "Esc";
+                case "Delete":
+                    return "Del";
+                case "ArrowLeft":
+                    return "Left";
+                case "ArrowRight":
+                    return "Right";
+                case "ArrowUp":
+                    return "Up";
+                case "ArrowDown":
+                    return "Down";
+                default:
+                    return key.toUpperCase();
+            }
+        }
+        if (e.key != "Control" && e.key != "Shift" && e.key != "Alt" && e.key != "Meta")
+            str += formatSingleKey(e.key);
+        return str;
+    }
     canvas.onmousedown = e => {
         const { x, y } = getClickedPosition(e);
         const options = {
@@ -423,44 +436,65 @@ onMounted(() => {
     window.onresize = () => {
         cachedRect = canvas.getBoundingClientRect();
     }
-    window.onwheel = e => {
-        audio.currentTime += e.deltaY * editor.wheelSpeed * -0.005;
-    }
+    window.addEventListener('wheel', e => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            editor.pxPerSecond = clamp(editor.pxPerSecond + e.deltaY * 0.05, 1, 1000);
+        } else {
+            audio.currentTime += e.deltaY / -editor.pxPerSecond;
+        }
+    }, {
+        passive: false
+    });
     window.onkeydown = e => {
         //const { ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = e;
-        switch (e.key.toLowerCase()) {
-            case " ":
+        const key = formatKey(e);
+        console.log(key);
+        switch (key) {
+            case "Space":
                 mediaUtils.togglePlay(audio);
                 return;
-            case "escape":
-                editor.state.right = RightState.Default;
-                editor.selection.splice(0, editor.selection.length);
+            case "Esc":
+                editor.unselect();
                 return;
-            case "delete":
-                editor.currentJudgeLine.notes = editor.currentJudgeLine.notes.filter(note => !editor.selection.includes(note));
-                editor.currentEventLayer.moveXEvents = editor.currentEventLayer.moveXEvents.filter(event => !editor.selection.includes(event));
-                editor.currentEventLayer.moveYEvents = editor.currentEventLayer.moveYEvents.filter(event => !editor.selection.includes(event));
-                editor.currentEventLayer.rotateEvents = editor.currentEventLayer.rotateEvents.filter(event => !editor.selection.includes(event));
-                editor.currentEventLayer.alphaEvents = editor.currentEventLayer.alphaEvents.filter(event => !editor.selection.includes(event));
-                editor.currentEventLayer.speedEvents = editor.currentEventLayer.speedEvents.filter(event => !editor.selection.includes(event));
-                editor.selection.splice(0, editor.selection.length);
+            case "Del":
+                editor.deleteSelection();
+                editor.unselect();
                 return;
-            default:
-                console.log(e.key);
+            case "Q":
+                editor.changeType("Tap");
+                return;
+            case "W":
+                editor.changeType("Drag");
+                return;
+            case "E":
+                editor.changeType("Flick");
+                return;
+            case "R":
+                editor.changeType("Hold");
+                return;
+            case "[":
+                if (editor.currentJudgeLineNumber > 0)
+                    editor.currentJudgeLineNumber--;
+                return;
+            case "]":
+                if (editor.currentJudgeLineNumber < editor.chart.judgeLineList.length - 1)
+                    editor.currentJudgeLineNumber++;
+                return;
         }
     }
     document.oncontextmenu = e => e.preventDefault();
-    editor.provideCanvas(canvas);
+    editor.provideCanvas(canvasRef as Ref<HTMLCanvasElement>);
+
     let fpsHistory = [];
     let renderTime = performance.now();
     setInterval(() => {
         if (editor.state.canvas == CanvasState.Editing) {
-            editor.showUI(audio.currentTime);
+            editor.renderUI(audio.currentTime);
         }
         else {
             renderer.renderChart(audio.currentTime);
         }
-        
         const now = performance.now();
         const delta = now - renderTime;
 
@@ -472,7 +506,7 @@ onMounted(() => {
                 fpsHistory.shift();
             }
             // 计算平均FPS
-            fps.value = math.avenage(fpsHistory);
+            fps.value = math.average(fpsHistory);
         } else {
             fps.value = 0; // 或者设置为一个合理的默认值
         }
@@ -480,6 +514,15 @@ onMounted(() => {
         time.value = audio.currentTime;
         audioIsPlaying.value = !audio.paused;
     }, 0);
+});
+onUnmounted(() => {
+    if (audioRef.value) {
+        audioRef.value.pause();
+        audioRef.value = null;
+    }
+    if (canvasRef.value) {
+        canvasRef.value = null;
+    }
 });
 </script>
 <style>
@@ -491,7 +534,6 @@ onMounted(() => {
 .el-button+.el-button {
     margin-left: 0;
     margin-right: 0;
-    margin-top: 10px;
 }
 
 .el-container {
@@ -532,6 +574,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
 }
 
 .el-aside.left {

@@ -77,5 +77,14 @@ export default {
         else {
             audio.pause();
         }
+    },
+    downloadText(text: string, fileName: string, mime = "text/plain") {
+        const blob = new Blob([text], { type: mime });
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 }

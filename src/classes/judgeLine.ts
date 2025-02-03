@@ -185,13 +185,18 @@ export class JudgeLine implements IJudgeLine {
                 this.father = judgeLine.father;
             if ("zOrder" in judgeLine && isNumber(judgeLine.zOrder))
                 this.zOrder = judgeLine.zOrder;
-            if ("eventLayers" in judgeLine && isArray(judgeLine.eventLayers))
-                for (const eventLayer of judgeLine.eventLayers)
+            if ("eventLayers" in judgeLine && isArray(judgeLine.eventLayers)){
+                for (const eventLayer of judgeLine.eventLayers){
                     this.eventLayers.push(new BaseEventLayer(eventLayer, BPMList));
+                }
+            }
             if ("extended" in judgeLine)
                 this.extended = new ExtendedEventLayer(judgeLine.extended, BPMList);
-            if ("notes" in judgeLine && isArray(judgeLine.notes)) for (const note of judgeLine.notes)
-                this.notes.push(new Note(note, BPMList));
+            if ("notes" in judgeLine && isArray(judgeLine.notes)){
+                for (const note of judgeLine.notes){
+                    this.notes.push(new Note(note, BPMList));
+                }
+            }
         }
         this.num = num;
     }

@@ -26,7 +26,7 @@
             结束值
         </template>
     </MyInputNumber>
-    <ElSwitch
+    <MySwitch
         v-model="model.bezier"
         active-text="使用Bezier曲线"
         inactive-text="不使用Bezier曲线"
@@ -163,10 +163,10 @@
     </template>
 </template>
 <script setup lang="ts">
-import { NumberEvent } from './classes/event';
-import MyInput from './myElements/MyInput.vue';
-import MyInputNumber from './myElements/MyInputNumber.vue';
-import { ElSwitch } from 'element-plus';
+import { NumberEvent } from '../classes/event';
+import MyInput from '../myElements/MyInput.vue';
+import MyInputNumber from '../myElements/MyInputNumber.vue';
+import MySwitch from '../myElements/MySwitch.vue';
 const model = defineModel<NumberEvent>({
     required: true
 })

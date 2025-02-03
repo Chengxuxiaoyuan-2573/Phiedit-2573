@@ -52,7 +52,18 @@ export class Note implements INote {
         }
     }
     highlight = false
-    hitSeconds: number | undefined = undefined
+    _hitSeconds: number | undefined = undefined
+    get hitSeconds(){
+        return this._hitSeconds;
+    }
+    set hitSeconds(seconds: number | undefined) {
+        if (seconds == undefined) {
+            this._hitSeconds = undefined;
+        }
+        else {
+            this._hitSeconds = seconds;
+        }
+    }
     get startTime() {
         return this._startTime;
     }
@@ -64,22 +75,25 @@ export class Note implements INote {
     }
     set startTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        this._startTime = beats;
-        if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
-            [this._startTime, this._endTime] = [this._endTime, this._startTime];
-        }
-        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this._startTime);
+        this._startTime = validateBeats(beats);
+        this.calculateSeconds(this.BPMList);
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
-        if (this.type == NoteType.Hold)
-            this._endTime = beats;
-        else
-            this._startTime = beats;
-        if (getBeatsValue(this._startTime) > getBeatsValue(this._endTime)) {
-            [this._startTime, this._endTime] = [this._endTime, this._startTime];
+        if (this.type == NoteType.Hold) {
+            this._endTime = validateBeats(beats);
         }
-        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this._endTime);
+        else {
+            this._startTime = validateBeats(beats);
+        }
+        this.calculateSeconds(this.BPMList);
+    }
+    validateTime() {
+        if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
+            const a = this.startTime, b = this.endTime;
+            this.startTime = b;
+            this.endTime = a;
+        }
     }
     get startString() {
         const beats = formatBeats(this.startTime);
@@ -90,11 +104,11 @@ export class Note implements INote {
         return beats;
     }
     set startString(str: string) {
-        const beats = validateBeats(parseBeats(str));
+        const beats = parseBeats(str);
         this.startTime = beats;
     }
     set endString(str: string) {
-        const beats = validateBeats(parseBeats(str));
+        const beats = parseBeats(str);
         this.endTime = beats;
     }
     toObject(): INote {

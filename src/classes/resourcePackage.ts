@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { formatData } from "../tools";
+import { formatData } from "../tools/algorithm";
 import { isArrayOfNumbers } from "../tools/typeCheck";
 import { FileReaderExtends } from "./classExtends";
 import EditableImage from "./editableImage";

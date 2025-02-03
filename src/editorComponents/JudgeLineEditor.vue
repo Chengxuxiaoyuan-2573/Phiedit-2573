@@ -5,9 +5,8 @@
             :min="0"
             :max="editor.chart.judgeLineList.length - 1"
             :step="1"
-            controls
         >
-            <template #prefix>
+            <template #prepend>
                 当前线号
             </template>
         </MyInputNumber>
@@ -16,9 +15,8 @@
             :min="-1"
             :max="editor.chart.judgeLineList.length - 1"
             :step="1"
-            controls
         >
-            <template #prefix>
+            <template #prepend>
                 父线号
             </template>
         </MyInputNumber>
@@ -32,9 +30,8 @@
         <MyInputNumber
             v-model="editor.chart.judgeLineList[editor.currentJudgeLineNumber].zOrder"
             :step="1"
-            controls
         >
-            <template #prefix>
+            <template #prepend>
                 显示层号
             </template>
         </MyInputNumber>
@@ -53,10 +50,10 @@
 </template>
 <script setup lang="ts">
 import { inject } from 'vue';
-import { Editor } from './classes/editor';
-import MyInputNumber from './myElements/MyInputNumber.vue';
-import MySelect from './myElements/MySelect.vue';
-import MySwitch from './myElements/MySwitch.vue';
+import { Editor } from '../editor';
+import MyInputNumber from '../myElements/MyInputNumber.vue';
+import MySelect from '../myElements/MySelect.vue';
+import MySwitch from '../myElements/MySwitch.vue';
 type Image = HTMLImageElement | HTMLCanvasElement;
 const editor = inject('editor') as Editor;
 const textures = inject('textures') as Record<string, Image>;

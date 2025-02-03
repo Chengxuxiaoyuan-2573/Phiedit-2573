@@ -95,10 +95,10 @@
     </MyInputNumber>
 </template>
 <script setup lang='ts'>
-import { Note, NoteAbove } from './classes/note';
-import MyInput from './myElements/MyInput.vue';
-import MyInputNumber from './myElements/MyInputNumber.vue';
-import MySwitch from './myElements/MySwitch.vue';
+import { Note, NoteAbove } from '../classes/note';
+import MyInput from '../myElements/MyInput.vue';
+import MyInputNumber from '../myElements/MyInputNumber.vue';
+import MySwitch from '../myElements/MySwitch.vue';
 
 const model = defineModel<Note>({
     required: true

@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { formatData } from "../tools";
+import { formatData } from "../tools/algorithm";
 import { isObject, isString } from "lodash";
 import { Chart, IChart } from "./chart";
 import { FileReaderExtends } from "./classExtends";
@@ -117,7 +117,7 @@ export class ChartPackage implements IChartPackage {
                         `音乐已加载${progress.music.toFixed(p)}%\n` +
                         `曲绘已加载${progress.background.toFixed(p)}%\n` +
                         `谱面已加载${progress.chart.toFixed(p)}%\n` +
-                        `判定线贴图已加载${math.avenage(progress.textures).toFixed(p)}%`
+                        `判定线贴图已加载${math.average(progress.textures).toFixed(p)}%`
                     )
                 }
                 const progress = {
