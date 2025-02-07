@@ -1,5 +1,5 @@
 <template>
-    <div class="JudgeLineEditor">
+    <div class="judgeline-editor">
         <MyInputNumber
             v-model="editor.currentJudgeLineNumber"
             :min="0"
@@ -59,8 +59,9 @@ const editor = inject('editor') as Editor;
 const textures = inject('textures') as Record<string, Image>;
 </script>
 <style scoped>
-.JudgeLineEditor {
+.judgeline-editor {
     display: flex;
     flex-direction: column;
+    gap: 10px;
 }
 </style>

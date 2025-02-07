@@ -42,7 +42,7 @@ export class Note implements INote {
     type = NoteType.Tap
     cachedStartSeconds: number
     cachedEndSeconds: number
-    BPMList: BPM[]
+    readonly BPMList: BPM[]
     get typeString() {
         switch (this.type) {
             case NoteType.Tap: return 'Tap';
@@ -52,18 +52,7 @@ export class Note implements INote {
         }
     }
     highlight = false
-    _hitSeconds: number | undefined = undefined
-    get hitSeconds(){
-        return this._hitSeconds;
-    }
-    set hitSeconds(seconds: number | undefined) {
-        if (seconds == undefined) {
-            this._hitSeconds = undefined;
-        }
-        else {
-            this._hitSeconds = seconds;
-        }
-    }
+    hitSeconds: number | undefined = undefined
     get startTime() {
         return this._startTime;
     }
@@ -76,7 +65,7 @@ export class Note implements INote {
     set startTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
         this._startTime = validateBeats(beats);
-        this.calculateSeconds(this.BPMList);
+        this.calculateSeconds();
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
@@ -86,7 +75,7 @@ export class Note implements INote {
         else {
             this._startTime = validateBeats(beats);
         }
-        this.calculateSeconds(this.BPMList);
+        this.calculateSeconds();
     }
     validateTime() {
         if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
@@ -126,9 +115,9 @@ export class Note implements INote {
             yOffset: this.yOffset
         }
     }
-    calculateSeconds(BPMList: BPM[]) {
-        const startSeconds = beatsToSeconds(BPMList, this.startTime);
-        const endSeconds = beatsToSeconds(BPMList, this.endTime);
+    calculateSeconds() {
+        const startSeconds = beatsToSeconds(this.BPMList, this.startTime);
+        const endSeconds = beatsToSeconds(this.BPMList, this.endTime);
         this.cachedStartSeconds = startSeconds;
         this.cachedEndSeconds = endSeconds;
     }

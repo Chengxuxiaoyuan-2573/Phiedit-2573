@@ -1,46 +1,44 @@
 import { ceil } from "lodash";
 import { easingFuncs, EasingType, cubicBezierEase } from "./classes/easing";
-import { TaskQueue } from "./classes/taskQueue";
+import { TaskQueue } from "./tools/taskQueue"
 import { NumberEvent, ColorEvent, TextEvent, BaseEvent } from "./classes/event";
-import { RGBcolor } from "./classes/color";
+import { RGBcolor } from "./tools/color"
 import { Note, NoteAbove, NoteType } from "./classes/note";
 import { getBeatsValue } from "./classes/beats";
-import { getContext } from "./tools";
 import canvasUtils from "./tools/canvasUtils";
 import math from "./tools/math";
 import { ChartPackage } from "./classes/chartPackage";
 import { ResourcePackage } from "./classes/resourcePackage";
-import { Ref } from "vue";
 import { sortAndForEach } from "./tools/algorithm";
+import { audioRef, canvasRef } from "./store";
 
 export default class ChartRenderer {
     chartPackage: ChartPackage
     resourcePackage: ResourcePackage
-    canvasRef: Ref<HTMLCanvasElement>
-    get canvas(){
-        return this.canvasRef.value;
-    }
     get chart() {
         return this.chartPackage.chart;
     }
-    ctx: CanvasRenderingContext2D;
+    get canvas() {
+        if (!canvasRef.value) throw new Error("canvas is not defined");
+        return canvasRef.value;
+    }
+    get ctx() {
+        if (!canvasRef.value) throw new Error("canvas is not defined");
+        return canvasUtils.getContext(canvasRef.value);
+    }
     constructor(options: {
         chartPackage: ChartPackage,
-        resourcePackage: ResourcePackage,
-        canvasRef: Ref<HTMLCanvasElement>
+        resourcePackage: ResourcePackage
     }) {
         this.chartPackage = options.chartPackage;
         this.resourcePackage = options.resourcePackage;
-        this.canvasRef = options.canvasRef;
-        this.ctx = getContext(this.canvas);
     }
     /** 显示谱面到canvas上 */
-    renderChart(musicTime: number) {
-        const seconds = musicTime - this.chart.META.offset / 1000;
+    renderChart() {
         try {
             this.drawBackground();
-            this.drawJudgeLines(seconds);
-            this.drawNotes(seconds);
+            this.drawJudgeLines();
+            this.drawNotes();
         }
         catch (err) {
             console.error(err);
@@ -48,8 +46,8 @@ export default class ChartRenderer {
     }
     /** 显示背景的曲绘 */
     drawBackground() {
+        const drawRect = canvasUtils.drawRect.bind(this.ctx);
         const { background } = this.chartPackage;
-        const ctx = getContext(this.canvas);
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
         const imageWidth = background.width;
@@ -66,19 +64,27 @@ export default class ChartRenderer {
         } else {
             cropX = (imageWidth - cropWidth) / 2;
         }
-        ctx.resetTransform();
-        ctx.globalAlpha = 1;
-        ctx.drawImage(
+        this.ctx.resetTransform();
+        this.ctx.globalAlpha = 1;
+        this.ctx.drawImage(
             background,
             cropX, cropY, cropWidth, cropHeight,
             0, 0, canvasWidth, canvasHeight
         );
-        ctx.fillStyle = "black";
-        ctx.globalAlpha = this.chartPackage.config.backgroundDarkness / 100;
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        drawRect(
+            0,
+            0,
+            this.canvas.width,
+            this.canvas.height,
+            "black",
+            true,
+            this.chartPackage.config.backgroundDarkness / 100);
     }
     /** 显示判定线 */
-    drawJudgeLines(seconds:number) {
+    drawJudgeLines() {
+        const audio = audioRef.value;
+        if(!audio) return;
+        const seconds = audio.currentTime - this.chart.META.offset / 1000;
         const drawLine = canvasUtils.drawLine.bind(this.ctx);
         const writeText = canvasUtils.writeText.bind(this.ctx);
         const { textures } = this.chartPackage;
@@ -106,19 +112,41 @@ export default class ChartRenderer {
             // if (judgeLine.Texture != "line.png") console.log(textures, judgeLine.Texture);
             if (judgeLine.Texture in textures) {
                 const image = textures[judgeLine.Texture];
-                this.ctx.drawImage(image, -image.width / 2, -image.height / 2, image.width, image.height);
+                this.ctx.drawImage(
+                    image, 
+                    -image.width / 2, 
+                    -image.height / 2, 
+                    image.width, 
+                    image.height);
             }
             else if (text == undefined) {
-                drawLine(-this.chartPackage.config.lineLength, 0, this.chartPackage.config.lineLength, 0, color, this.chartPackage.config.lineWidth);
+                drawLine(
+                    -this.chartPackage.config.lineLength, 
+                    0, 
+                    this.chartPackage.config.lineLength, 
+                    0, 
+                    color, 
+                    this.chartPackage.config.lineWidth,
+                    alpha / 255);
             }
             else {
-                writeText(text, 0, 0, this.chartPackage.config.textSize, color, true);
+                writeText(
+                    text, 
+                    0, 
+                    0, 
+                    this.chartPackage.config.textSize, 
+                    color, 
+                    true,
+                    alpha / 255);
             }
             this.ctx.restore();
         })
     }
     /** 显示note和打击特效 */
-    drawNotes(seconds:number) {
+    drawNotes() {
+        const audio = audioRef.value;
+        if(!audio) return;
+        const seconds = audio.currentTime - this.chart.META.offset / 1000;
         const drawRect = canvasUtils.drawRect.bind(this.ctx);
         const writeText = canvasUtils.writeText.bind(this.ctx);
         const drawNote = (

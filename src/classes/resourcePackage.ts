@@ -1,14 +1,13 @@
 import JSZip from "jszip";
 import { formatData } from "../tools/algorithm";
 import { isArrayOfNumbers } from "../tools/typeCheck";
-import { FileReaderExtends } from "./classExtends";
-import EditableImage from "./editableImage";
+import { FileReaderExtends } from "../tools/classExtends";
+import EditableImage from "../tools/editableImage";
 import jsyaml from "js-yaml";
-import { color, RGBAcolor } from "./color";
+import { color, RGBAcolor } from "../tools/color";
 import { NoteType } from "./note";
 import { isObject, isNumber, isBoolean } from "lodash";
-import audioContext from "./audioContext";
-import mediaUtils from "@/tools/mediaUtils";
+import mediaUtils from "../tools/mediaUtils";
 type Image = HTMLImageElement | HTMLCanvasElement;
 interface IResourcePackage {
     tap: Image;
@@ -42,6 +41,7 @@ interface ResourceConfig {
     colorPerfect: RGBAcolor; // AP（全 Perfect）情况下的判定线颜色
     colorGood: RGBAcolor; // FC（全连）情况下的判定线颜色
 }
+const audioContext = new AudioContext();
 export class ResourcePackage implements IResourcePackage {
     tap: Image;
     flick: Image;

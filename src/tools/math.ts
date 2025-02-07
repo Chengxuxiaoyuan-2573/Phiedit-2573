@@ -38,6 +38,9 @@ export default {
         }
         return 1;
     },
+    lcm(a: number, b: number) {
+        return (a * b) / this.gcd(a, b);
+    },
     randomNumbers(count: number, seed = Date.now(), min = 0, max = 1): number[] {
         // 参数有效性检查
         if (!Number.isInteger(count) || count <= 0) {

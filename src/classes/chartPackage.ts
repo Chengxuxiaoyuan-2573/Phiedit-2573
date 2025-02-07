@@ -2,9 +2,9 @@ import JSZip from "jszip";
 import { formatData } from "../tools/algorithm";
 import { isObject, isString } from "lodash";
 import { Chart, IChart } from "./chart";
-import { FileReaderExtends } from "./classExtends";
+import { FileReaderExtends } from "../tools/classExtends";
 import math from "../tools/math";
-import mediaUtils from "@/tools/mediaUtils";
+import mediaUtils from "../tools/mediaUtils";
 export interface IChartPackage {
     chart: IChart;
     background: HTMLImageElement;

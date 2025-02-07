@@ -1,8 +1,10 @@
 <template>
+    <!-- 这里变量u的作用是触发vue的响应式系统，使得当u的值发生变化时，会重新渲染组件 -->
     <div
         v-if="u || !u"
-        class="BPMListEditor"
+        class="bpmlist-editor"
     >
+        <h1>BPM编辑</h1>
         <ElRow
             v-for="(bpm, i) of editor.chart.BPMList"
             :key="i"
@@ -11,11 +13,19 @@
                 v-model="bpm.startString"
                 v-model:when="bpm.startTime"
                 @input="editor.chart.calculateSeconds()"
-            />
+            >
+                <template #prefix>
+                    时间
+                </template>
+            </MyInput>
             <MyInputNumber
                 v-model="bpm.bpm"
                 @input="editor.chart.calculateSeconds()"
-            />
+            >
+                <template #prefix>
+                    BPM
+                </template>
+            </MyInputNumber>
             <ElButton
                 :disabled="editor.chart.BPMList.length == 1"
                 type="danger"
@@ -48,7 +58,7 @@ function compareBPM(a: BPM, b: BPM): number {
 }
 // 修改后的 addBPM 函数
 function addBPM() {
-    const newBPM = editor.chart.BPMList.length > 0 ? new BPM(editor.chart.BPMList[editor.chart.BPMList.length - 1].toObject()) : new BPM(null);
+    const newBPM = new BPM(editor.chart.BPMList.length > 0 ? editor.chart.BPMList[editor.chart.BPMList.length - 1].toObject() : null);
     editor.chart.BPMList.push(newBPM);
     update();
     editor.chart.calculateSeconds();
@@ -58,6 +68,9 @@ function deleteBPM(index: number) {
     update();
     editor.chart.calculateSeconds();
 }
+/**
+ * 手动触发状态更新
+ */
 function update() {
     u.value = !u.value;
 }
@@ -68,13 +81,15 @@ onBeforeUnmount(() => {
 })
 </script>
 <style scoped>
-.BPMListEditor {
+.bpmlist-editor {
     display: flex;
     flex-direction: column;
+    gap: 10px;
 }
 
 .el-row {
     display: flex;
     flex-wrap: nowrap;
+    gap: 10px;
 }
 </style>

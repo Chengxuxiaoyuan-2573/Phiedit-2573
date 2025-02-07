@@ -1,10 +1,10 @@
-import { getContext } from "../tools";
+import canvasUtils from "./canvasUtils";
 import { RGBcolor, RGBAcolor } from "./color";
 export default class EditableImage {
     canvas: HTMLCanvasElement;
     constructor(a: HTMLImageElement | HTMLCanvasElement, left?: number, top?: number, width?: number, height?: number) {
         this.canvas = document.createElement('canvas');
-        const ctx = getContext(this.canvas);
+        const ctx = canvasUtils.getContext(this.canvas);
         this.canvas.width = width ?? a.width;
         this.canvas.height = height ?? a.height;
         ctx.drawImage(a, left ?? 0, top ?? 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width, this.canvas.height);
@@ -17,7 +17,7 @@ export default class EditableImage {
     }
     static text(text: string, font = "Arial", size = 50, color: RGBcolor) {
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         ctx.font = size + "px " + font;
         const textWidth = ctx.measureText(text).width;
         const textHeight = size;
@@ -35,7 +35,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         const radians = angle * Math.PI / 180;
         const absSin = Math.abs(Math.sin(radians));
         const absCos = Math.abs(Math.cos(radians));
@@ -53,7 +53,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = w;
         canvas.height = h;
         ctx.drawImage(this.canvas, 0, 0, imageWidth, imageHeight, 0, 0, w, h);
@@ -68,7 +68,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = imageWidth;
         canvas.height = imageHeight - length;
         ctx.drawImage(this.canvas, 0, 0, imageWidth, canvas.height, 0, 0, canvas.width, canvas.height);
@@ -79,7 +79,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = imageWidth;
         canvas.height = imageHeight - length;
         ctx.drawImage(this.canvas, 0, length, imageWidth, canvas.height, 0, 0, canvas.width, canvas.height);
@@ -90,7 +90,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = imageWidth - length;
         canvas.height = imageHeight;
         ctx.drawImage(this.canvas, 0, 0, canvas.width, imageHeight, 0, 0, canvas.width, canvas.height);
@@ -101,7 +101,7 @@ export default class EditableImage {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = imageWidth - length;
         canvas.height = imageHeight;
         ctx.drawImage(this.canvas, length, 0, canvas.width, imageHeight, 0, 0, canvas.width, canvas.height);
@@ -109,10 +109,10 @@ export default class EditableImage {
         return this;
     }
     color(color: RGBcolor | RGBAcolor) {
-        const thisCtx = getContext(this.canvas);
+        const thisCtx = canvasUtils.getContext(this.canvas);
         const imageData = thisCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         const canvas = document.createElement("canvas");
-        const ctx = getContext(canvas);
+        const ctx = canvasUtils.getContext(canvas);
         canvas.width = this.canvas.width;
         canvas.height = this.canvas.height;
         for (let i = 0; i < imageData.data.length; i += 4) {
@@ -130,7 +130,7 @@ export default class EditableImage {
         return this;
     }
     addColor(color: RGBcolor, force: number) {
-        const ctx = getContext(this.canvas);
+        const ctx = canvasUtils.getContext(this.canvas);
         const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         for (let i = 0; i < imageData.data.length; i += 4) {
             imageData.data[i] += (color[0] - imageData.data[i]) * force;
@@ -142,7 +142,7 @@ export default class EditableImage {
     }
     clone() {
         const newCanvas = document.createElement('canvas');
-        const newCtx = getContext(newCanvas);
+        const newCtx = canvasUtils.getContext(newCanvas);
         newCanvas.width = this.canvas.width;
         newCanvas.height = this.canvas.height;
         newCtx.drawImage(this.canvas, 0, 0);

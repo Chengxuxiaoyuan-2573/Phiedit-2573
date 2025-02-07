@@ -10,15 +10,12 @@
                     :src="chartPackage.musicSrc"
                 />
                 <template v-if="audioRef">
-                    <ElIcon size="30">
-                        <VideoPlay
-                            v-if="!audioIsPlaying"
-                            @click="audioRef.play()"
-                        />
-                        <VideoPause
-                            v-else
-                            @click="audioRef.pause()"
-                        />
+                    <ElIcon
+                        size="30"
+                        @click="mediaUtils.togglePlay(audioRef)"
+                    >
+                        <VideoPlay v-if="!audioIsPlaying" />
+                        <VideoPause v-else />
                     </ElIcon>
                     <ElSlider
                         v-model="time"
@@ -39,19 +36,39 @@
                 >
                     {{ editor.state.canvas == CanvasState.Editing ? "切换到播放器界面" : "切换到编辑器界面" }}
                 </ElButton>
-                <ElText
+                <p
                     :style="{
-                        color: fps > 30 ? 'green' : fps > 20 ? 'orange' : 'red',
+                        color: (() => {
+                            if (fps >= fpsLimit) {
+                                return 'green';
+                            }
+                            else if (fps >= fpsLimit / 2) {
+                                return 'skyblue';
+                            }
+                            else if (fps >= fpsLimit / 4) {
+                                return 'orange';
+                            }
+                            else {
+                                return 'red';
+                            }
+                        })(),
                         display: 'block',
                         whiteSpace: 'nowrap'
                     }"
                     useless-attribute
                 >
                     FPS: {{ fps.toFixed(1) }}
-                </ElText>
+                </p>
             </ElRow>
             <ElRow>
-                右键放置，左键选择，选择之后按住拖动，按Alt拖动尾部，QWER切换note种类，方括号切换判定线
+                右键放置，
+                左键选择，
+                选择之后按住拖动，
+                按Alt拖动尾部，
+                QWER切换note种类，
+                方括号切换判定线，
+                短按空格播放或暂停，
+                长按空格预览谱面
             </ElRow>
         </ElHeader>
         <ElAside
@@ -59,42 +76,44 @@
             @wheel.stop
             @keydown.stop
         >
-            <h1>Phiedit 2573 线上制谱器</h1>
-            <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
-            <ElUpload :before-upload="file => ChartPackage.load(file, str => loadingText.show(str)).then(a => {
-                chartPackage.chart = new Chart(a.chart);
-                chartPackage.background = a.background;
-                chartPackage.textures = a.textures;
-                chartPackage.musicSrc = a.musicSrc;
-                loadingText.hide();
-                // eslint-disable-next-line vue/html-closing-bracket-newline
-            })">
-                <template #trigger>
-                    <ElButton type="primary">
-                        上传谱面文件压缩包
-                    </ElButton>
-                </template>
-            </ElUpload>
-            <ElUpload
-                :before-upload="async file => {
-                    const a = await ResourcePackage.load(file, str => loadingText.show(str));
-                    Object.assign(resourcePackage, a);
+            <div class="left-inner">
+                <h1>Phiedit 2573 线上制谱器</h1>
+                <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
+                <ElUpload :before-upload="file => ChartPackage.load(file, str => loadingText.show(str)).then(a => {
+                    chartPackage.chart = new Chart(a.chart);
+                    chartPackage.background = a.background;
+                    chartPackage.textures = a.textures;
+                    chartPackage.musicSrc = a.musicSrc;
                     loadingText.hide();
-                }"
-                useless-attribute
-            >
-                <template #trigger>
-                    <ElButton type="primary">
-                        上传资源包
-                    </ElButton>
-                </template>
-            </ElUpload>
-            <ElButton
-                type="primary"
-                @click="mediaUtils.downloadText(JSON.stringify(chartPackage.chart.toObject()), chartPackage.chart.META.name + '.json', 'application/json')"
-            >
-                下载谱面文件
-            </ElButton>
+                    // eslint-disable-next-line vue/html-closing-bracket-newline
+                })">
+                    <template #trigger>
+                        <ElButton type="primary">
+                            上传谱面文件（zip或pez格式）
+                        </ElButton>
+                    </template>
+                </ElUpload>
+                <ElUpload
+                    :before-upload="async file => {
+                        const a = await ResourcePackage.load(file, str => loadingText.show(str));
+                        Object.assign(resourcePackage, a);
+                        loadingText.hide();
+                    }"
+                    useless-attribute
+                >
+                    <template #trigger>
+                        <ElButton type="primary">
+                            上传资源包（zip格式）
+                        </ElButton>
+                    </template>
+                </ElUpload>
+                <ElButton
+                    type="primary"
+                    @click="downloadChart"
+                >
+                    下载谱面文件（json格式）
+                </ElButton>
+            </div>
         </ElAside>
         <ElMain>
             <canvas
@@ -110,66 +129,68 @@
             @keydown.stop
         >
             <template v-if="editor.state.right == RightState.Default">
-                <ElButton
-                    type="primary"
-                    @click="editor.state.right = RightState.Settings"
-                >
-                    设置
-                </ElButton>
-                <ElButton
-                    type="primary"
-                    @click="editor.state.right = RightState.BPMList"
-                >
-                    BPM编辑
-                </ElButton>
-                <ElButton
-                    type="primary"
-                    @click="editor.state.right = RightState.Meta"
-                >
-                    谱面信息编辑
-                </ElButton>
-                <ElButton
-                    type="primary"
-                    @click="editor.state.right = RightState.JudgeLine"
-                >
-                    判定线编辑
-                </ElButton>
-                <MyInputNumber
-                    v-model="editor.currentJudgeLineNumber"
-                    :min="0"
-                    :max="chartPackage.chart.judgeLineList.length - 1"
-                >
-                    <template #prepend>
-                        当前判定线号
-                    </template>
-                </MyInputNumber>
-                <MyInputNumber
-                    v-model="editor.currentEventLayerNumber"
-                    :min="0"
-                    :max="chartPackage.chart.judgeLineList[editor.currentJudgeLineNumber].eventLayers.length - 1"
-                >
-                    <template #prepend>
-                        当前事件层级号
-                    </template>
-                </MyInputNumber>
-                <MyInputNumber
-                    v-model="editor.horizonalLineCount"
-                    :min="1"
-                    :max="1024"
-                >
-                    <template #prepend>
-                        横线数
-                    </template>
-                </MyInputNumber>
-                <MyInputNumber
-                    v-model="editor.verticalLineCount"
-                    :min="2"
-                    :max="1350"
-                >
-                    <template #prepend>
-                        竖线数
-                    </template>
-                </MyInputNumber>
+                <div class="right-inner">
+                    <ElButton
+                        type="primary"
+                        @click="editor.state.right = RightState.Settings"
+                    >
+                        设置
+                    </ElButton>
+                    <ElButton
+                        type="primary"
+                        @click="editor.state.right = RightState.BPMList"
+                    >
+                        BPM编辑
+                    </ElButton>
+                    <ElButton
+                        type="primary"
+                        @click="editor.state.right = RightState.Meta"
+                    >
+                        谱面信息编辑
+                    </ElButton>
+                    <ElButton
+                        type="primary"
+                        @click="editor.state.right = RightState.JudgeLine"
+                    >
+                        判定线编辑
+                    </ElButton>
+                    <MyInputNumber
+                        v-model="editor.currentJudgeLineNumber"
+                        :min="0"
+                        :max="chartPackage.chart.judgeLineList.length - 1"
+                    >
+                        <template #prepend>
+                            当前判定线号
+                        </template>
+                    </MyInputNumber>
+                    <MyInputNumber
+                        v-model="editor.currentEventLayerNumber"
+                        :min="0"
+                        :max="chartPackage.chart.judgeLineList[editor.currentJudgeLineNumber].eventLayers.length - 1"
+                    >
+                        <template #prepend>
+                            当前事件层级号
+                        </template>
+                    </MyInputNumber>
+                    <MyInputNumber
+                        v-model="editor.horizonalLineCount"
+                        :min="1"
+                        :max="1024"
+                    >
+                        <template #prepend>
+                            横线数
+                        </template>
+                    </MyInputNumber>
+                    <MyInputNumber
+                        v-model="editor.verticalLineCount"
+                        :min="2"
+                        :max="1350"
+                    >
+                        <template #prepend>
+                            竖线数
+                        </template>
+                    </MyInputNumber>
+                </div>
             </template>
             <template v-else>
                 <ElHeader style="height:25px;">
@@ -183,131 +204,50 @@
                     />
                     <span>返回</span>
                 </ElHeader>
-                <template v-if="editor.state.right == RightState.Editing && editor.selection.length == 1">
+                <template v-if="editor.state.right == RightState.Editing && editor.selectedElements.length == 1">
                     <NoteEditor
-                        v-if="(editor.selection[0] instanceof Note)"
-                        v-model="editor.selection[0]"
+                        v-if="(editor.selectedElements[0] instanceof Note)"
+                        v-model="editor.selectedElements[0]"
                     />
                     <NumberEventEditor
-                        v-else-if="(editor.selection[0] instanceof NumberEvent)"
-                        v-model="editor.selection[0]"
+                        v-else-if="(editor.selectedElements[0] instanceof NumberEvent)"
+                        v-model="editor.selectedElements[0]"
                     />
                 </template>
-                <template v-else-if="editor.state.right == RightState.Editing && editor.selection.length > 1">
-                    暂不支持多选编辑
-                </template>
+                <MutipleEditor
+                    v-else-if="editor.state.right == RightState.Editing && editor.selectedElements.length > 1"
+                />
                 <BPMListEditor v-else-if="editor.state.right == RightState.BPMList" />
                 <ChartMetaEditor v-else-if="editor.state.right == RightState.Meta" />
                 <JudgeLineEditor v-else-if="editor.state.right == RightState.JudgeLine" />
-                <template v-else-if="editor.state.right == RightState.Settings">
-                    <MyInputNumber
-                        v-model="chartPackage.config.chartSpeed"
-                        :min="0"
-                    >
-                        <template #prepend>
-                            谱面流速
-                        </template>
-                        <template #append>
-                            像素每秒
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="chartPackage.config.lineWidth"
-                        :min="0"
-                    >
-                        <template #prepend>
-                            判定线宽度
-                        </template>
-                        <template #append>
-                            像素
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="chartPackage.config.textSize"
-                        :min="0"
-                    >
-                        <template #prepend>
-                            文字大小
-                        </template>
-                        <template #append>
-                            像素
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="chartPackage.config.backgroundDarkness"
-                        :min="0"
-                        :max="100"
-                    >
-                        <template #prepend>
-                            背景黑暗度
-                        </template>
-                        <template #append>
-                            %
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="chartPackage.config.noteSize"
-                        :min="0"
-                    >
-                        <template #prepend>
-                            note大小
-                        </template>
-                        <template #append>
-                            像素
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="resourcePackage.config.hitFxDuration"
-                        :min="0"
-                    >
-                        <template #prepend>
-                            打击特效时间
-                        </template>
-                        <template #append>
-                            秒
-                        </template>
-                    </MyInputNumber>
-                    <ElCheckbox v-model="resourcePackage.config.hitFxRotate">
-                        打击特效随判定线旋转
-                    </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.config.holdKeepHead">
-                        Hold正在判定时显示头部
-                    </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.config.hideParticles">
-                        隐藏粒子
-                    </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.config.holdCompact">
-                        Hold中间与头尾重叠（不支持，懒得做）
-                    </ElCheckbox>
-                    <ElCheckbox v-model="resourcePackage.config.holdRepeat">
-                        Hold中间重复式拉伸
-                    </ElCheckbox>
-                </template>
+                <SettingsEditor v-else-if="editor.state.right == RightState.Settings" />
             </template>
         </ElAside>
     </ElContainer>
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElRow, ElSlider, ElText, ElUpload } from "element-plus";
-import { onMounted, onUnmounted, provide, reactive, Ref, ref } from "vue";
+import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElRow, ElSlider, ElUpload } from "element-plus";
+import { onBeforeUnmount, onMounted, provide, reactive, ref } from "vue";
 
 import { Chart } from "./classes/chart";
 import { ChartPackage } from "./classes/chartPackage";
 import { NumberEvent } from "./classes/event";
 import { Note } from "./classes/note";
 import { ResourcePackage } from "./classes/resourcePackage";
-import { CanvasState, Editor, RightState } from "./editor";
-import { chartPackage, resourcePackage } from "./store";
 
 import ChartRenderer from "./chartRenderer";
 import eventEmitter from "./eventEmitter";
+import { CanvasState, Editor, RightState } from "./editor";
+import { chartPackage, resourcePackage, canvasRef, audioRef } from "./store";
 
 import BPMListEditor from "./editorComponents/BPMListEditor.vue";
 import ChartMetaEditor from "./editorComponents/ChartMetaEditor.vue";
 import JudgeLineEditor from "./editorComponents/JudgeLineEditor.vue";
 import NoteEditor from "./editorComponents/NoteEditor.vue";
 import NumberEventEditor from "./editorComponents/NumberEventEditor.vue";
+import MutipleEditor from "./editorComponents/MutipleEditor.vue";
+import SettingsEditor from "./editorComponents/SettingsEditor.vue";
 
 import MyInputNumber from "./myElements/MyInputNumber.vue";
 
@@ -315,191 +255,255 @@ import loadingText from "./tools/loadingText";
 import mediaUtils from "./tools/mediaUtils";
 import math from "./tools/math";
 import { clamp } from "lodash";
-import MyCalculator from "./myElements/MyCalculator.vue";
 
-const canvasRef: Ref<HTMLCanvasElement | null> = ref(null);
-const audioRef: Ref<HTMLAudioElement | null> = ref(null);
 const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
-const editor = reactive(new Editor(chartPackage, resourcePackage));
+const editor: Editor = reactive(new Editor(chartPackage, resourcePackage));
 
 provide("editor", editor);
 provide("textures", chartPackage.textures);
 
+const fpsLimit = 60;
+let cachedRect: DOMRect;
+function downloadChart() {
+    mediaUtils.downloadText(
+        JSON.stringify(chartPackage.chart.toObject()),
+        chartPackage.chart.META.name + '.json',
+        'application/json');
+}
+function canvasMouseDown(e: MouseEvent) {
+    const { x, y } = getClickedPosition(e);
+    const options = {
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+        alt: e.altKey,
+        meta: e.metaKey
+    }
+    switch (e.button) {
+        case 0:
+            eventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
+            return;
+        case 2:
+            eventEmitter.emit("MOUSE_RIGHT_CLICK", x, y);
+            return;
+    }
+}
+function canvasMouseMove(e: MouseEvent) {
+    const options = {
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+        alt: e.altKey,
+        meta: e.metaKey
+    }
+    const { x, y } = getClickedPosition(e);
+    eventEmitter.emit("MOUSE_MOVE", x, y, options);
+}
+function canvasMouseUp() {
+    eventEmitter.emit("MOUSE_UP");
+}
+function windwoOnWheel(e: WheelEvent) {
+    const audio = audioRef.value;
+    if (!audio) throw new Error("audio is null");
+    if (e.ctrlKey) {
+        e.preventDefault();
+        editor.pxPerSecond = clamp(editor.pxPerSecond + e.deltaY * -0.05, 1, 1000);
+    } else {
+        audio.currentTime += e.deltaY / -editor.pxPerSecond;
+    }
+}
+function canvasOnResize() {
+    const canvas = canvasRef.value;
+    if (!canvas) throw new Error("canvas is null");
+    cachedRect = canvas.getBoundingClientRect();
+}
+function windowOnKeyDown(e: KeyboardEvent) {
+    const audio = audioRef.value;
+    if (!audio) throw new Error("audio is null");
+    if (e.repeat) {
+        return;
+    }
+    //const { ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = e;
+    const key = formatKey(e);
+    console.log(key);
+    switch (key) {
+        case "Space": {
+            const time = 300;
+            const audioTime = audio.currentTime;
+            let pressTime = performance.now();
+            let releaseTime = undefined;
+            let spacePressed = true;
+            const keyUpHandler = (e: KeyboardEvent) => {
+                releaseTime = performance.now();
+                const key = formatKey(e);
+                if (key == "Space") {
+                    spacePressed = false;
+                    if (releaseTime - pressTime < time) {
+                        mediaUtils.togglePlay(audio);
+                    }
+                    else {
+                        editor.state.canvas = CanvasState.Editing;
+                        audio.currentTime = audioTime;
+                        audio.pause();
+                    }
+                    window.removeEventListener("keyup", keyUpHandler);
+                }
+            };
+            window.addEventListener("keyup", keyUpHandler);
+            const timeout = setTimeout(() => {
+                if (spacePressed) {
+                    editor.state.canvas = CanvasState.Playing;
+                    audio.play();
+                }
+                clearTimeout(timeout);
+            }, time);
+            return;
+        }
+        case "Esc":
+            editor.unselectAll();
+            return;
+        case "Del":
+            editor.deleteSelection();
+            editor.unselectAll();
+            return;
+        case "Q":
+            editor.changeType("Tap");
+            return;
+        case "W":
+            editor.changeType("Drag");
+            return;
+        case "E":
+            editor.changeType("Flick");
+            return;
+        case "R":
+            editor.changeType("Hold");
+            return;
+        case "[":
+            if (editor.currentJudgeLineNumber > 0)
+                editor.currentJudgeLineNumber--;
+            return;
+        case "]":
+            if (editor.currentJudgeLineNumber < editor.chart.judgeLineList.length - 1)
+                editor.currentJudgeLineNumber++;
+            return;
+        case "Ctrl S":
+            e.preventDefault();
+            downloadChart();
+            return;
+        case "Ctrl C":
+            editor.copy();
+            return;
+        case "Ctrl V":
+            editor.paste();
+            return;
+    }
+}
+function preventContextMenu(e: MouseEvent) {
+    e.preventDefault();
+}
+/**
+ * 该函数用于在含有object-fit:contain的canvas上获取点击位置
+ * 该函数根据MouseEvent对象计算出点击位置在canvas绘制上下文中的坐标
+ * 解决了由于canvas外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
+ */
+function getClickedPosition({ offsetX: x, offsetY: y }: MouseEvent) {
+    const canvas = canvasRef.value;
+    if (!canvas) throw new Error("canvas is null");
+
+    const innerWidth = canvas.width;
+    const innerHeight = canvas.height;
+    const innerRatio = innerWidth / innerHeight;
+
+    const outerWidth = cachedRect.width;
+    const outerHeight = cachedRect.height;
+    const outerRatio = outerWidth / outerHeight;
+
+    // 计算缩放比和边距
+    const { ratio, padding } = (() => {
+        if (innerRatio > outerRatio) {
+            const width = outerWidth;
+            const height = width / innerRatio;
+            const padding = (outerHeight - height) / 2;
+            return { padding, ratio: innerWidth / width };
+        } else {
+            const height = outerHeight;
+            const width = height * innerRatio;
+            const padding = (outerWidth - width) / 2;
+            return { padding, ratio: innerHeight / height };
+        }
+    })();
+
+    // 根据宽高比返回调整后的坐标
+    if (innerRatio > outerRatio) {
+        return { x: x * ratio, y: (y - padding) * ratio };
+    } else {
+        return { y: y * ratio, x: (x - padding) * ratio };
+    }
+}
+/**
+ * 将键盘事件转换为按键字符串
+ * 如果有Ctrl、Shift等修饰键，则将修饰键加上
+ */
+function formatKey(e: KeyboardEvent) {
+    let str = "";
+    if (e.ctrlKey) str += "Ctrl ";
+    if (e.shiftKey) str += "Shift ";
+    if (e.altKey) str += "Alt ";
+    if (e.metaKey) str += "Meta ";
+    function formatSingleKey(key: string) {
+        switch (key) {
+            case " ":
+                return "Space";
+            case "Escape":
+                return "Esc";
+            case "Delete":
+                return "Del";
+            case "ArrowLeft":
+                return "Left";
+            case "ArrowRight":
+                return "Right";
+            case "ArrowUp":
+                return "Up";
+            case "ArrowDown":
+                return "Down";
+            default:
+                return key.toUpperCase();
+        }
+    }
+    if (e.key != "Control" && e.key != "Shift" && e.key != "Alt" && e.key != "Meta")
+        str += formatSingleKey(e.key);
+    return str;
+}
 onMounted(() => {
     const canvas = canvasRef.value!;
     const audio = audioRef.value!;
-    const renderer = new ChartRenderer({
-        canvasRef: canvasRef as Ref<HTMLCanvasElement>,
-        chartPackage,
-        resourcePackage,
-    });
-    let cachedRect = canvas.getBoundingClientRect();
-    function getClickedPosition({ offsetX: x, offsetY: y }: MouseEvent) {
-        /** canvas的内宽度（单位为canvas绘制上下文的像素） */
-        const innerWidthCanvasPixels = canvas.width;
-        /** canvas的内高度（单位为canvas绘制上下文的像素） */
-        const innerHeightCanvasPixels = canvas.height;
-        /** canvas内部的宽高比 */
-        const innerRatio = innerWidthCanvasPixels / innerHeightCanvasPixels;
-        /** canvas的外宽度（单位为浏览器像素） */
-        const outerWidthBrowserPixels = cachedRect.width;
-        /** canvas的外高度（单位为浏览器像素） */
-        const outerHeightBrowserPixels = cachedRect.height;
-        /** canvas外部的宽高比 */
-        const outerRatio = outerWidthBrowserPixels / outerHeightBrowserPixels;
-        /** canvas的缩放比和单边边距 */
-        const { browserToCanvasRatio, padding } = (() => {
-            if (innerRatio > outerRatio) {
-                const width = outerWidthBrowserPixels;
-                const height = width / innerRatio;
-                const padding = (outerHeightBrowserPixels - height) / 2;
-                return { padding, browserToCanvasRatio: innerWidthCanvasPixels / width };
-            }
-            else {
-                const height = outerHeightBrowserPixels;
-                const width = height * innerRatio;
-                const padding = (outerWidthBrowserPixels - width) / 2;
-                return { padding, browserToCanvasRatio: innerHeightCanvasPixels / height };
-            }
-        })();
-        if (innerRatio > outerRatio) {
-            return { x: x * browserToCanvasRatio, y: (y - padding) * browserToCanvasRatio };
-        }
-        else {
-            return { y: y * browserToCanvasRatio, x: (x - padding) * browserToCanvasRatio };
-        }
-    }
-    function formatKey(e: KeyboardEvent) {
-        let str = "";
-        if (e.ctrlKey) str += "Ctrl ";
-        if (e.shiftKey) str += "Shift ";
-        if (e.altKey) str += "Alt ";
-        if (e.metaKey) str += "Meta ";
-        function formatSingleKey(key: string) {
-            switch (key) {
-                case " ":
-                    return "Space";
-                case "Escape":
-                    return "Esc";
-                case "Delete":
-                    return "Del";
-                case "ArrowLeft":
-                    return "Left";
-                case "ArrowRight":
-                    return "Right";
-                case "ArrowUp":
-                    return "Up";
-                case "ArrowDown":
-                    return "Down";
-                default:
-                    return key.toUpperCase();
-            }
-        }
-        if (e.key != "Control" && e.key != "Shift" && e.key != "Alt" && e.key != "Meta")
-            str += formatSingleKey(e.key);
-        return str;
-    }
-    canvas.onmousedown = e => {
-        const { x, y } = getClickedPosition(e);
-        const options = {
-            ctrl: e.ctrlKey,
-            shift: e.shiftKey,
-            alt: e.altKey,
-            meta: e.metaKey
-        }
-        const seconds = audio.currentTime - chartPackage.chart.META.offset / 1000;
-        switch (e.button) {
-            case 0:
-                eventEmitter.emit("MOUSE_LEFT_CLICK", x, y, seconds, options);
-                return;
-            case 2:
-                eventEmitter.emit("MOUSE_RIGHT_CLICK", x, y, seconds);
-                return;
-        }
-    };
-    canvas.onmousemove = e => {
-        const options = {
-            ctrl: e.ctrlKey,
-            shift: e.shiftKey,
-            alt: e.altKey,
-            meta: e.metaKey
-        }
-        const { x, y } = getClickedPosition(e);
-        const seconds = audio.currentTime - chartPackage.chart.META.offset / 1000;
-        eventEmitter.emit("MOUSE_MOVE", x, y, seconds, options);
-    }
-    canvas.onmouseup = () => {
-        eventEmitter.emit("MOUSE_UP");
-    }
-    window.onresize = () => {
-        cachedRect = canvas.getBoundingClientRect();
-    }
-    window.addEventListener('wheel', e => {
-        if (e.ctrlKey) {
-            e.preventDefault();
-            editor.pxPerSecond = clamp(editor.pxPerSecond + e.deltaY * 0.05, 1, 1000);
-        } else {
-            audio.currentTime += e.deltaY / -editor.pxPerSecond;
-        }
-    }, {
+    const renderer = new ChartRenderer({ chartPackage, resourcePackage });
+    cachedRect = canvas.getBoundingClientRect();
+
+    canvas.addEventListener('mousedown', canvasMouseDown);
+    canvas.addEventListener('mousemove', canvasMouseMove);
+    canvas.addEventListener('mouseup', canvasMouseUp);
+    canvas.addEventListener('resize', canvasOnResize);
+    window.addEventListener('wheel', windwoOnWheel, {
         passive: false
     });
-    window.onkeydown = e => {
-        //const { ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = e;
-        const key = formatKey(e);
-        console.log(key);
-        switch (key) {
-            case "Space":
-                mediaUtils.togglePlay(audio);
-                return;
-            case "Esc":
-                editor.unselect();
-                return;
-            case "Del":
-                editor.deleteSelection();
-                editor.unselect();
-                return;
-            case "Q":
-                editor.changeType("Tap");
-                return;
-            case "W":
-                editor.changeType("Drag");
-                return;
-            case "E":
-                editor.changeType("Flick");
-                return;
-            case "R":
-                editor.changeType("Hold");
-                return;
-            case "[":
-                if (editor.currentJudgeLineNumber > 0)
-                    editor.currentJudgeLineNumber--;
-                return;
-            case "]":
-                if (editor.currentJudgeLineNumber < editor.chart.judgeLineList.length - 1)
-                    editor.currentJudgeLineNumber++;
-                return;
-        }
-    }
-    document.oncontextmenu = e => e.preventDefault();
-    editor.provideCanvas(canvasRef as Ref<HTMLCanvasElement>);
+    window.addEventListener('keydown', windowOnKeyDown);
+    document.oncontextmenu = preventContextMenu;
 
     let fpsHistory = [];
     let renderTime = performance.now();
-    setInterval(() => {
+    const interval = setInterval(() => {
         if (editor.state.canvas == CanvasState.Editing) {
-            editor.renderUI(audio.currentTime);
+            editor.render();
         }
         else {
-            renderer.renderChart(audio.currentTime);
+            renderer.renderChart();
         }
         const now = performance.now();
         const delta = now - renderTime;
 
         if (delta > 0) {
-            const currentFPS = 1000 / delta;
+            const currentFPS = Math.min(1000 / delta, fpsLimit);
             fpsHistory.push(currentFPS);
             // 限制FPS历史数组的大小
             if (fpsHistory.length > 10) {
@@ -513,16 +517,25 @@ onMounted(() => {
         renderTime = now;
         time.value = audio.currentTime;
         audioIsPlaying.value = !audio.paused;
-    }, 0);
-});
-onUnmounted(() => {
-    if (audioRef.value) {
-        audioRef.value.pause();
+    }, 1000 / fpsLimit);
+    onBeforeUnmount(() => {
+        const canvas = canvasRef.value;
+        const audio = audioRef.value;
+        if (audio) {
+            audio.pause();
+        }
+        if (canvas) {
+            canvas.removeEventListener('mousedown', canvasMouseDown);
+            canvas.removeEventListener('mousemove', canvasMouseMove);
+            canvas.removeEventListener('mouseup', canvasMouseUp);
+            canvas.removeEventListener("resize", canvasOnResize);
+        }
+        window.removeEventListener("wheel", windwoOnWheel);
+        window.removeEventListener("keydown", windowOnKeyDown);
+        clearInterval(interval);
         audioRef.value = null;
-    }
-    if (canvasRef.value) {
         canvasRef.value = null;
-    }
+    });
 });
 </script>
 <style>
@@ -549,9 +562,12 @@ onUnmounted(() => {
         "left main right";
 }
 
-.el-container>* {
-    width: 100%;
-    height: 100%;
+.el-header {
+    grid-area: header;
+}
+
+.el-aside.left {
+    grid-area: left;
 }
 
 .el-main {
@@ -559,31 +575,26 @@ onUnmounted(() => {
     --el-main-padding: 0;
 }
 
-
-.el-header {
-    grid-area: header;
+.el-aside.right {
+    grid-area: right;
 }
 
-.el-row {
+
+.el-header>.el-row {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
+    gap: 10px;
 }
 
-.el-aside {
+.left-inner,
+.right-inner {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
 }
 
-.el-aside.left {
-    grid-area: left;
-}
-
-.el-aside.right {
-    grid-area: right;
-}
 
 .canvas {
     object-fit: contain;

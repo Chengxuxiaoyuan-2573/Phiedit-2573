@@ -1,7 +1,7 @@
 import { EasingType } from "./easing";
 import { Beats, getBeatsValue, beatsToSeconds, validateBeats, BPM, formatBeats, parseBeats } from "./beats"
 import { isArrayOfNumbers } from "../tools/typeCheck";
-import { RGBcolor } from "./color";
+import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString } from "lodash";
 type BezierPoints = [number, number, number, number]
 export interface IEvent<T> {
@@ -25,10 +25,10 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     abstract end: T;
     _startTime: Beats = [0, 0, 1]
     _endTime: Beats = [0, 0, 1]
-    abstract type?: string;
+    readonly abstract type?: string;
     cachedStartSeconds: number;
     cachedEndSeconds: number;
-    BPMList: BPM[];
+    readonly BPMList: BPM[];
     get startTime() {
         return this._startTime;
     }
@@ -38,12 +38,12 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     set startTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
         this._startTime = validateBeats(beats);
-        this.calculateSeconds(this.BPMList);
+        this.calculateSeconds();
     }
     set endTime(beats: Beats) {
         if (beats[2] == 0) beats[2] = 1;
         this._endTime = validateBeats(beats);
-        this.calculateSeconds(this.BPMList);
+        this.calculateSeconds();
     }
     validateTime() {
         if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
@@ -77,9 +77,9 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     get durationBeats() {
         return getBeatsValue(this.endTime) - getBeatsValue(this.startTime);
     }
-    calculateSeconds(BPMList: BPM[]) {
-        const startSeconds = beatsToSeconds(BPMList, this.startTime);
-        const endSeconds = beatsToSeconds(BPMList, this.endTime);
+    calculateSeconds() {
+        const startSeconds = beatsToSeconds(this.BPMList, this.startTime);
+        const endSeconds = beatsToSeconds(this.BPMList, this.endTime);
         this.cachedStartSeconds = startSeconds;
         this.cachedEndSeconds = endSeconds;
     }

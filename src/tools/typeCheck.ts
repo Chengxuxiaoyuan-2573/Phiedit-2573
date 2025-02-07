@@ -1,6 +1,6 @@
 import { isArray, isNumber } from "lodash";
 
-type ArrayRepeat<S, N extends number, Acc extends S[] = []> = Acc['length'] extends N ? Acc : ArrayRepeat<S, N, [...Acc, S]>;
+export type ArrayRepeat<S, N extends number, Acc extends S[] = []> = Acc['length'] extends N ? Acc : ArrayRepeat<S, N, [...Acc, S]>;
 
 export function isArrayOfNumbers<N extends number>(value: unknown, count?: N): value is ArrayRepeat<number, N> {
     if (!isArray(value)) return false;

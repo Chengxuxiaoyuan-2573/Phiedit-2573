@@ -1,6 +1,5 @@
 type PositionX = number;
 type PositionY = number;
-type Seconds = number;
 type Options = {
     ctrl: boolean;
     shift: boolean;
@@ -8,9 +7,9 @@ type Options = {
     meta: boolean;
 }
 interface EventMap {
-    MOUSE_LEFT_CLICK: [PositionX, PositionY, Seconds, Options]
-    MOUSE_RIGHT_CLICK: [PositionX, PositionY, Seconds]
-    MOUSE_MOVE: [PositionX, PositionY, Seconds, Options]
+    MOUSE_LEFT_CLICK: [PositionX, PositionY, Options]
+    MOUSE_RIGHT_CLICK: [PositionX, PositionY]
+    MOUSE_MOVE: [PositionX, PositionY, Options]
     MOUSE_UP: []
 }
 

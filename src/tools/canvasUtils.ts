@@ -1,8 +1,14 @@
 import { isString } from "lodash";
-import { RGBcolor, RGBAcolor, colorToString } from "../classes/color";
+import { RGBcolor, RGBAcolor, colorToString } from "./color";
 
 export default {
-    drawLine(this: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number, color: string | RGBcolor | RGBAcolor = "white", width: number = 5) {
+    getContext(canvas: HTMLCanvasElement) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) return ctx;
+        else throw new Error("Cannot get the context");
+    },
+    drawLine(this: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number, color: string | RGBcolor | RGBAcolor = "white", width: number = 5, alpha: number = 1) {
+        this.globalAlpha = alpha;
         if (isString(color))
             this.strokeStyle = color;
         else
@@ -13,7 +19,8 @@ export default {
         this.lineTo(endX, endY);
         this.stroke();
     },
-    drawRect(this: CanvasRenderingContext2D, left: number, top: number, w: number, h: number, color: string | RGBcolor | RGBAcolor = "white", fill = false) {
+    drawRect(this: CanvasRenderingContext2D, left: number, top: number, w: number, h: number, color: string | RGBcolor | RGBAcolor = "white", fill = false, alpha: number = 1) {
+        this.globalAlpha = alpha;
         if (fill) {
             if (isString(color))
                 this.fillStyle = color;
@@ -29,7 +36,8 @@ export default {
             this.strokeRect(left, top, w, h);
         }
     },
-    writeText(this: CanvasRenderingContext2D, text: string, centerX: number, centerY: number, size: number, color: string | RGBcolor | RGBAcolor = "white", fill = true) {
+    writeText(this: CanvasRenderingContext2D, text: string, centerX: number, centerY: number, size: number, color: string | RGBcolor | RGBAcolor = "white", fill = true, alpha: number = 1) {
+        this.globalAlpha = alpha;
         this.font = `${size}px PhiFont`;
         this.textAlign = "center";
         this.textBaseline = "middle";

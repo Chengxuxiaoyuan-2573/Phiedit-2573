@@ -1,6 +1,6 @@
 import { isObject, isArray } from "lodash"
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event"
-import { RGBcolor } from "./color"
+import { RGBcolor } from "../tools/color"
 import { BPM } from "./beats"
 export interface IBaseEventLayer {
     moveXEvents: IEvent<number>[]

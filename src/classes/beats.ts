@@ -40,6 +40,11 @@ export class BPM implements IBPM {
         }
     }
 }
+/**
+ * 第一个数字代表整数部分  
+ * 第二、三个数字代表小数部分
+ * 数值为第一个数字 + 第二个数字 / 第三个数字
+ */
 export type Beats = [number, number, number];
 
 export function beatsToSeconds(BPMList: BPM[], beats: Beats | number): number {
@@ -100,4 +105,17 @@ export function parseBeats(str: string) {
         Number.isNaN(+split[1]) ? 0 : +split[1],
         Number.isNaN(+split[2]) ? 1 : +split[2]];
     return beats;
+}
+
+export function addBeats(beats1: Beats, beats2: Beats): Beats {
+    const fenmu = math.lcm(beats1[2], beats2[2]);
+    const fenzi1 = beats1[1] * fenmu / beats1[2];
+    const fenzi2 = beats2[1] * fenmu / beats2[2];
+    let fenzi = fenzi1 + fenzi2;
+    const int = beats1[0] + beats2[0] + Math.floor(fenzi / fenmu);
+    fenzi %= fenmu;
+    return [int, fenzi, fenmu];
+}
+export function subBeats(beats1: Beats, beats2: Beats): Beats {
+    return addBeats(beats1, [-beats2[0], -beats2[1], beats2[2]]);
 }

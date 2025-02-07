@@ -1,5 +1,5 @@
 <template>
-    <div class="ChartMetaEditor">
+    <div class="chartmeta-editor">
         <MyInput v-model="editor.chart.META.name">
             <template #prepend>
                 曲名
@@ -34,8 +34,15 @@
 </template>
 <script setup lang="ts">
 import { inject } from 'vue';
-import { Editor } from '../classes/editor';
+import { Editor } from '../editor';
 import MyInput from '../myElements/MyInput.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 const editor = inject('editor') as Editor;
 </script>
+<style scoped>
+.chartmeta-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+</style>
