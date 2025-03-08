@@ -128,7 +128,7 @@ export class ResourcePackage implements IResourcePackage {
         this.config = resourcePackage.config;
     }
     static load(file: Blob, progressHandler?: (progress: string) => void, p = 2) {
-        return new Promise<IResourcePackage>((resolve) => {
+        return new Promise<ResourcePackage>((resolve) => {
             const reader = new FileReaderExtends();
             resolve(
                 reader.readAsync(file, 'arraybuffer', function (e: ProgressEvent) {
@@ -322,7 +322,7 @@ export class ResourcePackage implements IResourcePackage {
                             goodHitFxFrames.push(coloredFrameGood.canvas);
                         }
                     }
-                    return {
+                    return new ResourcePackage({
                         tap, drag, flick, holdHead, holdEnd, holdBody,
                         tapHL, dragHL, flickHL, holdHLHead, holdHLEnd, holdHLBody,
                         tapSound, dragSound, flickSound,
@@ -332,7 +332,7 @@ export class ResourcePackage implements IResourcePackage {
                             holdKeepHead, holdRepeat, holdCompact,
                             colorPerfect, colorGood
                         }
-                    }
+                    })
                 })
             );
         })

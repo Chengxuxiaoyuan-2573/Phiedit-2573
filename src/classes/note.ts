@@ -1,5 +1,5 @@
 
-import { beatsToSeconds, BPM, formatBeats, parseBeats, validateBeats } from "./beats"
+import { beatsToSeconds, BPM, validateBeats } from "./beats"
 import { isArrayOfNumbers } from "../tools/typeCheck"
 import { Beats, getBeatsValue } from "./beats"
 import { isObject, isNumber } from "lodash"
@@ -63,18 +63,11 @@ export class Note implements INote {
             return this._startTime;
     }
     set startTime(beats: Beats) {
-        if (beats[2] == 0) beats[2] = 1;
         this._startTime = validateBeats(beats);
         this.calculateSeconds();
     }
     set endTime(beats: Beats) {
-        if (beats[2] == 0) beats[2] = 1;
-        if (this.type == NoteType.Hold) {
-            this._endTime = validateBeats(beats);
-        }
-        else {
-            this._startTime = validateBeats(beats);
-        }
+        this._endTime = validateBeats(beats);
         this.calculateSeconds();
     }
     validateTime() {
@@ -83,22 +76,6 @@ export class Note implements INote {
             this.startTime = b;
             this.endTime = a;
         }
-    }
-    get startString() {
-        const beats = formatBeats(this.startTime);
-        return beats;
-    }
-    get endString() {
-        const beats = formatBeats(this.endTime);
-        return beats;
-    }
-    set startString(str: string) {
-        const beats = parseBeats(str);
-        this.startTime = beats;
-    }
-    set endString(str: string) {
-        const beats = parseBeats(str);
-        this.endTime = beats;
     }
     toObject(): INote {
         return {

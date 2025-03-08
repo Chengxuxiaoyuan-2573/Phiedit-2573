@@ -10,11 +10,11 @@ export interface IBaseEventLayer {
     speedEvents: IEvent<number>[]
 }
 export class BaseEventLayer implements IBaseEventLayer {
-    moveXEvents: NumberEvent<'moveX'>[] = []
-    moveYEvents: NumberEvent<'moveY'>[] = []
-    rotateEvents: NumberEvent<'rotate'>[] = []
-    alphaEvents: NumberEvent<'alpha'>[] = []
-    speedEvents: NumberEvent<'speed'>[] = []
+    moveXEvents: NumberEvent[] = []
+    moveYEvents: NumberEvent[] = []
+    rotateEvents: NumberEvent[] = []
+    alphaEvents: NumberEvent[] = []
+    speedEvents: NumberEvent[] = []
     constructor(eventLayer: unknown, BPMList: BPM[]) {
         if (isObject(eventLayer)) {
             if ("moveXEvents" in eventLayer && isArray(eventLayer.moveXEvents))
@@ -45,11 +45,11 @@ export interface IExtendedEventLayer {
 
 }
 export class ExtendedEventLayer implements IExtendedEventLayer {
-    scaleXEvents: NumberEvent<'scaleX'>[] = []
-    scaleYEvents: NumberEvent<'scaleY'>[] = []
-    colorEvents: ColorEvent<'color'>[] = []
-    paintEvents: NumberEvent<'paint'>[] = []// unsupported
-    textEvents: TextEvent<'text'>[] = []
+    scaleXEvents: NumberEvent[] = []
+    scaleYEvents: NumberEvent[] = []
+    colorEvents: ColorEvent[] = []
+    paintEvents: NumberEvent[] = []// unsupported
+    textEvents: TextEvent[] = []
     constructor(eventLayer: unknown, BPMList: BPM[]) {
         if (isObject(eventLayer)) {
             if ("scaleXEvents" in eventLayer && isArray(eventLayer.scaleXEvents))

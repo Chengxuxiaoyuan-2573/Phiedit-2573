@@ -57,6 +57,7 @@ const inputData = ref('');
 const emit = defineEmits<{
     input: [string]
 }>();
+const slots: ReturnType<typeof useSlots> = useSlots();
 const model = defineModel<string>({
     required: true,
 });
@@ -64,7 +65,6 @@ const modelWhen = defineModel<unknown>("when", {
     required: false
 });
 let isInternalUpdate = false;
-const slots: ReturnType<typeof useSlots> = useSlots();
 
 if (isEmpty(modelWhen.value)) {
     watch(model, () => {

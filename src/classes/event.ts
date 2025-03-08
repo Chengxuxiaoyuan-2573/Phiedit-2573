@@ -1,5 +1,5 @@
-import { EasingType } from "./easing";
-import { Beats, getBeatsValue, beatsToSeconds, validateBeats, BPM, formatBeats, parseBeats } from "./beats"
+import { cubicBezierEase, easingFuncs, EasingType } from "./easing";
+import { Beats, getBeatsValue, beatsToSeconds, validateBeats, BPM } from "./beats"
 import { isArrayOfNumbers } from "../tools/typeCheck";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString } from "lodash";
@@ -25,7 +25,6 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     abstract end: T;
     _startTime: Beats = [0, 0, 1]
     _endTime: Beats = [0, 0, 1]
-    readonly abstract type?: string;
     cachedStartSeconds: number;
     cachedEndSeconds: number;
     readonly BPMList: BPM[];
@@ -36,12 +35,10 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
         return this._endTime;
     }
     set startTime(beats: Beats) {
-        if (beats[2] == 0) beats[2] = 1;
         this._startTime = validateBeats(beats);
         this.calculateSeconds();
     }
     set endTime(beats: Beats) {
-        if (beats[2] == 0) beats[2] = 1;
         this._endTime = validateBeats(beats);
         this.calculateSeconds();
     }
@@ -51,22 +48,6 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             this.startTime = b;
             this.endTime = a;
         }
-    }
-    get startString() {
-        return formatBeats(this.startTime);
-    }
-    get endString() {
-        return formatBeats(this.endTime);
-    }
-    set startString(str: string) {
-        const beats = parseBeats(str);
-        if (beats == null) return;
-        this.startTime = beats;
-    }
-    set endString(str: string) {
-        const beats = parseBeats(str);
-        if (beats == null) return;
-        this.endTime = beats;
     }
     get easingLeftRight() {
         return [this.easingLeft, this.easingRight];
@@ -96,7 +77,7 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             endTime: this.endTime
         }
     }
-    constructor(event: unknown, BPMList: BPM[]) {
+    constructor(event: unknown, BPMList: BPM[], readonly type?: string) {
         if (isObject(event)) {
             if ("bezier" in event)
                 this.bezier = event.bezier ? 1 : 0;
@@ -121,13 +102,11 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
         this.cachedEndSeconds = beatsToSeconds(BPMList, this._endTime);
     }
 }
-export class NumberEvent<T extends 'moveX' | 'moveY' | 'rotate' | 'alpha' | 'speed' | 'scaleX' | 'scaleY' | 'paint' = 'moveX' | 'moveY' | 'rotate' | 'alpha' | 'speed' | 'scaleX' | 'scaleY' | 'paint'> extends BaseEvent<number> {
+export class NumberEvent extends BaseEvent<number> {
     start: number = 0;
     end: number = 0;
-    type?: T;
-    constructor(event: unknown, BPMList: BPM[], type?: T) {
-        super(event, BPMList);
-        this.type = type;
+    constructor(event: unknown, BPMList: BPM[], type?: string) {
+        super(event, BPMList, type);
         if (isObject(event)) {
             if ("start" in event && isNumber(event.start))
                 this.start = event.start;
@@ -136,13 +115,11 @@ export class NumberEvent<T extends 'moveX' | 'moveY' | 'rotate' | 'alpha' | 'spe
         }
     }
 }
-export class ColorEvent<T extends 'color' = 'color'> extends BaseEvent<RGBcolor> {
+export class ColorEvent extends BaseEvent<RGBcolor> {
     start: RGBcolor = [128, 128, 255];
     end: RGBcolor = [128, 128, 255];
-    type?: T;
-    constructor(event: unknown, BPMList: BPM[], type?: T) {
-        super(event, BPMList);
-        this.type = type;
+    constructor(event: unknown, BPMList: BPM[], type?: string) {
+        super(event, BPMList, type);
         if (isObject(event)) {
             if ("start" in event && isArrayOfNumbers(event.start, 3))
                 this.start = [event.start[0], event.start[1], event.start[2]];
@@ -151,13 +128,11 @@ export class ColorEvent<T extends 'color' = 'color'> extends BaseEvent<RGBcolor>
         }
     }
 }
-export class TextEvent<T extends 'text' = 'text'> extends BaseEvent<string> {
+export class TextEvent extends BaseEvent<string> {
     start: string = "";
     end: string = "";
-    type?: T;
-    constructor(event: unknown, BPMList: BPM[], type?: T) {
-        super(event, BPMList);
-        this.type = type;
+    constructor(event: unknown, BPMList: BPM[], type?: string) {
+        super(event, BPMList, type);
         if (isObject(event)) {
             if ("start" in event && isString(event.start))
                 this.start = event.start;
@@ -165,4 +140,105 @@ export class TextEvent<T extends 'text' = 'text'> extends BaseEvent<string> {
                 this.end = event.end;
         }
     }
+}
+export function interpolateNumberEventValue(event: NumberEvent | null, seconds: number) {
+    const startSeconds = event?.cachedStartSeconds ?? 0;
+    const endSeconds = event?.cachedEndSeconds ?? 0;
+    const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = 0, end = 0, easingType = EasingType.Linear, easingLeft = 0, easingRight = 1 } = event ?? {};
+    if (endSeconds <= seconds) {
+        return end;
+    }
+    else {
+        const dx = endSeconds - startSeconds;
+        const dy = end - start;
+        const sx = seconds - startSeconds;
+        const easingFunction = bezier ?
+            cubicBezierEase(...bezierPoints) :
+            (time: number) => {
+                const left = easingLeft;
+                const right = easingRight;
+                const func = easingFuncs[easingType];
+                const start = func(left);
+                const end = func(right);
+                const deltaX = right - left;
+                const deltaY = end - start;
+
+                return (func(time * deltaX + left) - start) / deltaY;
+            }
+
+        const easingFactor = easingFunction(sx / dx);
+        return start + easingFactor * dy;
+    }
+}
+export function interpolateColorEventValue(event: ColorEvent | null, seconds: number): RGBcolor {
+    const endSeconds = event?.cachedEndSeconds ?? 0;
+    const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = [255, 255, 255], end = [255, 255, 255], easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime, endTime } = event ?? {};
+    const _interpolate = (part: 0 | 1 | 2) => {
+        if (!event) return 127;
+        const e = new NumberEvent({
+            bezier,
+            bezierPoints: [...bezierPoints],
+            start: start[part],
+            end: end[part],
+            easingType,
+            easingLeft,
+            easingRight,
+            startTime,
+            endTime
+        }, event.BPMList);
+        return interpolateNumberEventValue(e, seconds);
+    }
+    if (endSeconds <= seconds) {
+        return end;
+    }
+    else {
+        return [
+            _interpolate(0),
+            _interpolate(1),
+            _interpolate(2)
+        ];
+    }
+}
+export function interpolateTextEventValue(event: TextEvent | null, seconds: number) {
+    const endSeconds = event?.cachedEndSeconds ?? 0;
+    const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = undefined, end = undefined, easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime, endTime } = event ?? {};
+    if (endSeconds <= seconds) {
+        return end;
+    }
+    else {
+        if (start == undefined || end == undefined || event == null) return undefined;
+        if (start.startsWith(end) || end.startsWith(start)) {
+            const lengthStart = start.length;
+            const lengthEnd = end.length;
+            const e = new NumberEvent({
+                startTime,
+                endTime,
+                easingType,
+                easingLeft,
+                easingRight,
+                bezier,
+                bezierPoints: [...bezierPoints],
+                start: lengthStart,
+                end: lengthEnd
+            }, event.BPMList);
+            const length = Math.round(interpolateNumberEventValue(e, seconds));
+            return start.length > end.length ? start.slice(0, length) : end.slice(0, length);
+        }
+        return start;
+    }
+}
+export function findLastEvent<T extends BaseEvent>(events: T[], seconds: number) {
+    let lastEvent: T | null = null;
+    let smallestDifference = Infinity;
+    for (const event of events) {
+        const startSeconds = event.cachedStartSeconds;
+        if (startSeconds <= seconds) {
+            const difference = seconds - startSeconds;
+            if (difference < smallestDifference) {
+                smallestDifference = difference;
+                lastEvent = event;
+            }
+        }
+    }
+    return lastEvent;
 }

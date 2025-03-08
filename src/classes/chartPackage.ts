@@ -3,7 +3,7 @@ import { formatData } from "../tools/algorithm";
 import { isObject, isString } from "lodash";
 import { Chart, IChart } from "./chart";
 import { FileReaderExtends } from "../tools/classExtends";
-import math from "../tools/math";
+import MathUtils from "../tools/math";
 import mediaUtils from "../tools/mediaUtils";
 export interface IChartPackage {
     chart: IChart;
@@ -39,7 +39,7 @@ export class ChartPackage implements IChartPackage {
         this.textures = chartPackage.textures;
     }
     static load(file: Blob, progressHandler?: (progress: string) => void, p = 2, signal?: AbortSignal) {
-        return new Promise<IChartPackage>((resolve, reject) => {
+        return new Promise<ChartPackage>((resolve, reject) => {
             if (signal) {
                 signal.onabort = () => {
                     reject("Loading is aborted");
@@ -117,7 +117,7 @@ export class ChartPackage implements IChartPackage {
                         `音乐已加载${progress.music.toFixed(p)}%\n` +
                         `曲绘已加载${progress.background.toFixed(p)}%\n` +
                         `谱面已加载${progress.chart.toFixed(p)}%\n` +
-                        `判定线贴图已加载${math.average(progress.textures).toFixed(p)}%`
+                        `判定线贴图已加载${MathUtils.average(progress.textures).toFixed(p)}%`
                     )
                 }
                 const progress = {
@@ -171,7 +171,7 @@ export class ChartPackage implements IChartPackage {
                             return textures;
                         })
                 ]);
-                return { musicSrc, background, chart, textures };
+                return new ChartPackage({ musicSrc, background, chart, textures });
             }))
         })
     }

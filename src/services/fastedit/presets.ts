@@ -4,23 +4,29 @@ export default {
     note.positionX *= -1;
 });`,
 
-    mirrorEventsX:
+    mirrorMoveXEvents:
 `moveXEvents.forEach(event => {
     event.start *= -1;
     event.end *= -1;
 });`,
 
-    mirrorEventsY:
+    mirrorMoveYEvents:
 `moveYEvents.forEach(event => {
     event.start *= -1;
     event.end *= -1;
 });`,
 
-    rotate180:
+    reverseRotateEvents:
 `rotateEvents.forEach(event => {
     event.start += 180;
     event.end += 180;
 });`,
+
+    invertAlphaEvents:
+`alphaEvents.forEach(event => {
+    event.start = 255 - event.start;
+    event.end = 255 - event.end;
+})`,
 
     sideSwitch:
 `notes.forEach(note => {
@@ -81,5 +87,24 @@ export default {
     note.type = HOLD;
 })`,
 
+    toRandom:
+`const types = [TAP, DRAG, FLICK, HOLD];
+notes.forEach(note => {
+    note.type = types[Math.floor(Math.random() * types.length)];
+})`,
 
+    hideNotes:
+`notes.forEach(note => {
+    note.alpha = 0;
+})`,
+
+    showNotes: 
+`notes.forEach(note => {
+    note.alpha = 255;
+})`,
+
+    speedNotes:
+`notes.forEach(note => {
+    note.speed = 9999;
+})`
 } as const;

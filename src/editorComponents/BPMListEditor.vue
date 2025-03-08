@@ -4,15 +4,17 @@
         v-if="u || !u"
         class="bpmlist-editor"
     >
-        <h1>BPM编辑</h1>
+        <Teleport :to="props.titleTeleport">
+            BPM编辑
+        </Teleport>
         <ElRow
-            v-for="(bpm, i) of editor.chart.BPMList"
+            v-for="(bpm, i) of chart.BPMList"
             :key="i"
         >
             <MyInput
                 v-model="bpm.startString"
                 v-model:when="bpm.startTime"
-                @input="editor.chart.calculateSeconds()"
+                @input="chart.calculateSeconds()"
             >
                 <template #prefix>
                     时间
@@ -20,14 +22,14 @@
             </MyInput>
             <MyInputNumber
                 v-model="bpm.bpm"
-                @input="editor.chart.calculateSeconds()"
+                @input="chart.calculateSeconds()"
             >
                 <template #prefix>
                     BPM
                 </template>
             </MyInputNumber>
             <ElButton
-                :disabled="editor.chart.BPMList.length == 1"
+                :disabled="chart.BPMList.length == 1"
                 type="danger"
                 @click="deleteBPM(i)"
             >
@@ -47,26 +49,29 @@ import { ElButton, ElRow } from 'element-plus';
 import { BPM, getBeatsValue } from '../classes/beats';
 import MyInput from '../myElements/MyInput.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
-import { inject, onBeforeUnmount, ref } from 'vue';
-import { Editor } from '../editor';
-const editor = inject('editor') as Editor;
+import { onBeforeUnmount, ref } from 'vue';
+import store from "@/store";
 
+const props = defineProps<{
+    titleTeleport: string
+}>();
 const u = ref(false);
+const chart = store.useChart();
 // 比较函数，根据 startTime 属性进行比较
 function compareBPM(a: BPM, b: BPM): number {
     return getBeatsValue(a.startTime) - getBeatsValue(b.startTime);
 }
 // 修改后的 addBPM 函数
 function addBPM() {
-    const newBPM = new BPM(editor.chart.BPMList.length > 0 ? editor.chart.BPMList[editor.chart.BPMList.length - 1].toObject() : null);
-    editor.chart.BPMList.push(newBPM);
+    const newBPM = new BPM(chart.BPMList.length > 0 ? chart.BPMList[chart.BPMList.length - 1].toObject() : null);
+    chart.BPMList.push(newBPM);
     update();
-    editor.chart.calculateSeconds();
+    chart.calculateSeconds();
 }
 function deleteBPM(index: number) {
-    editor.chart.BPMList.splice(index, 1);
+    chart.BPMList.splice(index, 1);
     update();
-    editor.chart.calculateSeconds();
+    chart.calculateSeconds();
 }
 /**
  * 手动触发状态更新
@@ -76,8 +81,8 @@ function update() {
 }
 
 onBeforeUnmount(() => {
-    editor.chart.BPMList.sort(compareBPM);
-    editor.chart.calculateSeconds();
+    chart.BPMList.sort(compareBPM);
+    chart.calculateSeconds();
 })
 </script>
 <style scoped>

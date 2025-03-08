@@ -1,5 +1,8 @@
 <template>
     <div class="settings-editor">
+        <Teleport :to="props.titleTeleport">
+            设置
+        </Teleport>
         <MyInputNumber
             v-model="editor.chartPackage.config.chartSpeed"
             :min="0"
@@ -86,8 +89,13 @@
 </template>
 <script setup lang="ts">
 import { inject } from 'vue';
-import { Editor } from '@/editor';
+import Editor from '@/services/editor';
+import MyInputNumber from '@/myElements/MyInputNumber.vue';
+import { ElCheckbox } from 'element-plus';
 const editor = inject('editor') as Editor;
+const props = defineProps<{
+    titleTeleport: string
+}>();
 </script>
 <style scoped>
 .settings-editor {

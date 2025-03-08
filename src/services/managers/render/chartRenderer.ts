@@ -1,38 +1,16 @@
+import { getBeatsValue } from "@/classes/beats";
+import { easingFuncs, EasingType } from "@/classes/easing";
+import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue } from "@/classes/event";
+import { Note, NoteType, NoteAbove } from "@/classes/note";
+import store from "@/store";
+import { sortAndForEach } from "@/tools/algorithm";
+import canvasUtils from "@/tools/canvasUtils";
+import { RGBcolor } from "@/tools/color";
+import MathUtils from "@/tools/math";
+import { TaskQueue } from "@/tools/taskQueue";
 import { ceil } from "lodash";
-import { easingFuncs, EasingType, cubicBezierEase } from "./classes/easing";
-import { TaskQueue } from "./tools/taskQueue"
-import { NumberEvent, ColorEvent, TextEvent, BaseEvent } from "./classes/event";
-import { RGBcolor } from "./tools/color"
-import { Note, NoteAbove, NoteType } from "./classes/note";
-import { getBeatsValue } from "./classes/beats";
-import canvasUtils from "./tools/canvasUtils";
-import math from "./tools/math";
-import { ChartPackage } from "./classes/chartPackage";
-import { ResourcePackage } from "./classes/resourcePackage";
-import { sortAndForEach } from "./tools/algorithm";
-import { audioRef, canvasRef } from "./store";
 
-export default class ChartRenderer {
-    chartPackage: ChartPackage
-    resourcePackage: ResourcePackage
-    get chart() {
-        return this.chartPackage.chart;
-    }
-    get canvas() {
-        if (!canvasRef.value) throw new Error("canvas is not defined");
-        return canvasRef.value;
-    }
-    get ctx() {
-        if (!canvasRef.value) throw new Error("canvas is not defined");
-        return canvasUtils.getContext(canvasRef.value);
-    }
-    constructor(options: {
-        chartPackage: ChartPackage,
-        resourcePackage: ResourcePackage
-    }) {
-        this.chartPackage = options.chartPackage;
-        this.resourcePackage = options.resourcePackage;
-    }
+class ChartRenderer {
     /** 显示谱面到canvas上 */
     renderChart() {
         try {
@@ -45,11 +23,14 @@ export default class ChartRenderer {
         }
     }
     /** 显示背景的曲绘 */
-    drawBackground() {
-        const drawRect = canvasUtils.drawRect.bind(this.ctx);
-        const { background } = this.chartPackage;
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
+    private drawBackground() {
+        const canvas = store.useCanvas();
+        const chartPackage = store.useChartPackage();
+        const ctx = canvasUtils.getContext(canvas);
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        const { background } = chartPackage;
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
         const imageWidth = background.width;
         const imageHeight = background.height;
         const scaleX = canvasWidth / imageWidth;
@@ -64,9 +45,9 @@ export default class ChartRenderer {
         } else {
             cropX = (imageWidth - cropWidth) / 2;
         }
-        this.ctx.resetTransform();
-        this.ctx.globalAlpha = 1;
-        this.ctx.drawImage(
+        ctx.resetTransform();
+        ctx.globalAlpha = 1;
+        ctx.drawImage(
             background,
             cropX, cropY, cropWidth, cropHeight,
             0, 0, canvasWidth, canvasHeight
@@ -74,21 +55,24 @@ export default class ChartRenderer {
         drawRect(
             0,
             0,
-            this.canvas.width,
-            this.canvas.height,
+            canvas.width,
+            canvas.height,
             "black",
             true,
-            this.chartPackage.config.backgroundDarkness / 100);
+            chartPackage.config.backgroundDarkness / 100);
     }
     /** 显示判定线 */
-    drawJudgeLines() {
-        const audio = audioRef.value;
-        if(!audio) return;
-        const seconds = audio.currentTime - this.chart.META.offset / 1000;
-        const drawLine = canvasUtils.drawLine.bind(this.ctx);
-        const writeText = canvasUtils.writeText.bind(this.ctx);
-        const { textures } = this.chartPackage;
-        sortAndForEach(this.chart.judgeLineList, (x, y) => x.zOrder - y.zOrder, (judgeLine, i) => {
+    private drawJudgeLines() {
+        const canvas = store.useCanvas();
+        const seconds = store.getSeconds();
+        const chart = store.useChart();
+        const chartPackage = store.useChartPackage();
+        const ctx = canvasUtils.getContext(canvas);
+
+        const drawLine = canvasUtils.drawLine.bind(ctx);
+        const writeText = canvasUtils.writeText.bind(ctx);
+        const { textures } = chartPackage;
+        sortAndForEach(chart.judgeLineList, (x, y) => x.zOrder - y.zOrder, (judgeLine, i) => {
             const { x, y, angle, alpha, scaleX, scaleY, color, text } = this.getJudgeLineInfo(i, seconds, {
                 getX: true,
                 getY: true,
@@ -99,62 +83,66 @@ export default class ChartRenderer {
                 getColor: true,
                 getText: true
             });
-            const radians = math.convertDegreesToRadians(angle);
-            this.ctx.save();
-            this.ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
-            this.ctx.rotate(radians);
+            const radians = MathUtils.convertDegreesToRadians(angle);
+            ctx.save();
+            ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
+            ctx.rotate(radians);
             writeText(i.toString(), 0, 30, 30, color);
-            this.ctx.scale(scaleX, scaleY);
+            ctx.scale(scaleX, scaleY);
             if (alpha < 0)
-                this.ctx.globalAlpha = 0;
+                ctx.globalAlpha = 0;
             else
-                this.ctx.globalAlpha = alpha / 255;
+                ctx.globalAlpha = alpha / 255;
             // if (judgeLine.Texture != "line.png") console.log(textures, judgeLine.Texture);
             if (judgeLine.Texture in textures) {
                 const image = textures[judgeLine.Texture];
-                this.ctx.drawImage(
-                    image, 
-                    -image.width / 2, 
-                    -image.height / 2, 
-                    image.width, 
+                ctx.drawImage(
+                    image,
+                    -image.width / 2,
+                    -image.height / 2,
+                    image.width,
                     image.height);
             }
             else if (text == undefined) {
                 drawLine(
-                    -this.chartPackage.config.lineLength, 
-                    0, 
-                    this.chartPackage.config.lineLength, 
-                    0, 
-                    color, 
-                    this.chartPackage.config.lineWidth,
+                    -chartPackage.config.lineLength,
+                    0,
+                    chartPackage.config.lineLength,
+                    0,
+                    color,
+                    chartPackage.config.lineWidth,
                     alpha / 255);
             }
             else {
                 writeText(
-                    text, 
-                    0, 
-                    0, 
-                    this.chartPackage.config.textSize, 
-                    color, 
+                    text,
+                    0,
+                    0,
+                    chartPackage.config.textSize,
+                    color,
                     true,
                     alpha / 255);
             }
-            this.ctx.restore();
+            ctx.restore();
         })
     }
     /** 显示note和打击特效 */
-    drawNotes() {
-        const audio = audioRef.value;
-        if(!audio) return;
-        const seconds = audio.currentTime - this.chart.META.offset / 1000;
-        const drawRect = canvasUtils.drawRect.bind(this.ctx);
-        const writeText = canvasUtils.writeText.bind(this.ctx);
+    private drawNotes() {
+        const canvas = store.useCanvas();
+        const seconds = store.getSeconds();
+        const chart = store.useChart();
+        const chartPackage = store.useChartPackage();
+        const resourcePackage = store.useResourcePackage();
+        const ctx = canvasUtils.getContext(canvas);
+        
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        const writeText = canvasUtils.writeText.bind(ctx);
         const drawNote = (
             judgeLineInfo: Pick<ReturnType<typeof this.getJudgeLineInfo>, 'x' | 'y' | 'angle' | 'alpha'>,
             noteInfo: ReturnType<typeof this.getNoteInfo>,
             note: Note,
         ) => {
-            const radians = math.convertDegreesToRadians(judgeLineInfo.angle);
+            const radians = MathUtils.convertDegreesToRadians(judgeLineInfo.angle);
             const missSeconds = note.type == NoteType.Tap ? Note.TAP_BAD : note.type == NoteType.Hold ? Note.HOLD_BAD : Note.DRAGFLICK_PERFECT;
             const startSeconds = note.cachedStartSeconds;
             if (startSeconds - seconds > note.visibleTime) return; // note不在可见时间内
@@ -163,87 +151,88 @@ export default class ChartRenderer {
             if (note.type == NoteType.Hold) {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
-                    this.ctx.globalAlpha = note.alpha / 255;
+                    ctx.globalAlpha = note.alpha / 255;
                     // 以判定线为坐标系
-                    this.ctx.save();
-                    this.ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
-                    this.ctx.rotate(radians);
+                    ctx.save();
+                    ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
+                    ctx.rotate(radians);
                     if (noteInfo.startPositionY > noteInfo.endPositionY) {
-                        this.ctx.scale(1, -1);
+                        //    startPositionY --> sy
+                        //     endPositionY --> ey
+                        //       positionX --> x
+                        //  
+                        // +6   _____               -6
+                        // +5  /     \  A.x  = -6   -5
+                        // +4  |  A  |  A.sy = 2    -4
+                        // +3  |     |  A.ey = 5    -3
+                        // +2  \_____/  A.sy < A.ey -2
+                        // +1                       -1
+                        // 0y x9876543210123456789x y0
+                        // -1   _____               +1
+                        // -2  /     \  B.x  = -6   +2
+                        // -3  |  B  |  B.sy = -2   +3
+                        // -4  |     |  B.ey = -5   +4
+                        // -5  \_____/  B.sy > B.ey +5
+                        // -6                       +6                     
+                        // 上下翻转之后，y坐标再变相反数，可以正确显示倒打长条，否则会显示成倒的
+                        //
+                        ctx.scale(1, -1);
                         noteInfo.startPositionY = -noteInfo.startPositionY;
                         noteInfo.endPositionY = -noteInfo.endPositionY;
-                        /*
-                        startPositionY --> sy
-                        endPositionY --> ey
-                        positionX --> x
-                        +6   _____               -6
-                        +5  /     \  A.x  = -6   -5
-                        +4  |  A  |  A.sy = 2    -4
-                        +3  |     |  A.ey = 5    -3
-                        +2  \_____/  A.sy < A.ey -2
-                        +1                       -1
-                        0y x9876543210123456789x y0
-                        -1               _____   +1
-                        -2  B.x  = 6    /     \  +2
-                        -3  B.sy = -2   |  B  |  +3
-                        -4  B.ey = -5   |     |  +4
-                        -5  B.sy > B.ey \_____/  +5
-                        -6                       +6                     
-                        上下翻转之后，y坐标再变相反数，可以正确显示倒打长条
-                        */
                     }
                     const height = noteInfo.endPositionY - noteInfo.startPositionY;
-                    const { head, body, end } = this.resourcePackage.getSkin(type, highlight);
-                    const width = note.size * this.chartPackage.config.noteSize *
-                        this.resourcePackage.getSkin(type, highlight).body.width / this.resourcePackage.getSkin(type, false).body.width;
+                    const { head, body, end } = resourcePackage.getSkin(type, highlight);
+                    const width = note.size * chartPackage.config.noteSize *
+                        resourcePackage.getSkin(type, highlight).body.width / resourcePackage.getSkin(type, false).body.width;
                     const headHeight = head.height / head.width * width;
                     const endHeight = end.height / end.width * width;
+
                     // 显示主体
-                    if (this.resourcePackage.config.holdRepeat) {
+                    if (resourcePackage.config.holdRepeat) {
                         const step = body.height / body.width * width;
                         for (let i = height; i >= 0; i -= step) {
                             if (i < step) {
-                                this.ctx.drawImage(body,
+                                ctx.drawImage(body,
                                     0, 0, body.width, body.height * (i / step),
                                     note.positionX - width / 2, -noteInfo.startPositionY - i, width, i);
                             }
                             else {
-                                this.ctx.drawImage(body, note.positionX - width / 2, -noteInfo.startPositionY - i, width, step);
+                                ctx.drawImage(body, note.positionX - width / 2, -noteInfo.startPositionY - i, width, step);
                             }
                         }
                     }
                     else {
-                        this.ctx.drawImage(body, note.positionX - width / 2, -noteInfo.startPositionY - height, width, height);
+                        ctx.drawImage(body, note.positionX - width / 2, -noteInfo.startPositionY - height, width, height);
                     }
                     // 显示头部
-                    if (seconds < startSeconds || this.resourcePackage.config.holdKeepHead) {
-                        this.ctx.drawImage(head, note.positionX - width / 2, -noteInfo.startPositionY, width, headHeight);
+                    if (seconds < startSeconds || resourcePackage.config.holdKeepHead) {
+                        ctx.drawImage(head, note.positionX - width / 2, -noteInfo.startPositionY, width, headHeight);
                     }
                     // 显示尾部
-                    this.ctx.drawImage(end, note.positionX - width / 2, -noteInfo.endPositionY - endHeight, width, endHeight);
+                    ctx.drawImage(end, note.positionX - width / 2, -noteInfo.endPositionY - endHeight, width, endHeight);
 
-                    this.ctx.restore();
+                    ctx.restore();
                 }, Priority.Hold);
             }
             else {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
-                    this.ctx.globalAlpha = note.alpha / 255;
+                    ctx.globalAlpha = note.alpha / 255;
                     if (seconds >= startSeconds) {
-                        this.ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
+                        ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
                     }
-                    const image = this.resourcePackage.getSkin(type, highlight);
-                    const width = note.size * this.chartPackage.config.noteSize *
-                        this.resourcePackage.getSkin(type, highlight).width / this.resourcePackage.getSkin(type, false).width;
-                    const height = image.height / image.width * this.chartPackage.config.noteSize;
+                    const image = resourcePackage.getSkin(type, highlight);
+                    const width = note.size * chartPackage.config.noteSize *
+                        resourcePackage.getSkin(type, highlight).width / resourcePackage.getSkin(type, false).width;
+                    const height = image.height / image.width * chartPackage.config.noteSize;
                     // const noteHeight = noteImage.height / noteImage.width * noteWidth; // 会让note等比缩放
-                    this.ctx.save();
-                    this.ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
-                    this.ctx.rotate(radians);
-                    this.ctx.drawImage(image,
+                    ctx.save();
+                    ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
+                    ctx.rotate(radians);
+                    ctx.drawImage(image,
                         0, 0, image.width, image.height,
                         note.positionX - width / 2, -noteInfo.startPositionY - height / 2, width, height);
-                    this.ctx.restore();
+                    ctx.restore();
                 }, Priority[note.typeString]);
             }
         }
@@ -256,8 +245,8 @@ export default class ChartRenderer {
         }
         const autoplayOffset = 0;
         const taskQueue = new TaskQueue<void, Priority>();
-        for (let judgeLineNumber = 0; judgeLineNumber < this.chart.judgeLineList.length; judgeLineNumber++) {
-            const judgeLine = this.chart.judgeLineList[judgeLineNumber];
+        for (let judgeLineNumber = 0; judgeLineNumber < chart.judgeLineList.length; judgeLineNumber++) {
+            const judgeLine = chart.judgeLineList[judgeLineNumber];
             const judgeLineInfo = this.getJudgeLineInfo(judgeLineNumber, seconds, {
                 getX: true,
                 getY: true,
@@ -272,7 +261,7 @@ export default class ChartRenderer {
                 if (note.getJudgement() == 'none' && !note.isFake) {
                     if (seconds >= startSeconds - autoplayOffset) {
                         note.hitSeconds = startSeconds - autoplayOffset;
-                        this.resourcePackage.playSound(note.type);
+                        resourcePackage.playSound(note.type);
                     }
                 }
                 if (note.hitSeconds && seconds < note.hitSeconds) {
@@ -282,11 +271,11 @@ export default class ChartRenderer {
                 if (!note.isFake) (() => {
                     const hitSeconds = note.hitSeconds;
                     if (note.type == NoteType.Hold) {
-                        if (!hitSeconds || seconds >= endSeconds + this.resourcePackage.config.hitFxDuration)
+                        if (!hitSeconds || seconds >= endSeconds + resourcePackage.config.hitFxDuration)
                             return;
                     }
                     else {
-                        if (!hitSeconds || seconds >= hitSeconds + this.resourcePackage.config.hitFxDuration)
+                        if (!hitSeconds || seconds >= hitSeconds + resourcePackage.config.hitFxDuration)
                             return;
                     }
                     /** Hold多少秒显示一次打击特效 */
@@ -303,59 +292,59 @@ export default class ChartRenderer {
                             getY: true,
                             getAngle: true
                         });
-                        const radians = math.convertDegreesToRadians(angle);
+                        const radians = MathUtils.convertDegreesToRadians(angle);
                         const judgement = note.getJudgement();
                         const hash = (a: number, b: number, c: number) => {
                             return a * a + b * b + c * c;
                         }
                         const showHitFx = (type: 'perfect' | 'good', frameNumber: number, x: number, y: number, angle: number, n: number) => {
-                            const angles: readonly number[] = math.randomNumbers(particleCount, hash(judgeLineNumber, noteNumber, n), 0, 360);
-                            const xys = angles.map(angle => math.pole(0, 0, angle, particleRadius));
-                            this.ctx.save();
-                            const frames = type == 'perfect' ? this.resourcePackage.perfectHitFxFrames : this.resourcePackage.goodHitFxFrames;
-                            const color = type == 'perfect' ? this.resourcePackage.config.colorPerfect : this.resourcePackage.config.colorGood;
+                            const angles: readonly number[] = MathUtils.randomNumbers(particleCount, hash(judgeLineNumber, noteNumber, n), 0, 360);
+                            const xys = angles.map(angle => MathUtils.pole(0, 0, angle, particleRadius));
+                            ctx.save();
+                            const frames = type == 'perfect' ? resourcePackage.perfectHitFxFrames : resourcePackage.goodHitFxFrames;
+                            const color = type == 'perfect' ? resourcePackage.config.colorPerfect : resourcePackage.config.colorGood;
                             const progress = frameNumber / frames.length;
 
-                            const hitFxPosition = math.moveAndRotate(x, y, angle, note.positionX, note.yOffset);
+                            const hitFxPosition = MathUtils.moveAndRotate(x, y, angle, note.positionX, note.yOffset);
                             const canvasX = this.convertXToCanvas(hitFxPosition.x);
                             const canvasY = this.convertYToCanvas(hitFxPosition.y);
 
                             if (frameNumber >= frames.length) return;
                             const frame = frames[frameNumber];
-                            this.ctx.save();
-                            this.ctx.translate(canvasX, canvasY);
-                            if (this.resourcePackage.config.hitFxRotate) this.ctx.rotate(radians);
-                            this.ctx.globalAlpha = 1;
-                            this.ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
-                            if (!this.resourcePackage.config.hideParticles) {
-                                this.ctx.globalAlpha = 1 - easingFuncs[EasingType.SineIn](progress);
+                            ctx.save();
+                            ctx.translate(canvasX, canvasY);
+                            if (resourcePackage.config.hitFxRotate) ctx.rotate(radians);
+                            ctx.globalAlpha = 1;
+                            ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
+                            if (!resourcePackage.config.hideParticles) {
                                 xys.forEach(({ x, y }) => {
                                     drawRect(x * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
                                         y * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
                                         particleSize,
                                         particleSize,
                                         color,
-                                        true);
+                                        true,
+                                        1 - easingFuncs[EasingType.SineIn](progress));
                                 });
                             }
-                            this.ctx.restore();
+                            ctx.restore();
                         }
                         if (judgement == 'perfect' || judgement == 'good') {
                             if (note.type == NoteType.Hold) {
-                                /**
-                                满足下面不等式时Hold的第n个打击特效可见
-                                n >= 0 （打击特效开始时间大于等于note开始时间）
-                                hitSeconds + n * hitFxFrequency <= endSeconds（打击特效开始时间小于等于note结束时间）
-                                hitSeconds + n * hitFxFrequency <= seconds（打击特效开始时间小于等于当前时间，即打击特效已经开始了）
-                                seconds < hitSeconds + n * hitFxFrequency + hitFxDuration （打击特效结束时间大于当前时间，即打击特效还没结束）
-                                解不等式之后的结果：
-                                n >= 0
-                                n <= (endSeconds - hitSeconds) / hitFxFrequency
-                                n <= (seconds - hitSeconds) / hitFxFrequency
-                                n > (seconds - hitFxDuration - hitSeconds) / hitFxFrequency
-                                */
+
+                                // 满足下面不等式时Hold的第n个打击特效可见
+                                // n >= 0 （打击特效开始时间大于等于note开始时间）
+                                // hitSeconds + n * hitFxFrequency <= endSeconds（打击特效开始时间小于等于note结束时间）
+                                // hitSeconds + n * hitFxFrequency <= seconds（打击特效开始时间小于等于当前时间，即打击特效已经开始了）
+                                // seconds < hitSeconds + n * hitFxFrequency + hitFxDuration （打击特效结束时间大于当前时间，即打击特效还没结束）
+                                // 解不等式之后的结果：
+                                // n >= 0
+                                // n <= (endSeconds - hitSeconds) / hitFxFrequency
+                                // n <= (seconds - hitSeconds) / hitFxFrequency
+                                // n > (seconds - hitFxDuration - hitSeconds) / hitFxFrequency
+
                                 for (
-                                    let n = Math.max(0, ceil((seconds - this.resourcePackage.config.hitFxDuration - hitSeconds) / hitFxFrequency));
+                                    let n = Math.max(0, ceil((seconds - resourcePackage.config.hitFxDuration - hitSeconds) / hitFxFrequency));
                                     n <= (endSeconds - hitSeconds) / hitFxFrequency &&
                                     n <= (seconds - hitSeconds) / hitFxFrequency;
                                     n++
@@ -368,8 +357,8 @@ export default class ChartRenderer {
                                     });
                                     const frameNumber = Math.floor(
                                         (seconds - hitFxStartSeconds)
-                                        / this.resourcePackage.config.hitFxDuration
-                                        * this.resourcePackage.perfectHitFxFrames.length
+                                        / resourcePackage.config.hitFxDuration
+                                        * resourcePackage.perfectHitFxFrames.length
                                     );
                                     showHitFx(judgement, frameNumber, x, y, angle, n);
                                 }
@@ -377,22 +366,22 @@ export default class ChartRenderer {
                             else {
                                 const frameNumber = Math.floor(
                                     (seconds - hitSeconds)
-                                    / this.resourcePackage.config.hitFxDuration
-                                    * this.resourcePackage.perfectHitFxFrames.length
+                                    / resourcePackage.config.hitFxDuration
+                                    * resourcePackage.perfectHitFxFrames.length
                                 )
                                 showHitFx(judgement, frameNumber, x, y, angle, 0);
                             }
                         }
                         else if (judgement == 'bad') {
                             const noteInfo = this.getNoteInfo(judgeLineNumber, noteNumber, hitSeconds);
-                            this.ctx.globalAlpha = 1 - (seconds - hitSeconds) / this.resourcePackage.config.hitFxDuration;
-                            this.ctx.save();
-                            this.ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
-                            this.ctx.rotate(radians);
+                            ctx.globalAlpha = 1 - (seconds - hitSeconds) / resourcePackage.config.hitFxDuration;
+                            ctx.save();
+                            ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
+                            ctx.rotate(radians);
                             writeText("BAD", note.positionX, -noteInfo.startPositionY, 50, "red", true);
-                            this.ctx.restore();
+                            ctx.restore();
                         }
-                    }, 5);
+                    }, Priority.HitFx);
                 })();
                 if (note.getJudgement() == 'bad') continue;
                 if (note.type == NoteType.Hold) {
@@ -406,12 +395,15 @@ export default class ChartRenderer {
         }
         taskQueue.run();
     }
-    getNoteInfo(lineNumber: number, noteNumber: number, seconds: number) {
+    /** 获取note的Y坐标信息 */
+    private getNoteInfo(lineNumber: number, noteNumber: number, seconds: number) {
+        const chart = store.useChart();
+        const chartPackage = store.useChartPackage();
         // 异常处理
-        if (!this.chart.judgeLineList || lineNumber < 0 || lineNumber >= this.chart.judgeLineList.length) {
+        if (!chart.judgeLineList || lineNumber < 0 || lineNumber >= chart.judgeLineList.length) {
             throw new Error('Invalid line number');
         }
-        const judgeLine = this.chart.judgeLineList[lineNumber];
+        const judgeLine = chart.judgeLineList[lineNumber];
 
         if (!judgeLine.notes || noteNumber < 0 || noteNumber >= judgeLine.notes.length) {
             throw new Error('Invalid note number');
@@ -488,8 +480,8 @@ export default class ChartRenderer {
             }
         }
 
-        startPositionY *= this.chartPackage.config.chartSpeed;
-        endPositionY *= this.chartPackage.config.chartSpeed;
+        startPositionY *= chartPackage.config.chartSpeed;
+        endPositionY *= chartPackage.config.chartSpeed;
 
         if (seconds >= noteStartSeconds) startPositionY = -startPositionY;
         if (seconds >= noteEndSeconds) endPositionY = -endPositionY;
@@ -501,7 +493,8 @@ export default class ChartRenderer {
 
         return { startPositionY, endPositionY, isCovered };
     }
-    getJudgeLineInfo(lineNumber: number, seconds: number, {
+    /** 获取判定线的事件信息 */
+    private getJudgeLineInfo(lineNumber: number, seconds: number, {
         getX = false,
         getY = false,
         getAngle = false,
@@ -513,7 +506,8 @@ export default class ChartRenderer {
         getPaint = false,
         getText = false
     }, visited: number[] = []) {
-        const judgeLine = this.chart.judgeLineList[lineNumber];
+        const chart = store.useChart();
+        const judgeLine = chart.judgeLineList[lineNumber];
         if (visited.includes(lineNumber)) {
             console.error("Circular inheriting: " + visited.join(" -> ") + " -> " + lineNumber);
             console.error("Set the father of line " + lineNumber + " to -1");
@@ -522,120 +516,40 @@ export default class ChartRenderer {
         visited.push(lineNumber);
         let x = 0, y = 0, angle = 0, alpha = 0, speed = 0;
         for (const layer of judgeLine.eventLayers) {
-            if (getX) x += this.interpolateNumberEventValue(this.findLastEvent(layer.moveXEvents, seconds), seconds);
-            if (getY) y += this.interpolateNumberEventValue(this.findLastEvent(layer.moveYEvents, seconds), seconds);
-            if (getAngle) angle += this.interpolateNumberEventValue(this.findLastEvent(layer.rotateEvents, seconds), seconds);
-            if (getAlpha) alpha += this.interpolateNumberEventValue(this.findLastEvent(layer.alphaEvents, seconds), seconds);
-            if (getSpeed) speed += this.interpolateNumberEventValue(this.findLastEvent(layer.speedEvents, seconds), seconds);
+            if (getX) x += interpolateNumberEventValue(findLastEvent(layer.moveXEvents, seconds), seconds);
+            if (getY) y += interpolateNumberEventValue(findLastEvent(layer.moveYEvents, seconds), seconds);
+            if (getAngle) angle += interpolateNumberEventValue(findLastEvent(layer.rotateEvents, seconds), seconds);
+            if (getAlpha) alpha += interpolateNumberEventValue(findLastEvent(layer.alphaEvents, seconds), seconds);
+            if (getSpeed) speed += interpolateNumberEventValue(findLastEvent(layer.speedEvents, seconds), seconds);
         }
-        if (judgeLine.father >= 0 && judgeLine.father < this.chart.judgeLineList.length) {
+        if (judgeLine.father >= 0 && judgeLine.father < chart.judgeLineList.length) {
             const { x: fatherX, y: fatherY, angle: fatherAngle } = this.getJudgeLineInfo(judgeLine.father, seconds, {
                 getX: true,
                 getY: true,
                 getAngle: true
             }, visited);
-            const { x: newX, y: newY } = math.moveAndRotate(fatherX, fatherY, fatherAngle, x, y);
+            const { x: newX, y: newY } = MathUtils.moveAndRotate(fatherX, fatherY, fatherAngle, x, y);
             const newAngle = angle;
             x = newX;
             y = newY;
             angle = newAngle;
         }
-        const scaleX = getScaleX ? this.interpolateNumberEventValue(this.findLastEvent(judgeLine.extended.scaleXEvents, seconds), seconds) || 1 : 1;
-        const scaleY = getScaleY ? this.interpolateNumberEventValue(this.findLastEvent(judgeLine.extended.scaleYEvents, seconds), seconds) || 1 : 1;
-        const color: RGBcolor = getColor ? this.interpolateColorEventValue(this.findLastEvent(judgeLine.extended.colorEvents, seconds), seconds) : [128, 255, 128];
-        const paint = getPaint ? this.interpolateNumberEventValue(this.findLastEvent(judgeLine.extended.paintEvents, seconds), seconds) : 0;
-        const text = getText ? this.interpolateTextEventValue(this.findLastEvent(judgeLine.extended.textEvents, seconds), seconds) : '';
+        const scaleX = getScaleX ? interpolateNumberEventValue(findLastEvent(judgeLine.extended.scaleXEvents, seconds), seconds) || 1 : 1;
+        const scaleY = getScaleY ? interpolateNumberEventValue(findLastEvent(judgeLine.extended.scaleYEvents, seconds), seconds) || 1 : 1;
+        const color: RGBcolor = getColor ? interpolateColorEventValue(findLastEvent(judgeLine.extended.colorEvents, seconds), seconds) : [128, 255, 128];
+        const paint = getPaint ? interpolateNumberEventValue(findLastEvent(judgeLine.extended.paintEvents, seconds), seconds) : 0;
+        const text = getText ? interpolateTextEventValue(findLastEvent(judgeLine.extended.textEvents, seconds), seconds) : '';
         return { x, y, angle, alpha, speed, scaleX, scaleY, color, paint, text };
     }
-    interpolateNumberEventValue(event: NumberEvent | null, seconds: number) {
-        const startSeconds = event?.cachedStartSeconds ?? 0;
-        const endSeconds = event?.cachedEndSeconds ?? 0;
-        const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = 0, end = 0, easingType = EasingType.Linear, easingLeft = 0, easingRight = 1 } = event ?? {};
-        if (endSeconds <= seconds) {
-            return end;
-        } else {
-            const dx = endSeconds - startSeconds;
-            const dy = end - start;
-            const sx = seconds - startSeconds;
-            const easingFunction = bezier ? cubicBezierEase(...bezierPoints) : easingFuncs[easingType];
-            const easingFactor = easingFunction(sx / dx * (easingRight - easingLeft) + easingLeft);
-            return start + easingFactor * dy;
-        }
+    /** 把谱面坐标系的X坐标转换成canvas坐标系的X坐标 */
+    private convertXToCanvas(x: number) {
+        const canvas = store.useCanvas();
+        return x + (canvas.width / 2);
     }
-    interpolateColorEventValue(event: ColorEvent | null, seconds: number): RGBcolor {
-        const endSeconds = event?.cachedEndSeconds ?? 0;
-        const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = [255, 255, 255], end = [255, 255, 255], easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime, endTime } = event ?? {};
-        const _interpolate = (part: 0 | 1 | 2) => {
-            if (!event) return 127;
-            const e = new NumberEvent({
-                bezier,
-                bezierPoints: [...bezierPoints],
-                start: start[part],
-                end: end[part],
-                easingType,
-                easingLeft,
-                easingRight,
-                startTime,
-                endTime
-            }, this.chart.BPMList);
-            return this.interpolateNumberEventValue(e, seconds);
-        }
-        if (endSeconds <= seconds) {
-            return end;
-        } else {
-            return [
-                _interpolate(0),
-                _interpolate(1),
-                _interpolate(2)
-            ];
-        }
-    }
-    interpolateTextEventValue(event: TextEvent | null, seconds: number) {
-        const endSeconds = event?.cachedEndSeconds ?? 0;
-        const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = undefined, end = undefined, easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime, endTime } = event ?? {};
-        if (endSeconds <= seconds) {
-            return end;
-        } else {
-            if (start == undefined || end == undefined || event == null) return undefined;
-            if (start.startsWith(end) || end.startsWith(start)) {
-                const lengthStart = start.length;
-                const lengthEnd = end.length;
-                const e = new NumberEvent({
-                    startTime,
-                    endTime,
-                    easingType,
-                    easingLeft,
-                    easingRight,
-                    bezier,
-                    bezierPoints: [...bezierPoints],
-                    start: lengthStart,
-                    end: lengthEnd
-                }, this.chart.BPMList);
-                const length = Math.round(this.interpolateNumberEventValue(e, seconds));
-                return start.length > end.length ? start.slice(0, length) : end.slice(0, length);
-            }
-            return start;
-        }
-    }
-    findLastEvent<T extends BaseEvent>(events: T[], seconds: number) {
-        let lastEvent: T | null = null;
-        let smallestDifference = Infinity;
-        for (const event of events) {
-            const startSeconds = event.cachedStartSeconds;
-            if (startSeconds <= seconds) {
-                const difference = seconds - startSeconds;
-                if (difference < smallestDifference) {
-                    smallestDifference = difference;
-                    lastEvent = event;
-                }
-            }
-        }
-        return lastEvent;
-    }
-    convertXToCanvas(x: number) {
-        return x + (this.canvas.width / 2);
-    }
-    convertYToCanvas(y: number) {
-        return (this.canvas.height / 2) - y;
+    /** 把谱面坐标系的Y坐标转换成canvas坐标系的Y坐标 */
+    private convertYToCanvas(y: number) {
+        const canvas = store.useCanvas();
+        return (canvas.height / 2) - y;
     }
 }
+export default new ChartRenderer();

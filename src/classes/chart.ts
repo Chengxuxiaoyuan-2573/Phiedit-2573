@@ -4,7 +4,7 @@ import { ChartMeta, IChartMeta } from "./chartMeta"
 import { IJudgeLine, JudgeLine } from "./judgeLine"
 import { Note } from "./note"
 import { BaseEvent } from "./event"
-import { markRaw } from "vue"
+import { markRaw, reactive } from "vue"
 
 export interface IChart {
     /** BPM列表，控制曲谱的BPM */
@@ -17,10 +17,10 @@ export interface IChart {
     judgeLineList: IJudgeLine[]
 }
 export class Chart implements IChart {
-    BPMList: BPM[]
-    META: ChartMeta
-    judgeLineGroup: string[]
-    judgeLineList: JudgeLine[]
+    readonly BPMList: BPM[]
+    readonly META: ChartMeta
+    readonly judgeLineGroup: string[]
+    readonly judgeLineList: JudgeLine[]
     /** 把谱面转为JSON对象 */
     toObject(): IChart {
         return {
@@ -60,46 +60,59 @@ export class Chart implements IChart {
         }
     }
     calculateSeconds() {
-        for(const note of this.getAllNotes()){
+        for (const note of this.getAllNotes()) {
             note.cachedStartSeconds = beatsToSeconds(this.BPMList, note.startTime);
             note.cachedEndSeconds = beatsToSeconds(this.BPMList, note.endTime);
         }
-        for(const event of this.getAllEvents()){
+        for (const event of this.getAllEvents()) {
             event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
             event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
         }
     }
     constructor(chart: unknown) {
-        this.BPMList = [];
+        this.BPMList = reactive([]);
         this.judgeLineGroup = [];
         this.judgeLineList = [];
 
         if (isObject(chart)) {
-            if ("BPMList" in chart && isArray(chart.BPMList)) for (const bpm of chart.BPMList) {
-                this.BPMList.push(new BPM(bpm));
-            }
-            if ("META" in chart) {
-                this.META = new ChartMeta(chart.META);
-            }
-            if ("judgeLineGroup" in chart && isArray(chart.judgeLineGroup)) for (const group of chart.judgeLineGroup) {
-                let formatedGroup = "default";
-                if (isString(group)) {
-                    formatedGroup = group;
+
+            if ("BPMList" in chart && isArray(chart.BPMList)) {
+                for (const bpm of chart.BPMList) {
+                    this.BPMList.push(new BPM(bpm));
                 }
-                this.judgeLineGroup.push(formatedGroup);
             }
-            if ("judgeLineList" in chart && isArray(chart.judgeLineList)) for (const [i, judgeLine] of chart.judgeLineList.entries()) {
-                this.judgeLineList.push(new JudgeLine(judgeLine, i, this.BPMList));
+
+            this.META = reactive(new ChartMeta("META" in chart ? chart.META : null));
+
+            if ("judgeLineGroup" in chart && isArray(chart.judgeLineGroup)) {
+                for (const group of chart.judgeLineGroup) {
+                    let formatedGroup = "default";
+                    if (isString(group)) {
+                        formatedGroup = group;
+                    }
+                    this.judgeLineGroup.push(formatedGroup);
+                }
             }
+
+            if ("judgeLineList" in chart && isArray(chart.judgeLineList)) {
+                for (const [i, judgeLine] of chart.judgeLineList.entries()) {
+                    this.judgeLineList.push(new JudgeLine(judgeLine, i, this.BPMList));
+                }
+            }
+
         }
-        else if (isNumber(chart)) {
-            for (let i = 0; i < chart; i++) {
-                this.judgeLineList.push(new JudgeLine(null, i, this.BPMList));
+        else {
+
+            this.META = reactive(new ChartMeta(null));
+
+            if (isNumber(chart)) {
+                for (let i = 0; i < chart; i++) {
+                    this.judgeLineList.push(new JudgeLine(null, i, this.BPMList));
+                }
             }
+
         }
-        this.META ??= new ChartMeta(null);
         markRaw(this);
-        this.BPMList.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
         this.highlightNotes();
     }
 }

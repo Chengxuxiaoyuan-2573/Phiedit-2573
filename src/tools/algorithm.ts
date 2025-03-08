@@ -157,7 +157,7 @@ function parse(tokens: string[]) {
             }
             return new Identifier(id); // 变量
         }
-        if(/^[+-]$/.test(tokens[index])){
+        if (/^[+-]$/.test(tokens[index])) {
             return new UnaryExpression(tokens[index++], parse4());
         }
         throw new Error(`无法解析的符号: ${tokens[index]}`);
@@ -200,7 +200,7 @@ function evaluate(node: AstNode, variables: Record<string, number>, functions: R
         const args = node.arguments.map(arg => evaluate(arg, variables, functions));
         return func(...args);
     }
-    else if(node instanceof UnaryExpression){
+    else if (node instanceof UnaryExpression) {
         const argument = evaluate(node.argument, variables, functions);
         switch (node.op) {
             case '+': return +argument;
@@ -243,8 +243,32 @@ export function sortAndForEach<T>(a: T[], compare: (a: T, b: T) => number, forEa
         forEach(item.value, item.index);
     });
 }
+export function isSorted<T>(arr: T[], compare: (a: T, b: T) => number) {
+    for (let i = 1; i < arr.length; i++) {
+        if (compare(arr[i - 1], arr[i]) > 0) {
+            return false;
+        }
+    }
+    return true;
+}
+export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
+    if (!isSorted(arr, compare)) {
+        arr.sort(compare);
+    }
+}
+export function max<T>(arr: T[], compare: (a: T, b: T) => number){
+    return arr.reduce((max, current) => compare(current, max) > 0 ? current : max, arr[0]);
+}
+export function min<T>(arr: T[], compare: (a: T, b: T) => number) {
+    return arr.reduce((min, current) => compare(current, min) < 0 ? current : min, arr[0]);
+}
 export function formatData(bytes: number, p = 2) {
     return format(['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'], 1024, bytes, p)
+}
+export function formatTime(seconds: number) {
+    const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${min}:${sec}`;
 }
 export function format(units: string[], base: number, num: number, p = 2): string {
     // 输入参数有效性检查

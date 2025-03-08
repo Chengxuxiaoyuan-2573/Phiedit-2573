@@ -1,6 +1,6 @@
 <template>
     <div class="note-editor">
-        <h1>
+        <Teleport :to="props.titleTeleport">
             <ElSelect
                 v-model="model.type"
                 style="width: 100px;"
@@ -23,23 +23,17 @@
                 />
             </ElSelect>
             音符编辑
-        </h1>
-        <MyInput
-            v-model="model.startString"
-            v-model:when="model.startTime"
-        >
+        </Teleport>
+        <MyInputBeats v-model="model.startTime">
             <template #prepend>
                 开始时间
             </template>
-        </MyInput>
-        <MyInput
-            v-model="model.endString"
-            v-model:when="model.endTime"
-        >
+        </MyInputBeats>
+        <MyInputBeats v-model="model.endTime">
             <template #prepend>
                 结束时间
             </template>
-        </MyInput>
+        </MyInputBeats>
         <MySwitch
             v-model="model.isFake"
             :active-value="1"
@@ -98,10 +92,12 @@
 </template>
 <script setup lang='ts'>
 import { Note, NoteAbove } from '../classes/note';
-import MyInput from '../myElements/MyInput.vue';
+import MyInputBeats from '../myElements/MyInputBeats.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySwitch from '../myElements/MySwitch.vue';
-
+const props = defineProps<{
+    titleTeleport: string
+}>();
 const model = defineModel<Note>({
     required: true
 });

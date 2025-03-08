@@ -8,33 +8,34 @@
             :key="option"
         >
             <ElOption
-                v-if="isString(option)"
-                :value="option"
-                :label="option"
-            >
-                {{ option }}
-            </ElOption>
-            <ElOption
-                v-else
+                v-if="isObject(option)"
                 :value="option.value"
                 :label="option.label"
             >
                 {{ option.text }}
+            </ElOption>
+            <ElOption
+                v-else
+                :value="option"
+                :label="option.toString()"
+            >
+                {{ option }}
             </ElOption>
         </template>
     </ElSelect>
 </template>
 <script setup lang="ts">
 import { ElOption, ElSelect } from 'element-plus';
-import { isString } from 'lodash';
+import { isObject } from 'lodash';
 import { ref, watch } from 'vue';
-const inputData = ref('');
-const model = defineModel<string>({
+const inputData = ref<A>('');
+type A = string | number | boolean;
+const model = defineModel<A>({
     required: true
 });
 const props = defineProps<{
-    options: (string | {
-        value: string,
+    options: (A | {
+        value: A,
         label: string,
         text: string
     })[],

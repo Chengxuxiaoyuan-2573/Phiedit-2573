@@ -1,118 +1,163 @@
 <template>
     <div class="mutiple-editor">
-        <h1>多选编辑</h1>
-        <em>已选中{{ editor.selectedElements.length }}个对象</em>
-        <ElButton
-            type="primary"
-            @click="unselect"
-        >
-            取消选择
-        </ElButton>
-        <ElButton
-            type="danger"
-            @click="catchError(delete_, '删除')"
-        >
-            删除
-        </ElButton>
-        <MyInputNumber
-            v-model="targetJudgeLineNumber"
-            :min="0"
-            :max="editor.chart.judgeLineList.length - 1"
-        >
-            <template #prefix>
-                移到
-            </template>
-            <template #suffix>
-                号判定线
-            </template>
-            <template #append>
+        <Teleport :to="props.titleTeleport">
+            多选编辑
+        </Teleport>
+        <em v-if="numOfNotes == 0">
+            已选中{{ numOfEvents }}个事件
+        </em>
+        <em v-else-if="numOfEvents == 0">
+            已选中{{ numOfNotes }}个音符
+        </em>
+        <em v-else>
+            已选中{{ numOfNotes }}个音符和{{ numOfEvents }}个事件
+        </em>
+        <MyDialog open-text="移动到判定线">
+            <MyInputNumber
+                v-model="targetJudgeLineNumber"
+                :min="0"
+                :max="chart.judgeLineList.length - 1"
+            >
+                <template #prepend>
+                    移动到
+                </template>
+                <template #append>
+                    号判定线
+                </template>
+            </MyInputNumber>
+            <template #footer="{ close }">
                 <ElButton
                     type="primary"
-                    @click="catchError(moveToJudgeLine, '移动')"
+                    @click="catchErrorByMessage(moveToJudgeLine, '移动'), close()"
                 >
-                    移动
+                    确定
                 </ElButton>
             </template>
-        </MyInputNumber>
-        <MyInputNumber
-            v-model="targetJudgeLineNumber"
-            :min="0"
-            :max="editor.chart.judgeLineList.length - 1"
-        >
-            <template #prefix>
-                复制到
-            </template>
-            <template #suffix>
-                号判定线
-            </template>
-            <template #append>
+        </MyDialog>
+        <MyDialog open-text="复制到判定线">
+            <MyInputNumber
+                v-model="targetJudgeLineNumber"
+                :min="0"
+                :max="chart.judgeLineList.length - 1"
+            >
+                <template #prepend>
+                    复制到
+                </template>
+                <template #append>
+                    号判定线
+                </template>
+            </MyInputNumber>
+            <template #footer="{ close }">
                 <ElButton
                     type="primary"
-                    @click="catchError(copyToJudgeLine, '复制')"
+                    @click="catchErrorByMessage(copyToJudgeLine, '复制'), close()"
                 >
-                    复制
+                    确定
                 </ElButton>
             </template>
-        </MyInputNumber>
-        <ElInput
-            v-model="code"
-            class="code-input"
-            type="textarea"
-            :autosize="{
-                minRows: 10,
-                maxRows: Infinity
-            }"
-            style="resize:none;"
-        />
-        <ElButton
-            type="success"
-            @click="catchError(() => evaluateCode(code), '执行')"
-        >
-            执行快速编辑
-        </ElButton>
-        <h1>快速编辑预设</h1>
+        </MyDialog>
+        <h1>已保存的快速编辑</h1>
         <MyGridContainer :columns="2">
             <ElButton
-                v-for="[key, value] of Object.entries(fastEditPresets)"
+                v-for="[key, value] of Object.entries(fastEdit)"
                 :key="key"
-                @click="catchError(() => evaluateCode(value), `执行'${key}'操作`)"
+                @click="catchErrorByMessage(() => {
+                    evaluateCode(value);
+                    code = value;
+                }, `执行'${key}'操作`)"
             >
                 {{ key }}
             </ElButton>
         </MyGridContainer>
+        <MyDialog open-text="添加快速编辑">
+            <ElInput v-model="name">
+                <template #prepend>
+                    快速编辑名称
+                </template>
+            </ElInput>
+            <ElInput
+                v-model="code"
+                class="code-input"
+                type="textarea"
+                :autosize="{
+                    minRows: 10,
+                    maxRows: Infinity
+                }"
+                style="resize:none;"
+                spellcheck="false"
+            />
+            <template #footer>
+                <ElButton
+                    type="success"
+                    @click="catchErrorByMessage(saveFastEdit, '保存')"
+                >
+                    保存快速编辑
+                </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="catchErrorByMessage(() => evaluateCode(code), '执行')"
+                >
+                    执行快速编辑
+                </ElButton>
+            </template>
+        </MyDialog>
+        <ElButton
+            type="danger"
+            @click="catchErrorByMessage(delete_, '删除')"
+        >
+            删除
+        </ElButton>
     </div>
 </template>
 <script setup lang="ts">
 import { Note, NoteAbove, NoteType } from '@/classes/note';
-import { Editor } from '@/editor';
 import MyInputNumber from '@/myElements/MyInputNumber.vue';
-import { ArrayRepeat } from '@/tools/typeCheck';
+import type { ArrayRepeat } from '@/tools/typeCheck';
 import { ElInput, ElButton } from 'element-plus';
-import { inject, ref } from 'vue';
-import fastEditPresets from '@/assets/fastEditPresets';
+import { computed, reactive, ref } from 'vue';
+import fastEditPresets from '@/services/fastedit/presets';
 import MyGridContainer from '@/myElements/MyGridContainer.vue';
-import { catchError } from '@/tools/catchError';
-const editor = inject('editor') as Editor;
+import { catchErrorByMessage } from '@/tools/catchError';
+import { LocalStorage } from '@/tools/storageUtils';
+import MyDialog from '@/myElements/MyDialog.vue';
+import selectionManager from '@/services/managers/selection';
+import moveManager from '@/services/managers/move';
+import store from '@/store';
+const props = defineProps<{
+    titleTeleport: string
+}>();
+const chart = store.useChart();
 const targetJudgeLineNumber = ref(0);
-const code = ref(`// 快速编辑的代码
+const name = ref("新建的快速编辑");
+const code = ref(`// 快速编辑代码示例
+// 音符编辑
 notes.forEach(note => {
-    // 镜像
-    note.positionX *= -1; 
-    // 开始时间增加1拍
-    note.startTime[0] += 1; 
-    // 结束时间增加1拍
-    note.endTime[0] += 1; 
+    // 可用属性：above, alpha, startTime, endTime, type, isFake, positionX, size, speed, yOffset, visibleTime
 })
+
+// 事件编辑（现不支持特殊事件的编辑）
 moveXEvents.forEach(event => {
-    // moveX事件编辑
+    // 可用属性：bezier, bezierPoints, easingLeft, easingRight, easingType, start, end, startTime, endTime
 })
-moveYEvents.forEach(event => {
-    // moveY事件编辑
-})
-// ......
+
+// 其他种类事件，如moveYEvents, rotateEvents, alphaEvents, speedEvents
 `);
 
-
+const storage = new LocalStorage();
+const fastEdit = reactive(storage.get<{
+    [key: string]: string;
+}>("fastEdit", {
+    ...fastEditPresets
+}));
+const numOfSelectedElements = computed(() => {
+    return selectionManager.selectedElements.length
+});
+const numOfNotes = computed(() => {
+    return selectionManager.selectedElements.filter(element => element instanceof Note).length
+});
+const numOfEvents = computed(() => {
+    return numOfSelectedElements.value - numOfNotes.value
+});
 
 const variables = [
     "notes",
@@ -131,6 +176,12 @@ const variables = [
     "FAKE"] as const;
 type Arguments = ArrayRepeat<unknown, typeof variables["length"]>;
 
+function saveFastEdit() {
+    if (name.value == "") throw new Error("请输入快速编辑名称");
+    if (name.value in fastEdit) throw new Error("快速编辑名称已存在");
+    fastEdit[name.value] = code.value;
+    storage.set('fastEdit', fastEdit);
+}
 function evaluateCode(code: string) {
     const func = new Function(...variables, code) as (...args: Arguments) => void;
     const notes = [];
@@ -140,7 +191,7 @@ function evaluateCode(code: string) {
     const alphaEvents = [];
     const speedEvents = [];
     // 把editor.selectedElements分类为note和事件
-    for (const element of editor.selectedElements) {
+    for (const element of selectionManager.selectedElements) {
         if (element instanceof Note) {
             const allowedAttributes = [
                 "above",
@@ -289,19 +340,16 @@ function evaluateCode(code: string) {
         0,
         1);
 }
-function unselect() {
-    editor.unselectAll();
-}
 function delete_() {
-    editor.deleteSelection();
+    selectionManager.deleteSelection();
 }
 function moveToJudgeLine() {
-    copyToJudgeLine();
-    delete_();
+    moveManager.moveToJudgeLine(targetJudgeLineNumber.value);
 }
 function copyToJudgeLine() {
-    editor.copyToJudgeLine(targetJudgeLineNumber.value);
+    moveManager.copyToJudgeLine(targetJudgeLineNumber.value);
 }
+
 </script>
 <style scoped>
 .mutiple-editor {

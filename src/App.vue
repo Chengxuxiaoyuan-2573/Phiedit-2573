@@ -1,13 +1,10 @@
 <template>
     <ElContainer>
-        <ElHeader
-            @wheel.stop
-            @keydown.stop
-        >
+        <ElHeader id="header">
             <ElRow>
                 <audio
                     ref="audioRef"
-                    :src="chartPackage.musicSrc"
+                    :src="store.chartPackageRef.value?.musicSrc"
                 />
                 <template v-if="audioRef">
                     <ElIcon
@@ -23,29 +20,28 @@
                         :max="audioRef.duration"
                         :step="0.01"
                         :format-tooltip="seconds => {
-                            const min = Math.floor(seconds / 60).toString().padStart(2, '0');
-                            const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
-                            return `${min}:${sec}`;
+                            const beats = secondsToBeats(store.useChart().BPMList, seconds);
+                            return `第${beats.toFixed(2)}拍`;
                         }"
                         @input="audioRef.pause(), audioRef.currentTime = typeof time == 'number' ? time : time[0]"
                     />
                 </template>
                 <ElButton
                     type="primary"
-                    @click="editor.switchMainState()"
+                    @click="globalEventEmitter.emit(stateManager.isPreviewing ? 'STOP_PREVIEW' : 'PREVIEW')"
                 >
-                    {{ editor.state.canvas == CanvasState.Editing ? "切换到播放器界面" : "切换到编辑器界面" }}
+                    {{ stateManager.isPreviewing ? '取消预览' : '预览' }}
                 </ElButton>
                 <p
                     :style="{
                         color: (() => {
-                            if (fps >= fpsLimit) {
+                            if (fps >= 60) {
                                 return 'green';
                             }
-                            else if (fps >= fpsLimit / 2) {
-                                return 'skyblue';
+                            else if (fps >= 30) {
+                                return 'blue';
                             }
-                            else if (fps >= fpsLimit / 4) {
+                            else if (fps >= 15) {
                                 return 'orange';
                             }
                             else {
@@ -61,32 +57,93 @@
                 </p>
             </ElRow>
             <ElRow>
-                右键放置，
+                <MySelect
+                    v-model="stateManager.currentNoteType"
+                    :options="[
+                        {
+                            label: '当前音符类型：Tap',
+                            value: NoteType.Tap,
+                            text: 'Tap（Q）'
+                        },
+                        {
+                            label: '当前音符类型：Drag',
+                            value: NoteType.Drag,
+                            text: 'Drag（W）'
+                        },
+                        {
+                            label: '当前音符类型：Flick',
+                            value: NoteType.Flick,
+                            text: 'Flick（E）'
+                        },
+                        {
+                            label: '当前音符类型：Hold',
+                            value: NoteType.Hold,
+                            text: 'Hold（R）'
+                        }
+                    ]"
+                />
+                <MyInputNumber
+                    v-model="stateManager.currentJudgeLineNumber"
+                    :min="0"
+                    :max="store.useChart().judgeLineList.length - 1"
+                >
+                    <template #prepend>
+                        当前判定线号
+                    </template>
+                </MyInputNumber>
+                <MyInputNumber
+                    v-model="stateManager.currentEventLayerNumber"
+                    :min="0"
+                    :max="store.useChart().judgeLineList[stateManager.currentJudgeLineNumber].eventLayers.length - 1"
+                >
+                    <template #prepend>
+                        当前事件层级号
+                    </template>
+                </MyInputNumber>
+                <MyInputNumber
+                    v-model="stateManager.horizonalLineCount"
+                    :min="1"
+                    :max="64"
+                >
+                    <template #prepend>
+                        横线数
+                    </template>
+                </MyInputNumber>
+                <MyInputNumber
+                    v-model="stateManager.verticalLineCount"
+                    :min="2"
+                    :max="100"
+                >
+                    <template #prepend>
+                        竖线数
+                    </template>
+                </MyInputNumber>
+                <MyDialog>
+                    <template #header>
+                        我是标题
+                    </template>
+                    我是内容
+                    <template #footer>
+                        我是底部
+                    </template>
+                </MyDialog>
+                <!-- 右键放置，
                 左键选择，
                 选择之后按住拖动，
-                按Alt拖动尾部，
                 QWER切换note种类，
-                方括号切换判定线，
+                方括号或Ctrl+B切换判定线，
                 短按空格播放或暂停，
-                长按空格预览谱面
+                长按空格预览谱面 -->
             </ElRow>
         </ElHeader>
-        <ElAside
-            class="left"
-            @wheel.stop
-            @keydown.stop
-        >
-            <div class="left-inner">
+        <ElAside id="left">
+            <div
+                v-if="selectionManager.selectedElements.length == 0"
+                class="left-inner"
+            >
                 <h1>Phiedit 2573 线上制谱器</h1>
                 <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
-                <ElUpload :before-upload="file => ChartPackage.load(file, str => loadingText.show(str)).then(a => {
-                    chartPackage.chart = new Chart(a.chart);
-                    chartPackage.background = a.background;
-                    chartPackage.textures = a.textures;
-                    chartPackage.musicSrc = a.musicSrc;
-                    loadingText.hide();
-                    // eslint-disable-next-line vue/html-closing-bracket-newline
-                })">
+                <ElUpload :before-upload="uploadChartPackage">
                     <template #trigger>
                         <ElButton type="primary">
                             上传谱面文件（zip或pez格式）
@@ -94,11 +151,7 @@
                     </template>
                 </ElUpload>
                 <ElUpload
-                    :before-upload="async file => {
-                        const a = await ResourcePackage.load(file, str => loadingText.show(str));
-                        Object.assign(resourcePackage, a);
-                        loadingText.hide();
-                    }"
+                    :before-upload="uploadResourcePackage"
                     useless-attribute
                 >
                     <template #trigger>
@@ -114,8 +167,30 @@
                     下载谱面文件（json格式）
                 </ElButton>
             </div>
+            <template v-else>
+                <MyBackHeader
+                    class="title-left"
+                    @back="selectionManager.unselectAll()"
+                />
+                <ElScrollbar @wheel.stop>
+                    <MutipleEditor
+                        v-if="selectionManager.selectedElements.length > 1"
+                        title-teleport=".title-left"
+                    />
+                    <NoteEditor
+                        v-else-if="selectionManager.selectedElements[0] instanceof Note"
+                        v-model="selectionManager.selectedElements[0]"
+                        title-teleport=".title-left"
+                    />
+                    <NumberEventEditor
+                        v-else-if="selectionManager.selectedElements[0] instanceof NumberEvent"
+                        v-model="selectionManager.selectedElements[0]"
+                        title-teleport=".title-left"
+                    />
+                </ElScrollbar>
+            </template>
         </ElAside>
-        <ElMain>
+        <ElMain id="main">
             <canvas
                 ref="canvasRef"
                 class="canvas"
@@ -123,124 +198,86 @@
                 :height="900"
             />
         </ElMain>
-        <ElAside
-            class="right"
-            @wheel.stop
-            @keydown.stop
-        >
-            <template v-if="editor.state.right == RightState.Default">
-                <div class="right-inner">
+        <ElAside id="right">
+            <ElScrollbar @wheel.stop>
+                <div
+                    v-if="stateManager.right == RightPanelState.Default"
+                    class="right-inner"
+                >
                     <ElButton
                         type="primary"
-                        @click="editor.state.right = RightState.Settings"
+                        @click="stateManager.right = RightPanelState.Settings"
                     >
                         设置
                     </ElButton>
                     <ElButton
                         type="primary"
-                        @click="editor.state.right = RightState.BPMList"
+                        @click="stateManager.right = RightPanelState.BPMList"
                     >
                         BPM编辑
                     </ElButton>
                     <ElButton
                         type="primary"
-                        @click="editor.state.right = RightState.Meta"
+                        @click="stateManager.right = RightPanelState.Meta"
                     >
-                        谱面信息编辑
+                        谱面基本信息
                     </ElButton>
                     <ElButton
                         type="primary"
-                        @click="editor.state.right = RightState.JudgeLine"
+                        @click="stateManager.right = RightPanelState.JudgeLine"
                     >
                         判定线编辑
                     </ElButton>
-                    <MyInputNumber
-                        v-model="editor.currentJudgeLineNumber"
-                        :min="0"
-                        :max="chartPackage.chart.judgeLineList.length - 1"
+                    <ElButton
+                        type="primary"
+                        @click="stateManager.right = RightPanelState.Effect"
                     >
-                        <template #prepend>
-                            当前判定线号
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="editor.currentEventLayerNumber"
-                        :min="0"
-                        :max="chartPackage.chart.judgeLineList[editor.currentJudgeLineNumber].eventLayers.length - 1"
-                    >
-                        <template #prepend>
-                            当前事件层级号
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="editor.horizonalLineCount"
-                        :min="1"
-                        :max="1024"
-                    >
-                        <template #prepend>
-                            横线数
-                        </template>
-                    </MyInputNumber>
-                    <MyInputNumber
-                        v-model="editor.verticalLineCount"
-                        :min="2"
-                        :max="1350"
-                    >
-                        <template #prepend>
-                            竖线数
-                        </template>
-                    </MyInputNumber>
+                        一键生成特效
+                    </ElButton>
                 </div>
-            </template>
-            <template v-else>
-                <ElHeader style="height:25px;">
-                    <ArrowLeft
-                        style="
-                            cursor: pointer;
-                            height: 100%;
-                            vertical-align: middle;
-                        "
-                        @click="editor.state.right = RightState.Default"
+                <template v-else>
+                    <MyBackHeader
+                        class="title-right"
+                        @back="stateManager.right = RightPanelState.Default"
                     />
-                    <span>返回</span>
-                </ElHeader>
-                <template v-if="editor.state.right == RightState.Editing && editor.selectedElements.length == 1">
-                    <NoteEditor
-                        v-if="(editor.selectedElements[0] instanceof Note)"
-                        v-model="editor.selectedElements[0]"
+                    <BPMListEditor
+                        v-if="stateManager.right == RightPanelState.BPMList"
+                        title-teleport=".title-right"
                     />
-                    <NumberEventEditor
-                        v-else-if="(editor.selectedElements[0] instanceof NumberEvent)"
-                        v-model="editor.selectedElements[0]"
+                    <ChartMetaEditor
+                        v-else-if="stateManager.right == RightPanelState.Meta"
+                        title-teleport=".title-right"
+                    />
+                    <JudgeLineEditor
+                        v-else-if="stateManager.right == RightPanelState.JudgeLine"
+                        title-teleport=".title-right"
+                    />
+                    <SettingsEditor
+                        v-else-if="stateManager.right == RightPanelState.Settings"
+                        title-teleport=".title-right"
+                    />
+                    <EffectEditor
+                        v-else-if="stateManager.right == RightPanelState.Effect"
+                        title-teleport=".title-right"
                     />
                 </template>
-                <MutipleEditor
-                    v-else-if="editor.state.right == RightState.Editing && editor.selectedElements.length > 1"
-                />
-                <BPMListEditor v-else-if="editor.state.right == RightState.BPMList" />
-                <ChartMetaEditor v-else-if="editor.state.right == RightState.Meta" />
-                <JudgeLineEditor v-else-if="editor.state.right == RightState.JudgeLine" />
-                <SettingsEditor v-else-if="editor.state.right == RightState.Settings" />
-            </template>
+            </ElScrollbar>
         </ElAside>
     </ElContainer>
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElButton, ElContainer, ElHeader, ElIcon, ElMain, ElRow, ElSlider, ElUpload } from "element-plus";
-import { onBeforeUnmount, onMounted, provide, reactive, ref } from "vue";
+import { ElAside, ElButton, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElMessageBox, ElRow, ElSlider, ElUpload } from "element-plus";
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import { clamp } from "lodash";
 
-import { Chart } from "./classes/chart";
 import { ChartPackage } from "./classes/chartPackage";
 import { NumberEvent } from "./classes/event";
-import { Note } from "./classes/note";
+import { Note, NoteType } from "./classes/note";
 import { ResourcePackage } from "./classes/resourcePackage";
 
-import ChartRenderer from "./chartRenderer";
-import eventEmitter from "./eventEmitter";
-import { CanvasState, Editor, RightState } from "./editor";
-import { chartPackage, resourcePackage, canvasRef, audioRef } from "./store";
 
+import globalEventEmitter from "./eventEmitter";
 import BPMListEditor from "./editorComponents/BPMListEditor.vue";
 import ChartMetaEditor from "./editorComponents/ChartMetaEditor.vue";
 import JudgeLineEditor from "./editorComponents/JudgeLineEditor.vue";
@@ -253,24 +290,57 @@ import MyInputNumber from "./myElements/MyInputNumber.vue";
 
 import loadingText from "./tools/loadingText";
 import mediaUtils from "./tools/mediaUtils";
-import math from "./tools/math";
-import { clamp } from "lodash";
+import MathUtils from "./tools/math";
+
+import chartPackageURL from "@/assets/DefaultChartPackage.zip";
+import resourcePackageURL from "@/assets/DefaultResourcePackage.zip";
+import { catchErrorByMessage } from "./tools/catchError";
+import { secondsToBeats } from "./classes/beats";
+import MySelect from "./myElements/MySelect.vue";
+import MyDialog from "./myElements/MyDialog.vue";
+import EffectEditor from "./editorComponents/EffectEditor.vue";
+
+import { RightPanelState } from "@/types";
+import MyBackHeader from "./myElements/MyBackHeader.vue";
+import store, { audioRef, canvasRef } from "./store";
+
+import stateManager from "./services/managers/state";
+import selectionManager from "./services/managers/selection";
+import chartRenderer from "./services/managers/render/chartRenderer";
+import editorRenderer from "./services/managers/render/editorRenderer";
+
+store.chartPackageRef.value = await fetch(chartPackageURL)
+    .then(res => res.blob())
+    .then(blob => ChartPackage.load(blob, str => {
+        loadingText.show(str)
+    }));
+store.resourcePackageRef.value = await fetch(resourcePackageURL)
+    .then(res => res.blob())
+    .then(blob => ResourcePackage.load(blob, str => {
+        loadingText.show(str)
+    }));
+loadingText.hide();
+
 
 const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
-const editor: Editor = reactive(new Editor(chartPackage, resourcePackage));
 
-provide("editor", editor);
-provide("textures", chartPackage.textures);
 
-const fpsLimit = 60;
 let cachedRect: DOMRect;
+async function uploadChartPackage(file: File) {
+    const chartPackage = await ChartPackage.load(file, str => loadingText.show(str));
+    store.chartPackageRef.value = chartPackage;
+    loadingText.hide();
+}
+async function uploadResourcePackage(file: File) {
+    const resourcePackage = await ResourcePackage.load(file, str => loadingText.show(str));
+    store.resourcePackageRef.value = resourcePackage;
+    loadingText.hide();
+}
 function downloadChart() {
-    mediaUtils.downloadText(
-        JSON.stringify(chartPackage.chart.toObject()),
-        chartPackage.chart.META.name + '.json',
-        'application/json');
+    const chart = store.useChart();
+    mediaUtils.downloadText(JSON.stringify(chart.toObject()), chart.META.name + '.json', 'application/json');
 }
 function canvasMouseDown(e: MouseEvent) {
     const { x, y } = getClickedPosition(e);
@@ -282,10 +352,10 @@ function canvasMouseDown(e: MouseEvent) {
     }
     switch (e.button) {
         case 0:
-            eventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
+            globalEventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
             return;
         case 2:
-            eventEmitter.emit("MOUSE_RIGHT_CLICK", x, y);
+            globalEventEmitter.emit("MOUSE_RIGHT_CLICK", x, y);
             return;
     }
 }
@@ -297,19 +367,19 @@ function canvasMouseMove(e: MouseEvent) {
         meta: e.metaKey
     }
     const { x, y } = getClickedPosition(e);
-    eventEmitter.emit("MOUSE_MOVE", x, y, options);
+    globalEventEmitter.emit("MOUSE_MOVE", x, y, options);
 }
 function canvasMouseUp() {
-    eventEmitter.emit("MOUSE_UP");
+    globalEventEmitter.emit("MOUSE_UP");
 }
 function windwoOnWheel(e: WheelEvent) {
     const audio = audioRef.value;
     if (!audio) throw new Error("audio is null");
     if (e.ctrlKey) {
         e.preventDefault();
-        editor.pxPerSecond = clamp(editor.pxPerSecond + e.deltaY * -0.05, 1, 1000);
+        stateManager.pxPerSecond = clamp(stateManager.pxPerSecond + e.deltaY * -0.05, 1, 1000);
     } else {
-        audio.currentTime += e.deltaY / -editor.pxPerSecond;
+        audio.currentTime += e.deltaY / -stateManager.pxPerSecond;
     }
 }
 function canvasOnResize() {
@@ -317,88 +387,89 @@ function canvasOnResize() {
     if (!canvas) throw new Error("canvas is null");
     cachedRect = canvas.getBoundingClientRect();
 }
-function windowOnKeyDown(e: KeyboardEvent) {
+async function windowOnKeyDown(e: KeyboardEvent) {
     const audio = audioRef.value;
     if (!audio) throw new Error("audio is null");
     if (e.repeat) {
         return;
     }
-    //const { ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = e;
     const key = formatKey(e);
-    console.log(key);
+    console.debug(key);
     switch (key) {
-        case "Space": {
-            const time = 300;
-            const audioTime = audio.currentTime;
-            let pressTime = performance.now();
-            let releaseTime = undefined;
-            let spacePressed = true;
-            const keyUpHandler = (e: KeyboardEvent) => {
-                releaseTime = performance.now();
-                const key = formatKey(e);
-                if (key == "Space") {
-                    spacePressed = false;
-                    if (releaseTime - pressTime < time) {
-                        mediaUtils.togglePlay(audio);
-                    }
-                    else {
-                        editor.state.canvas = CanvasState.Editing;
-                        audio.currentTime = audioTime;
-                        audio.pause();
-                    }
-                    window.removeEventListener("keyup", keyUpHandler);
-                }
-            };
-            window.addEventListener("keyup", keyUpHandler);
-            const timeout = setTimeout(() => {
-                if (spacePressed) {
-                    editor.state.canvas = CanvasState.Playing;
-                    audio.play();
-                }
-                clearTimeout(timeout);
-            }, time);
-            return;
-        }
-        case "Esc":
-            editor.unselectAll();
-            return;
-        case "Del":
-            editor.deleteSelection();
-            editor.unselectAll();
+        case "Space":
+            mediaUtils.togglePlay(audio);
             return;
         case "Q":
-            editor.changeType("Tap");
+            globalEventEmitter.emit("CHANGE_TYPE", "Tap");
             return;
         case "W":
-            editor.changeType("Drag");
+            globalEventEmitter.emit("CHANGE_TYPE", "Drag");
             return;
         case "E":
-            editor.changeType("Flick");
+            globalEventEmitter.emit("CHANGE_TYPE", "Flick");
             return;
         case "R":
-            editor.changeType("Hold");
+            globalEventEmitter.emit("CHANGE_TYPE", "Hold");
             return;
+        case "T": {
+            globalEventEmitter.emit("PREVIEW");
+            // 松开T键时停止预览
+            const keyUpHandler = (e: KeyboardEvent) => {
+                const key = formatKey(e);
+                if (key === "T") {
+                    globalEventEmitter.emit("STOP_PREVIEW");
+                    window.removeEventListener("keyup", keyUpHandler);
+                }
+            }
+            window.addEventListener("keyup", keyUpHandler);
+            return;
+        }
         case "[":
-            if (editor.currentJudgeLineNumber > 0)
-                editor.currentJudgeLineNumber--;
+            globalEventEmitter.emit("PREVIOUS_JUDGE_LINE");
             return;
         case "]":
-            if (editor.currentJudgeLineNumber < editor.chart.judgeLineList.length - 1)
-                editor.currentJudgeLineNumber++;
+            globalEventEmitter.emit("NEXT_JUDGE_LINE");
+            return;
+        case "Esc":
+            globalEventEmitter.emit("UNSELECT_ALL");
+            return;
+        case "Del":
+            globalEventEmitter.emit("DELETE");
+            return;
+        case "Up":
+            globalEventEmitter.emit("MOVE_UP");
+            return;
+        case "Down":
+            globalEventEmitter.emit("MOVE_DOWN");
+            return;
+        case "Left":
+            globalEventEmitter.emit("MOVE_LEFT");
+            return;
+        case "Right":
+            globalEventEmitter.emit("MOVE_RIGHT");
+            return;
+        case "Ctrl B":
+            globalEventEmitter.emit("CHANGE_JUDGE_LINE", parseInt((await ElMessageBox.prompt("请输入判定线号", "切换判定线")).value))
             return;
         case "Ctrl S":
             e.preventDefault();
-            downloadChart();
+            catchErrorByMessage(downloadChart, "下载");
+            return;
+        case "Ctrl A":
+            globalEventEmitter.emit("SELECT_ALL");
+            return;
+        case "Ctrl X":
+            globalEventEmitter.emit("CUT");
             return;
         case "Ctrl C":
-            editor.copy();
+            globalEventEmitter.emit("COPY");
             return;
         case "Ctrl V":
-            editor.paste();
+            globalEventEmitter.emit("PASTE");
             return;
     }
 }
-function preventContextMenu(e: MouseEvent) {
+function prevent(e: Event) {
     e.preventDefault();
 }
 /**
@@ -441,83 +512,110 @@ function getClickedPosition({ offsetX: x, offsetY: y }: MouseEvent) {
     }
 }
 /**
- * 将键盘事件转换为按键字符串
- * 如果有Ctrl、Shift等修饰键，则将修饰键加上
+ * 将键盘事件对象格式化为可读的按键组合字符串
+ * 
+ * 功能说明：
+ * 1. 检测并拼接修饰键（Ctrl、Shift、Alt、Meta）
+ * 2. 转换特殊按键的显示名称（如 Space、Esc 等）
+ * 3. 自动排除修饰键自身事件（如单独按下 Control 键）
+ * 
+ * @param e - 键盘事件对象，包含按键信息和修饰键状态
+ * @returns 格式化后的组合按键字符串（例如 "Ctrl Shift S"）
  */
 function formatKey(e: KeyboardEvent) {
+
+    // 特殊情况，修饰键自身事件
+    if (e.key == "Control") {
+        return "Ctrl";
+    }
+    if (e.key == "Shift") {
+        return "Shift";
+    }
+    if (e.key == "Alt") {
+        return "Alt";
+    }
+    if (e.key == "Meta") {
+        return "Meta";
+    }
+
     let str = "";
+
+    // 处理修饰键：按固定顺序拼接 Ctrl/Shift/Alt/Meta
     if (e.ctrlKey) str += "Ctrl ";
     if (e.shiftKey) str += "Shift ";
     if (e.altKey) str += "Alt ";
     if (e.metaKey) str += "Meta ";
+
+    /**
+     * 格式化单个按键的显示文本
+     * @param key - 原始按键值
+     * @returns 转换后的标准按键名称（全大写，特殊按键转换）
+     */
     function formatSingleKey(key: string) {
         switch (key) {
-            case " ":
-                return "Space";
-            case "Escape":
-                return "Esc";
-            case "Delete":
-                return "Del";
-            case "ArrowLeft":
-                return "Left";
-            case "ArrowRight":
-                return "Right";
-            case "ArrowUp":
-                return "Up";
-            case "ArrowDown":
-                return "Down";
+            case " ": return "Space";
+            case "Escape": return "Esc";
+            case "Delete": return "Del";
+            case "ArrowLeft": return "Left";
+            case "ArrowRight": return "Right";
+            case "ArrowUp": return "Up";
+            case "ArrowDown": return "Down";
             default:
-                return key.toUpperCase();
+                // 判断按键是否为单个字符，如果是则转换为大写，否则返回原始值
+                // 避免将Home、End等按键转换为大写
+                if (key.length == 1)
+                    return key.toUpperCase();
+                else
+                    return key;
         }
     }
-    if (e.key != "Control" && e.key != "Shift" && e.key != "Alt" && e.key != "Meta")
-        str += formatSingleKey(e.key);
+
+    str += formatSingleKey(e.key);
+
     return str;
 }
 onMounted(() => {
     const canvas = canvasRef.value!;
     const audio = audioRef.value!;
-    const renderer = new ChartRenderer({ chartPackage, resourcePackage });
     cachedRect = canvas.getBoundingClientRect();
 
     canvas.addEventListener('mousedown', canvasMouseDown);
     canvas.addEventListener('mousemove', canvasMouseMove);
     canvas.addEventListener('mouseup', canvasMouseUp);
-    canvas.addEventListener('resize', canvasOnResize);
-    window.addEventListener('wheel', windwoOnWheel, {
-        passive: false
-    });
+    const resizeObserver = new ResizeObserver(canvasOnResize);
+    resizeObserver.observe(canvas);
+    window.addEventListener('wheel', windwoOnWheel, { passive: false });
     window.addEventListener('keydown', windowOnKeyDown);
-    document.oncontextmenu = preventContextMenu;
+    document.oncontextmenu = prevent;
 
     let fpsHistory = [];
     let renderTime = performance.now();
     const interval = setInterval(() => {
-        if (editor.state.canvas == CanvasState.Editing) {
-            editor.render();
+        if (stateManager.isPreviewing) {
+            chartRenderer.renderChart();
         }
         else {
-            renderer.renderChart();
+            editorRenderer.render();
         }
         const now = performance.now();
         const delta = now - renderTime;
 
         if (delta > 0) {
-            const currentFPS = Math.min(1000 / delta, fpsLimit);
+            const currentFPS = 1000 / delta;
             fpsHistory.push(currentFPS);
             // 限制FPS历史数组的大小
             if (fpsHistory.length > 10) {
                 fpsHistory.shift();
             }
             // 计算平均FPS
-            fps.value = math.average(fpsHistory);
+            fps.value = MathUtils.average(fpsHistory);
         } else {
-            fps.value = 0; // 或者设置为一个合理的默认值
+            fps.value = 0;
         }
         renderTime = now;
         time.value = audio.currentTime;
         audioIsPlaying.value = !audio.paused;
-    }, 1000 / fpsLimit);
+    }, 0);
     onBeforeUnmount(() => {
         const canvas = canvasRef.value;
         const audio = audioRef.value;
@@ -530,9 +628,11 @@ onMounted(() => {
             canvas.removeEventListener('mouseup', canvasMouseUp);
             canvas.removeEventListener("resize", canvasOnResize);
         }
+        resizeObserver.disconnect();
         window.removeEventListener("wheel", windwoOnWheel);
         window.removeEventListener("keydown", windowOnKeyDown);
         clearInterval(interval);
+        globalEventEmitter.destroy();
         audioRef.value = null;
         canvasRef.value = null;
     });
@@ -550,37 +650,52 @@ onMounted(() => {
 }
 
 .el-container {
-    position: relative;
     overflow: hidden;
     width: 100%;
     height: 100%;
     display: grid;
     grid-template-columns: 1fr 3fr 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: 80px auto;
     grid-template-areas:
         "header header header"
         "left main right";
 }
 
-.el-header {
+/*
+.el-container>* {
+    width: 100%;
+    height: 100%;
+}
+*/
+
+#header {
     grid-area: header;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.el-aside.left {
-    grid-area: left;
-}
-
-.el-main {
+#main {
     grid-area: main;
     --el-main-padding: 0;
 }
 
-.el-aside.right {
+.el-aside {
+    padding: 10px;
+}
+
+#left {
+    grid-area: left;
+}
+
+
+#right {
     grid-area: right;
 }
 
 
 .el-header>.el-row {
+    flex-grow: 1;
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
