@@ -4,6 +4,10 @@ import { BaseEventLayer, ExtendedEventLayer, IBaseEventLayer, IExtendedEventLaye
 import { INote, Note } from "./note"
 import { BaseEvent } from "./event"
 import { BPM } from "./beats"
+interface JudgeLineOptions {
+    BPMList: BPM[],
+    judgeLineNumber: number
+}
 export interface IJudgeLine {
     /** 没用属性，可以不用 */
     Group: number
@@ -62,13 +66,7 @@ export class JudgeLine implements IJudgeLine {
     Texture: string = "line.png"
     bpmfactor = 1
     eventLayers: BaseEventLayer[] = []
-    extended: ExtendedEventLayer = {
-        scaleXEvents: [],
-        scaleYEvents: [],
-        colorEvents: [],
-        paintEvents: [],
-        textEvents: []
-    }
+    readonly extended: ExtendedEventLayer
     father: number = -1
     isCover: 0 | 1 = 1
     notes: Note[] = []
@@ -118,7 +116,7 @@ export class JudgeLine implements IJudgeLine {
         x: 0
     }]
     zOrder: number = 0
-    readonly num: number
+    readonly id: number
     getAllEvents() {
         const events: BaseEvent[] = [];
         this.eventLayers.forEach(eventLayer => {
@@ -171,7 +169,7 @@ export class JudgeLine implements IJudgeLine {
             notes: this.notes.map(note => note.toObject())
         }
     }
-    constructor(judgeLine: unknown, num: number, BPMList: BPM[]) {
+    constructor(judgeLine: unknown, options: JudgeLineOptions) {
         if (isObject(judgeLine)) {
             if ("Group" in judgeLine && isNumber(judgeLine.Group))
                 this.Group = judgeLine.Group;
@@ -185,19 +183,36 @@ export class JudgeLine implements IJudgeLine {
                 this.father = judgeLine.father;
             if ("zOrder" in judgeLine && isNumber(judgeLine.zOrder))
                 this.zOrder = judgeLine.zOrder;
-            if ("eventLayers" in judgeLine && isArray(judgeLine.eventLayers)){
-                for (const eventLayer of judgeLine.eventLayers){
-                    this.eventLayers.push(new BaseEventLayer(eventLayer, BPMList));
+            if ("eventLayers" in judgeLine && isArray(judgeLine.eventLayers)) {
+                for (let i = 0; i < judgeLine.eventLayers.length; i++) {
+                    const eventLayer = judgeLine.eventLayers[i];
+                    this.eventLayers.push(new BaseEventLayer(eventLayer, {
+                        judgeLineNumber: options.judgeLineNumber,
+                        BPMList: options.BPMList,
+                        eventLayerNumber: i
+                    }));
                 }
             }
             if ("extended" in judgeLine)
-                this.extended = new ExtendedEventLayer(judgeLine.extended, BPMList);
-            if ("notes" in judgeLine && isArray(judgeLine.notes)){
-                for (const note of judgeLine.notes){
-                    this.notes.push(new Note(note, BPMList));
+                this.extended = new ExtendedEventLayer(judgeLine.extended, {
+                    judgeLineNumber: options.judgeLineNumber,
+                    BPMList: options.BPMList,
+                    eventLayerNumber: -1
+                });
+            if ("notes" in judgeLine && isArray(judgeLine.notes)) {
+                for (const note of judgeLine.notes) {
+                    this.notes.push(new Note(note, {
+                        judgeLineNumber: options.judgeLineNumber,
+                        BPMList: options.BPMList
+                    }));
                 }
             }
         }
-        this.num = num;
+        this.extended ??= new ExtendedEventLayer(null, {
+            judgeLineNumber: options.judgeLineNumber,
+            BPMList: options.BPMList,
+            eventLayerNumber: -1
+        });
+        this.id = options.judgeLineNumber;
     }
 }

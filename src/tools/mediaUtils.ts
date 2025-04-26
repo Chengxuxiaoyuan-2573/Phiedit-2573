@@ -1,5 +1,5 @@
-export default {
-    playSound(this: AudioContext, audioBuffer: AudioBuffer, time = 0) {
+export default class MediaUtils {
+    static playSound(this: AudioContext, audioBuffer: AudioBuffer, time = 0) {
         if (time >= audioBuffer.duration) return;
         const bufferSource = this.createBufferSource();
         bufferSource.buffer = audioBuffer;
@@ -9,12 +9,12 @@ export default {
             bufferSource.disconnect();
         }
         return bufferSource;
-    },
-    async createAudioBuffer(this: AudioContext, arraybuffer: ArrayBuffer) {
+    }
+    static async createAudioBuffer(this: AudioContext, arraybuffer: ArrayBuffer) {
         const audioBuffer = await this.decodeAudioData(arraybuffer);
         return audioBuffer;
-    },
-    createMutedAudioBuffer(this: AudioContext, duration: number) {
+    }
+    static createMutedAudioBuffer(this: AudioContext, duration: number) {
         const sampleRate = this.sampleRate;
         const numberOfChannels = 2;
         const audioBuffer = this.createBuffer(numberOfChannels, sampleRate * duration, sampleRate);
@@ -25,8 +25,8 @@ export default {
             }
         }
         return audioBuffer;
-    },
-    createImage(blob: Blob) {
+    }
+    static createImage(blob: Blob) {
         return new Promise<HTMLImageElement>((resolve, reject) => {
             const objectUrl = URL.createObjectURL(blob);
             const image = new Image();
@@ -40,8 +40,8 @@ export default {
                 reject(e);
             }
         })
-    },
-    createAudio(blob: Blob) {
+    }
+    static createAudio(blob: Blob) {
         return new Promise<HTMLAudioElement>((resolve, reject) => {
             const objectUrl = URL.createObjectURL(blob);
             const audio = new Audio();
@@ -55,8 +55,8 @@ export default {
                 reject(e);
             }
         })
-    },
-    createObjectURL(blob: Blob) {
+    }
+    static createObjectURL(blob: Blob) {
         return new Promise<string>((resolve) => {
             const objectUrl = URL.createObjectURL(blob);
             window.addEventListener('beforeunload', () => {
@@ -64,21 +64,21 @@ export default {
             })
             resolve(objectUrl);
         })
-    },
-    Image(src: string) {
+    }
+    static Image(src: string) {
         const image = new Image();
         image.src = src;
         return image;
-    },
-    togglePlay(audio: HTMLAudioElement) {
+    }
+    static togglePlay(audio: HTMLAudioElement) {
         if (audio.paused) {
             audio.play();
         }
         else {
             audio.pause();
         }
-    },
-    downloadText(text: string, fileName: string, mime = "text/plain") {
+    }
+    static downloadText(text: string, fileName: string, mime = "text/plain") {
         const blob = new Blob([text], { type: mime });
         const a = document.createElement('a');
         const url = URL.createObjectURL(blob);

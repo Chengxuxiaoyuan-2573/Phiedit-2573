@@ -3,8 +3,8 @@ import { formatData } from "../tools/algorithm";
 import { isObject, isString } from "lodash";
 import { Chart, IChart } from "./chart";
 import { FileReaderExtends } from "../tools/classExtends";
-import MathUtils from "../tools/math";
-import mediaUtils from "../tools/mediaUtils";
+import MathUtils from "../tools/mathUtils";
+import MediaUtils from "../tools/mediaUtils";
 export interface IChartPackage {
     chart: IChart;
     background: HTMLImageElement;
@@ -24,14 +24,6 @@ export class ChartPackage implements IChartPackage {
     background: HTMLImageElement;
     musicSrc: string;
     textures: Record<string, HTMLImageElement>;
-    config: ChartConfig = {
-        backgroundDarkness: 90,
-        lineWidth: 5,
-        lineLength: 2000,
-        textSize: 50,
-        chartSpeed: 120,
-        noteSize: 175
-    }
     constructor(chartPackage: IChartPackage) {
         this.chart = new Chart(chartPackage.chart);
         this.musicSrc = chartPackage.musicSrc;
@@ -146,26 +138,26 @@ export class ChartPackage implements IChartPackage {
                     musicFile.async('blob', meta => {
                         progress.music = meta.percent;
                         _showProgress();
-                    }).then(mediaUtils.createObjectURL),
+                    }).then(MediaUtils.createObjectURL),
 
                     backgroundFile.async('blob', meta => {
                         progress.background = meta.percent;
                         _showProgress();
                     })
-                        .then(mediaUtils.createImage),
+                        .then(MediaUtils.createImage),
 
                     chartFile.async('text', meta => {
                         progress.chart = meta.percent;
                         _showProgress();
                     })
-                        .then((chartString) => new Chart(JSON.parse(chartString))),
+                        .then((chartString) => JSON.parse(chartString)),
 
                     Promise.all(promises)
                         .then(async () => {
                             const textures: Record<string, HTMLImageElement> = {};
                             for (const textureName in textureBlobs) {
                                 if (Object.prototype.hasOwnProperty.call(textureBlobs, textureName)) {
-                                    textures[textureName] = await mediaUtils.createImage(textureBlobs[textureName]);
+                                    textures[textureName] = await MediaUtils.createImage(textureBlobs[textureName]);
                                 }
                             }
                             return textures;

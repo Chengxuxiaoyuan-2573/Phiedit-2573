@@ -3,6 +3,7 @@
         <Teleport :to="props.titleTeleport">
             {{ model.type }}事件编辑
         </Teleport>
+        事件ID： {{ model.id }}
         <MyInputBeats v-model="model.startTime">
             <template #prepend>
                 开始时间
@@ -46,7 +47,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { NumberEvent } from '../classes/event';
+import { NumberEvent } from '../models/event';
 import MyInputBeats from '../myElements/MyInputBeats.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySwitch from '../myElements/MySwitch.vue';

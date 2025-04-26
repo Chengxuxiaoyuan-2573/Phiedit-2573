@@ -7,7 +7,7 @@ import jsyaml from "js-yaml";
 import { color, RGBAcolor } from "../tools/color";
 import { NoteType } from "./note";
 import { isObject, isNumber, isBoolean } from "lodash";
-import mediaUtils from "../tools/mediaUtils";
+import MediaUtils from "../tools/mediaUtils";
 type Image = HTMLImageElement | HTMLCanvasElement;
 interface IResourcePackage {
     tap: Image;
@@ -97,13 +97,13 @@ export class ResourcePackage implements IResourcePackage {
         switch (noteType) {
             case NoteType.Tap:
             case NoteType.Hold:
-                mediaUtils.playSound.call(audioContext, this.tapSound);
+                MediaUtils.playSound.call(audioContext, this.tapSound);
                 return;
             case NoteType.Drag:
-                mediaUtils.playSound.call(audioContext, this.dragSound);
+                MediaUtils.playSound.call(audioContext, this.dragSound);
                 return;
             case NoteType.Flick:
-                mediaUtils.playSound.call(audioContext, this.flickSound);
+                MediaUtils.playSound.call(audioContext, this.flickSound);
                 return;
         }
     }
@@ -234,52 +234,52 @@ export class ResourcePackage implements IResourcePackage {
                     const tapSoundPromise = tapSoundFile.async('arraybuffer', meta => {
                         progress.tapSound = meta.percent;
                         _showProgress();
-                    }).then(mediaUtils.createAudioBuffer.bind(audioContext));
+                    }).then(MediaUtils.createAudioBuffer.bind(audioContext));
                     const dragSoundPromise = dragSoundFile.async('arraybuffer', meta => {
                         progress.dragSound = meta.percent;
                         _showProgress();
-                    }).then(mediaUtils.createAudioBuffer.bind(audioContext));
+                    }).then(MediaUtils.createAudioBuffer.bind(audioContext));
                     const flickSoundPromise = flickSoundFile.async('arraybuffer', meta => {
                         progress.flickSound = meta.percent;
                         _showProgress();
-                    }).then(mediaUtils.createAudioBuffer.bind(audioContext));
+                    }).then(MediaUtils.createAudioBuffer.bind(audioContext));
                     const hitFxImagePromise = hitFxPictureFile.async('blob', meta => {
                         progress.hitFx = meta.percent;
                         _showProgress();
-                    }).then(mediaUtils.createImage);
+                    }).then(MediaUtils.createImage);
                     const
                         tapPromise = tapPictireFile.async('blob', meta => {
                             progress.tap = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         dragPromise = dragPictireFile.async('blob', meta => {
                             progress.drag = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         flickPromise = flickPictireFile.async('blob', meta => {
                             progress.flick = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         holdPromise = holdPictireFile.async('blob', meta => {
                             progress.hold = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         tapHLPromise = tapHLPictireFile.async('blob', meta => {
                             progress.tapHL = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         dragHLPromise = dragHLPictireFile.async('blob', meta => {
                             progress.dragHL = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         flickHLPromise = flickHLPictireFile.async('blob', meta => {
                             progress.flickHL = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage),
+                        }).then(MediaUtils.createImage),
                         holdHLPromise = holdHLPictireFile.async('blob', meta => {
                             progress.holdHL = meta.percent;
                             _showProgress();
-                        }).then(mediaUtils.createImage);
+                        }).then(MediaUtils.createImage);
                     const [tapSound, dragSound, flickSound, hitFxImage,
                         tap, drag, flick, hold,
                         tapHL, dragHL, flickHL, holdHL] = await Promise.all([

@@ -96,7 +96,10 @@ export class Chart implements IChart {
 
             if ("judgeLineList" in chart && isArray(chart.judgeLineList)) {
                 for (const [i, judgeLine] of chart.judgeLineList.entries()) {
-                    this.judgeLineList.push(new JudgeLine(judgeLine, i, this.BPMList));
+                    this.judgeLineList.push(new JudgeLine(judgeLine, {
+                        BPMList: this.BPMList,
+                        judgeLineNumber: i
+                    }));
                 }
             }
 
@@ -107,7 +110,10 @@ export class Chart implements IChart {
 
             if (isNumber(chart)) {
                 for (let i = 0; i < chart; i++) {
-                    this.judgeLineList.push(new JudgeLine(null, i, this.BPMList));
+                    this.judgeLineList.push(new JudgeLine(null, {
+                        BPMList: this.BPMList,
+                        judgeLineNumber: i
+                    }));
                 }
             }
 

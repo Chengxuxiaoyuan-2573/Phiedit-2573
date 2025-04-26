@@ -4,7 +4,7 @@
             判定线编辑
         </Teleport>
         <MyInputNumber
-            v-model="stateManager.currentJudgeLineNumber"
+            v-model="stateManager.state.currentJudgeLineNumber"
             :min="0"
             :max="chart.judgeLineList.length - 1"
             :step="1"
@@ -14,7 +14,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="chart.judgeLineList[stateManager.currentJudgeLineNumber].father"
+            v-model="chart.judgeLineList[stateManager.state.currentJudgeLineNumber].father"
             :min="-1"
             :max="chart.judgeLineList.length - 1"
             :step="1"
@@ -24,14 +24,14 @@
             </template>
         </MyInputNumber>
         <MySwitch
-            v-model="chart.judgeLineList[stateManager.currentJudgeLineNumber].isCover"
+            v-model="chart.judgeLineList[stateManager.state.currentJudgeLineNumber].isCover"
             :active-value="1"
             :inactive-value="0"
         >
             隐藏在此判定线下方的note
         </MySwitch>
         <MyInputNumber
-            v-model="chart.judgeLineList[stateManager.currentJudgeLineNumber].zOrder"
+            v-model="chart.judgeLineList[stateManager.state.currentJudgeLineNumber].zOrder"
             :step="1"
         >
             <template #prepend>
@@ -39,7 +39,7 @@
             </template>
         </MyInputNumber>
         <MySelect
-            v-model="chart.judgeLineList[stateManager.currentJudgeLineNumber].Texture"
+            v-model="chart.judgeLineList[stateManager.state.currentJudgeLineNumber].Texture"
             :options="[
                 {
                     label: '无贴图',

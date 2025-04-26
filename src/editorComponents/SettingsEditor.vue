@@ -4,7 +4,7 @@
             设置
         </Teleport>
         <MyInputNumber
-            v-model="editor.chartPackage.config.chartSpeed"
+            v-model="settingsManager.chartSpeed"
             :min="0"
         >
             <template #prepend>
@@ -15,7 +15,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="editor.chartPackage.config.lineWidth"
+            v-model="settingsManager.lineWidth"
             :min="0"
         >
             <template #prepend>
@@ -26,7 +26,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="editor.chartPackage.config.textSize"
+            v-model="settingsManager.textSize"
             :min="0"
         >
             <template #prepend>
@@ -37,7 +37,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="editor.chartPackage.config.backgroundDarkness"
+            v-model="settingsManager.backgroundDarkness"
             :min="0"
             :max="100"
         >
@@ -49,7 +49,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="editor.chartPackage.config.noteSize"
+            v-model="settingsManager.noteSize"
             :min="0"
         >
             <template #prepend>
@@ -60,7 +60,7 @@
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="editor.resourcePackage.config.hitFxDuration"
+            v-model="resourcePackage.config.hitFxDuration"
             :min="0"
         >
             <template #prepend>
@@ -70,32 +70,32 @@
                 秒
             </template>
         </MyInputNumber>
-        <ElCheckbox v-model="editor.resourcePackage.config.hitFxRotate">
+        <ElCheckbox v-model="resourcePackage.config.hitFxRotate">
             打击特效随判定线旋转
         </ElCheckbox>
-        <ElCheckbox v-model="editor.resourcePackage.config.holdKeepHead">
+        <ElCheckbox v-model="resourcePackage.config.holdKeepHead">
             Hold正在判定时显示头部
         </ElCheckbox>
-        <ElCheckbox v-model="editor.resourcePackage.config.hideParticles">
+        <ElCheckbox v-model="resourcePackage.config.hideParticles">
             隐藏粒子
         </ElCheckbox>
-        <ElCheckbox v-model="editor.resourcePackage.config.holdCompact">
+        <ElCheckbox v-model="resourcePackage.config.holdCompact">
             Hold中间与头尾重叠（不支持，懒得做）
         </ElCheckbox>
-        <ElCheckbox v-model="editor.resourcePackage.config.holdRepeat">
+        <ElCheckbox v-model="resourcePackage.config.holdRepeat">
             Hold中间重复式拉伸
         </ElCheckbox>
     </div>
 </template>
 <script setup lang="ts">
-import { inject } from 'vue';
-import Editor from '@/services/editor';
 import MyInputNumber from '@/myElements/MyInputNumber.vue';
+import store from '@/store';
+import settingsManager from '@/services/managers/settings';
 import { ElCheckbox } from 'element-plus';
-const editor = inject('editor') as Editor;
 const props = defineProps<{
     titleTeleport: string
 }>();
+const resourcePackage = store.useResourcePackage();
 </script>
 <style scoped>
 .settings-editor {

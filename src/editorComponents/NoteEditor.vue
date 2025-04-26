@@ -24,6 +24,7 @@
             </ElSelect>
             音符编辑
         </Teleport>
+        音符ID： {{ model.id }}
         <MyInputBeats v-model="model.startTime">
             <template #prepend>
                 开始时间
@@ -91,7 +92,7 @@
     </div>
 </template>
 <script setup lang='ts'>
-import { Note, NoteAbove } from '../classes/note';
+import { Note, NoteAbove } from '../models/note';
 import MyInputBeats from '../myElements/MyInputBeats.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySwitch from '../myElements/MySwitch.vue';

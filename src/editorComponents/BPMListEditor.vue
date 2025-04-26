@@ -11,15 +11,14 @@
             v-for="(bpm, i) of chart.BPMList"
             :key="i"
         >
-            <MyInput
-                v-model="bpm.startString"
-                v-model:when="bpm.startTime"
+            <MyInputBeats
+                v-model="bpm.startTime"
                 @input="chart.calculateSeconds()"
             >
                 <template #prefix>
                     时间
                 </template>
-            </MyInput>
+            </MyInputBeats>
             <MyInputNumber
                 v-model="bpm.bpm"
                 @input="chart.calculateSeconds()"
@@ -46,8 +45,8 @@
 </template>
 <script setup lang="ts">
 import { ElButton, ElRow } from 'element-plus';
-import { BPM, getBeatsValue } from '../classes/beats';
-import MyInput from '../myElements/MyInput.vue';
+import { BPM, getBeatsValue } from '../models/beats';
+import MyInputBeats from '@/myElements/MyInputBeats.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import { onBeforeUnmount, ref } from 'vue';
 import store from "@/store";

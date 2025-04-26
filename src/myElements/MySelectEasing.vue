@@ -5,7 +5,7 @@
     />
 </template>
 <script setup lang="ts">
-import { EasingType } from '@/classes/easing';
+import { EasingType } from '@/models/easing';
 import MySelect from './MySelect.vue';
 
 const model = defineModel<EasingType>({

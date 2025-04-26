@@ -1,14 +1,14 @@
-import { NumberEvent } from "@/classes/event";
-import { Note, NoteAbove, NoteType } from "@/classes/note";
+import { Note, NoteAbove, NoteType } from "@/models/note";
 import { Box, BoxWithData } from "@/tools/box";
-import MathUtils from "@/tools/math";
+import MathUtils from "@/tools/mathUtils";
 import { MouseMoveMode, SelectedElement } from "@/types";
 import { floor } from "lodash";
 import Constants from "../constants";
 import selectionManager from "./selection";
 import stateManager from "./state";
-import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
+import historyManager from "./history";
+import { EasingType } from "@/models/easing";
 
 class MouseManager {
     /** 鼠标的x坐标 */
@@ -34,7 +34,6 @@ class MouseManager {
         })
     }
     mouseUp() {
-
         if (this.mouseMoveMode == MouseMoveMode.AddHold) {
             selectionManager.selectedElements[0].validateTime();
         }
@@ -45,7 +44,6 @@ class MouseManager {
     }
     mouseMove(x: number, y: number, dragEnd: boolean) {
         switch (this.mouseMoveMode) {
-
             case MouseMoveMode.AddHold:
                 selectionManager.selectedElements[0].endTime = stateManager.attatchY(y);
                 break;
@@ -83,28 +81,24 @@ class MouseManager {
         this.mouseY = y;
     }
     mouseLeft(x: number, y: number, mutiple: boolean) {
+        if(stateManager.state.isPreviewing) return;
         const boxes = stateManager.calculateBoxes();
-        const getClickedBox = () => {
-            let minDistance = Infinity;
-            let nearestBox: BoxWithData<SelectedElement> | null = null;
-            for (const box of boxes) {
-                if (box.touch(x, stateManager.absolute(y))) {
-                    const distance = MathUtils.distance(x, y, box.middleX, box.middleY);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        nearestBox = box;
-                    }
+        let minDistance = Infinity;
+        let clickedBox: BoxWithData<SelectedElement> | null = null;
+        for (const box of boxes) {
+            if (box.touch(x, stateManager.absolute(y))) {
+                const distance = MathUtils.distance(x, y, box.middleX, box.middleY);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    clickedBox = box;
                 }
             }
-            return nearestBox;
         }
-        const clickedBox = getClickedBox();
-        const clickedObject = clickedBox ? clickedBox.data : undefined;
-        if (clickedObject && clickedBox && selectionManager.selectedElements.includes(clickedObject)) {
-            this.mouseMoveMode = MouseMoveMode.Drag;
-        }
+        const clickedObject = clickedBox ? clickedBox.data : null;
+        // 如果点到某个元素了，就选择这个元素
         if (clickedObject) {
             if (mutiple) {
+                // 如果是多选，且已经选择的话就取消选择，未选择就选择这个元素
                 if (selectionManager.selectedElements.includes(clickedObject)) {
                     selectionManager.unselect(clickedObject);
                 }
@@ -113,30 +107,29 @@ class MouseManager {
                 }
             }
             else {
-                selectionManager.unselectAll()
+                // 如果是单选，就取消选择所有，只选择这个元素
+                if (selectionManager.selectedElements.includes(clickedObject)) {
+                    this.mouseMoveMode = MouseMoveMode.Drag;
+                }
+                selectionManager.unselectAll();
                 selectionManager.select(clickedObject);
             }
         }
+        // 如果没有点到任何元素，就认为用户是想拖拽选择框选择，设置状态为拖拽选择框选择，并初始化选择框位置
         else {
-            selectionManager.unselectAll();
-        }
-        if (selectionManager.selectedElements.length == 0) {
             this.mouseMoveMode = MouseMoveMode.Select;
             this.selectionBox = new Box(stateManager.absolute(y), stateManager.absolute(y), x, x);
         }
     }
     mouseRight(x: number, y: number) {
-        const judgeLine = stateManager.currentJudgeLine;
-        const chart = store.useChart();
-        console.log(x, y);
         if (Constants.notesViewBox.touch(x, y)) {
             const time = stateManager.attatchY(y);
             const positionX = stateManager.attatchX(x);
-            const addedNote = new Note({
-                startTime: time,
-                endTime: time,
+            const addedNote = historyManager.addNote({
+                startTime: [...time],
+                endTime: [...time],
                 positionX,
-                type: stateManager.currentNoteType,
+                type: stateManager.state.currentNoteType,
                 speed: 1,
                 alpha: 255,
                 size: 1,
@@ -144,64 +137,29 @@ class MouseManager {
                 yOffset: 0,
                 isFake: 0,
                 above: NoteAbove.Above
-            }, chart.BPMList);
-            judgeLine.notes.push(addedNote);
+            }, stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
             selectionManager.select(addedNote);
-            if (stateManager.currentNoteType == NoteType.Hold)
+            if (stateManager.state.currentNoteType == NoteType.Hold)
                 this.mouseMoveMode = MouseMoveMode.AddHold;
         }
         else if (Constants.eventsViewBox.touch(x, y)) {
-            const eventLayer = stateManager.currentEventLayer;
             const time = stateManager.attatchY(y);
             const track = floor((x - Constants.eventsViewBox.left) / (Constants.eventsViewBox.right - Constants.eventsViewBox.left) * 5);
-            switch (track) {
-                case 0: {
-                    const addedEvent = new NumberEvent({
-                        startTime: time
-                    }, chart.BPMList, 'moveX');
-                    eventLayer.moveXEvents.push(addedEvent);
-                    selectionManager.unselectAll();
-                    selectionManager.select(addedEvent);
-                    break;
-                }
-                case 1: {
-                    const addedEvent = new NumberEvent({
-                        startTime: time
-                    }, chart.BPMList, 'moveY');
-                    eventLayer.moveYEvents.push(addedEvent);
-                    selectionManager.unselectAll();
-                    selectionManager.select(addedEvent);
-                    break;
-                }
-                case 2: {
-                    const addedEvent = new NumberEvent({
-                        startTime: time
-                    }, chart.BPMList, 'rotate');
-                    eventLayer.rotateEvents.push(addedEvent);
-                    selectionManager.unselectAll();
-                    selectionManager.select(addedEvent);
-                    break;
-                }
-                case 3: {
-                    const addedEvent = new NumberEvent({
-                        startTime: time
-                    }, chart.BPMList, 'alpha');
-                    eventLayer.alphaEvents.push(addedEvent);
-                    selectionManager.unselectAll();
-                    selectionManager.select(addedEvent);
-                    break;
-                }
-                case 4: {
-                    const addedEvent = new NumberEvent({
-                        startTime: time
-                    }, chart.BPMList, 'speed');
-                    eventLayer.speedEvents.push(addedEvent);
-                    selectionManager.unselectAll();
-                    selectionManager.select(addedEvent);
-                    break;
-                }
-            }
+            const type = ["moveX", "moveY", "rotate", "alpha", "speed"][track];
+            const addedEvent = historyManager.addEvent({
+                startTime: [...time],
+                endTime: [...time],
+                start: 0,
+                end: 0,
+                bezier: 0,
+                bezierPoints: [0, 0, 1, 1],
+                easingLeft: 0,
+                easingRight: 0,
+                easingType: EasingType.Linear
+            }, type, stateManager.state.currentEventLayerNumber.toString(), stateManager.state.currentJudgeLineNumber);
+            selectionManager.unselectAll();
+            selectionManager.select(addedEvent);
             this.mouseMoveMode = MouseMoveMode.AddHold;
         }
     }

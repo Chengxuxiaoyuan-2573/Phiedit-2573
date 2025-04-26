@@ -1,25 +1,25 @@
-import { Beats, getBeatsValue, subBeats, addBeats } from "@/classes/beats";
-import { NumberEvent } from "@/classes/event";
-import { Note } from "@/classes/note";
+import { Beats, getBeatsValue, subBeats, addBeats } from "@/models/beats";
+import { Note } from "@/models/note";
 import { SelectedElement } from "@/types";
 import selectionManager from "./selection";
-import store from "@/store";
 import stateManager from "./state";
 import mouseManager from "./mouse";
+import historyManager from "./history";
 import globalEventEmitter from "@/eventEmitter";
+import { createCatchErrorByMessage } from "@/tools/catchError";
 
 class ClipboardManager {
     clipboard: SelectedElement[] = []
     constructor() {
-        globalEventEmitter.on("CUT", () => {
+        globalEventEmitter.on("CUT", createCatchErrorByMessage(() => {
             this.cut();
-        })
-        globalEventEmitter.on("COPY", () => {
+        }, "剪切"))
+        globalEventEmitter.on("COPY", createCatchErrorByMessage(() => {
             this.copy();
-        })
-        globalEventEmitter.on("PASTE", () => {
+        }, "复制"))
+        globalEventEmitter.on("PASTE", createCatchErrorByMessage(() => {
             this.paste();
-        })
+        }, "粘贴"))
     }
     /**
      * 剪切选中的元素
@@ -39,7 +39,6 @@ class ClipboardManager {
      */
     paste() {
         const y = mouseManager.mouseY;
-        const chart = store.useChart();
         const minStartTime = this.clipboard.reduce<Beats>((min, element) => {
             return getBeatsValue(min) < getBeatsValue(element.startTime) ? min : element.startTime;
         }, [Infinity, 0, 1]);
@@ -51,46 +50,15 @@ class ClipboardManager {
                 const noteObject = element.toObject();
                 noteObject.startTime = addBeats(noteObject.startTime, delta);
                 noteObject.endTime = addBeats(noteObject.endTime, delta);
-                const note = new Note(noteObject, chart.BPMList);
-                stateManager.currentJudgeLine.notes.push(note);
+                const note = historyManager.addNote(noteObject, stateManager.state.currentJudgeLineNumber);
                 elements.push(note);
             }
             else {
                 const eventObject = element.toObject();
                 eventObject.startTime = addBeats(eventObject.startTime, delta);
                 eventObject.endTime = addBeats(eventObject.endTime, delta);
-                switch (element.type) {
-                    case 'moveX': {
-                        const event = new NumberEvent(eventObject, chart.BPMList, 'moveX');
-                        stateManager.currentEventLayer.moveXEvents.push(event);
-                        elements.push(event);
-                        break;
-                    }
-                    case 'moveY': {
-                        const event = new NumberEvent(eventObject, chart.BPMList, 'moveY');
-                        stateManager.currentEventLayer.moveYEvents.push(event);
-                        elements.push(event);
-                        break;
-                    }
-                    case 'rotate': {
-                        const event = new NumberEvent(eventObject, chart.BPMList, 'rotate');
-                        stateManager.currentEventLayer.rotateEvents.push(event);
-                        elements.push(event);
-                        break;
-                    }
-                    case 'alpha': {
-                        const event = new NumberEvent(eventObject, chart.BPMList, 'alpha');
-                        stateManager.currentEventLayer.alphaEvents.push(event);
-                        elements.push(event);
-                        break;
-                    }
-                    case 'speed': {
-                        const event = new NumberEvent(eventObject, chart.BPMList, 'speed');
-                        stateManager.currentEventLayer.speedEvents.push(event);
-                        elements.push(event);
-                        break;
-                    }
-                }
+                const event = historyManager.addEvent(eventObject, element.type, element.eventLayerId, stateManager.state.currentJudgeLineNumber)
+                elements.push(event);
             }
         }
         selectionManager.unselectAll();

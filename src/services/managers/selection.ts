@@ -2,6 +2,8 @@ import { SelectedElement } from "@/types";
 import { reactive } from "vue";
 import stateManager from "./state";
 import globalEventEmitter from "@/eventEmitter";
+import historyManager from "./history";
+import { Note } from "@/models/note";
 
 class SelectionManager {
     readonly selectedElements: SelectedElement[] = reactive([]);
@@ -39,15 +41,14 @@ class SelectionManager {
     }
 
     deleteSelection() {
-        const filter = <T extends SelectedElement>(arr: T[]) => {
-            return arr.filter(element => !this.selectedElements.includes(element));
+        for (const element of this.selectedElements) {
+            if (element instanceof Note) {
+                historyManager.removeNote(element.id);
+            }
+            else {
+                historyManager.removeEvent(element.id);
+            }
         }
-        stateManager.currentJudgeLine.notes = filter(stateManager.currentJudgeLine.notes);
-        stateManager.currentEventLayer.moveXEvents = filter(stateManager.currentEventLayer.moveXEvents);
-        stateManager.currentEventLayer.moveYEvents = filter(stateManager.currentEventLayer.moveYEvents);
-        stateManager.currentEventLayer.rotateEvents = filter(stateManager.currentEventLayer.rotateEvents);
-        stateManager.currentEventLayer.alphaEvents = filter(stateManager.currentEventLayer.alphaEvents);
-        stateManager.currentEventLayer.speedEvents = filter(stateManager.currentEventLayer.speedEvents);
         this.unselectAll();
     }
     /**

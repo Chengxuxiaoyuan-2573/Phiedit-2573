@@ -1,8 +1,7 @@
-import { Beats, beatsToSeconds, getBeatsValue } from "@/classes/beats";
-import { NumberEvent, interpolateNumberEventValue, findLastEvent } from "@/classes/event";
-import { Note, NoteType } from "@/classes/note";
+import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
+import { NumberEvent, interpolateNumberEventValue, findLastEvent } from "@/models/event";
+import { Note, NoteType } from "@/models/note";
 import { checkAndSort } from "@/tools/algorithm";
-import { BoxWithData } from "@/tools/box";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToString } from "@/tools/color";
 import { floor, ceil } from "lodash";
@@ -12,6 +11,7 @@ import store from "@/store";
 import mouseManager from "@/services/managers/mouse";
 import stateManager from "@/services/managers/state";
 import selectionManager from "../selection";
+import settingsManager from "../settings";
 
 
 class EditorRenderer {
@@ -60,8 +60,8 @@ class EditorRenderer {
         const min = floor(stateManager.getBeatsOfRelativePositionY(Constants.notesViewBox.bottom));
         const max = ceil(stateManager.getBeatsOfRelativePositionY(Constants.notesViewBox.top));
         for (let i = min; i <= max; i++) {
-            for (let j = 0; j < stateManager.horizonalLineCount; j++) {
-                const beats: Beats = [i, j, stateManager.horizonalLineCount];
+            for (let j = 0; j < stateManager.state.horizonalLineCount; j++) {
+                const beats: Beats = [i, j, stateManager.state.horizonalLineCount];
                 const pos = stateManager.getRelativePositionYOfSeconds(beatsToSeconds(chart.BPMList, beats));
                 if (j == 0) {
                     writeText(i.toString(),
@@ -97,7 +97,7 @@ class EditorRenderer {
             }
         }
         // 显示竖线
-        if (stateManager.verticalLineCount > 1) {
+        if (stateManager.state.verticalLineCount > 1) {
             drawLine(
                 Constants.notesViewBox.middleX,
                 Constants.notesViewBox.top,
@@ -141,27 +141,48 @@ class EditorRenderer {
             Constants.eventsViewBox.height,
             Constants.borderColor);
     }
-    /** 显示note */
+    /** 显示音符 */
     private renderNotes() {
         const canvas = store.useCanvas();
         const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
-        const chart = store.useChart();
+        const chart = chartPackage.chart;
         const seconds = store.getSeconds();
-        if (!canvas) return [];
         const ctx = canvasUtils.getContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const judgeLine = stateManager.currentJudgeLine;
-        const noteBoxes: BoxWithData<Note>[] = [];
         const a = stateManager.attatchY(mouseManager.mouseY);
-        const imaginaryNote = new Note({
+        const imaginaryNote = {
             startTime: a,
             endTime: a,
             positionX: stateManager.attatchX(mouseManager.mouseX),
-            type: stateManager.currentNoteType
-        }, chart.BPMList);
-        const hideImaginaryNote = mouseManager.mouseMoveMode != MouseMoveMode.None || !Constants.notesViewBox.touch(mouseManager.mouseX, mouseManager.mouseY);
+            type: stateManager.state.currentNoteType,
+            size: 1,
+            isFake: 1,
+            cachedStartSeconds: beatsToSeconds(chart.BPMList, a),
+            cachedEndSeconds: beatsToSeconds(chart.BPMList, a),
+            hitSeconds: 0,
+            highlight: false
+        };
+        const hideImaginaryNote = (() => {
+            if (!Constants.notesViewBox.touch(mouseManager.mouseX, mouseManager.mouseY)) {
+                return true;
+            }
+            if (mouseManager.mouseMoveMode != MouseMoveMode.None) {
+                return true;
+            }
+            return false;
+        })();
         const notes = hideImaginaryNote ? judgeLine.notes : [imaginaryNote, ...judgeLine.notes];
+        // 这几行代码只是为了优化性能
+        const offsetY = stateManager.offsetY;
+        function relative(absoluteY: number) {
+            return Constants.notesViewBox.bottom - absoluteY + offsetY;
+        }
+        function getRelativePositionYOfSeconds(sec: number) {
+            return relative(sec * stateManager._state.pxPerSecond);
+        }
+
         for (const note of notes) {
             const noteStartSeconds = note.cachedStartSeconds;
             const noteEndSeconds = note.cachedEndSeconds;
@@ -176,14 +197,14 @@ class EditorRenderer {
             if (note.type == NoteType.Hold) {
                 const { head, body, end } = resourcePackage.getSkin(note.type, note.highlight);
 
-                const baseSize = Constants.notesViewBox.width / canvas.width * chartPackage.config.noteSize;
+                const baseSize = Constants.notesViewBox.width / canvas.width * settingsManager.noteSize;
                 const noteWidth = baseSize * note.size
                     * resourcePackage.getSkin(note.type, note.highlight).body.width
                     / resourcePackage.getSkin(note.type, false).body.width;
 
                 const noteX = note.positionX * (Constants.notesViewBox.width / canvas.width) + Constants.notesViewBox.left + Constants.notesViewBox.width / 2;
-                const noteStartY = stateManager.getRelativePositionYOfSeconds(noteStartSeconds);
-                const noteEndY = stateManager.getRelativePositionYOfSeconds(noteEndSeconds);
+                const noteStartY = getRelativePositionYOfSeconds(noteStartSeconds);
+                const noteEndY = getRelativePositionYOfSeconds(noteEndSeconds);
                 const noteHeight = noteStartY - noteEndY;
                 const noteHeadHeight = head.height / body.width * noteWidth;
                 const noteEndHeight = end.height / body.width * noteWidth;
@@ -191,7 +212,7 @@ class EditorRenderer {
                 ctx.drawImage(head, noteX - noteWidth / 2, noteStartY, noteWidth, noteHeadHeight);
                 ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
                 ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
-                if (selectionManager.isSelected(note)) {
+                if (note instanceof Note && selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteEndY - noteEndHeight,
@@ -204,14 +225,14 @@ class EditorRenderer {
             else {
                 const noteImage = resourcePackage.getSkin(note.type, note.highlight);
 
-                const baseSize = Constants.notesViewBox.width / canvas.width * chartPackage.config.noteSize;
+                const baseSize = Constants.notesViewBox.width / canvas.width * settingsManager.noteSize;
                 const noteWidth = baseSize * note.size
                     * resourcePackage.getSkin(note.type, note.highlight).width
                     / resourcePackage.getSkin(note.type, false).width;
 
                 const noteHeight = noteImage.height / noteImage.width * baseSize;
                 const noteX = note.positionX * (Constants.notesViewBox.width / canvas.width) + Constants.notesViewBox.left + Constants.notesViewBox.width / 2;
-                const noteY = stateManager.getRelativePositionYOfSeconds(noteStartSeconds);
+                const noteY = getRelativePositionYOfSeconds(noteStartSeconds);
 
                 ctx.drawImage(
                     noteImage,
@@ -219,7 +240,7 @@ class EditorRenderer {
                     noteY - noteHeight / 2,
                     noteWidth,
                     noteHeight);
-                if (selectionManager.isSelected(note)) {
+                if (note instanceof Note && selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteY - noteHeight / 2,
@@ -228,29 +249,27 @@ class EditorRenderer {
                         Constants.selectionColor,
                         true);
                 }
-                if (note != imaginaryNote) {
-                    noteBoxes.push(new BoxWithData(
-                        stateManager.absolute(noteY - Constants.selectPadding),
-                        stateManager.absolute(noteY + Constants.selectPadding),
-                        noteX - noteWidth / 2 - Constants.selectPadding,
-                        noteX + noteWidth / 2 + Constants.selectPadding,
-                        note
-                    ));
-                }
             }
         }
-        return noteBoxes;
     }
     /** 显示事件 */
     private renderEvents() {
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
-        if (!canvas) return [];
         const ctx = canvasUtils.getContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const writeText = canvasUtils.writeText.bind(ctx);
         const types = ["moveX", "moveY", "rotate", "alpha", "speed"] as const;
-        types.forEach((type, column) => {
+        // 这几行代码也只是为了优化性能
+        const offsetY = stateManager.offsetY;
+        function relative(absoluteY: number) {
+            return Constants.notesViewBox.bottom - absoluteY + offsetY;
+        }
+        function getRelativePositionYOfSeconds(sec: number) {
+            return relative(sec * stateManager._state.pxPerSecond);
+        }
+        for (let column = 0; column < types.length; column++) {
+            const type = types[column];
             const attrName = `${type}Events` as const;
             const events = stateManager.currentEventLayer[attrName];
             const eventX = Constants.eventsViewBox.width * (column + 0.5) / 5 + Constants.eventsViewBox.left;
@@ -278,8 +297,8 @@ class EditorRenderer {
                     const event = group[j];
                     const startSeconds = event.cachedStartSeconds;
                     const endSeconds = event.cachedEndSeconds;
-                    const eventStartY = stateManager.getRelativePositionYOfSeconds(startSeconds);
-                    const eventEndY = stateManager.getRelativePositionYOfSeconds(endSeconds);
+                    const eventStartY = getRelativePositionYOfSeconds(startSeconds);
+                    const eventEndY = getRelativePositionYOfSeconds(endSeconds);
                     const eventHeight = eventStartY - eventEndY;
 
                     // 显示事件主体
@@ -329,7 +348,7 @@ class EditorRenderer {
                             if (endSeconds - sec < Constants.eventLinePrecision) {
                                 sec = endSeconds;
                             }
-                            const y = stateManager.getRelativePositionYOfSeconds(sec);
+                            const y = getRelativePositionYOfSeconds(sec);
                             const left = eventX - Constants.eventWidth / 2;
                             const right = eventX + Constants.eventWidth / 2;
                             const value = interpolateNumberEventValue(event, sec);
@@ -343,7 +362,7 @@ class EditorRenderer {
             const currentEventValue = interpolateNumberEventValue(findLastEvent(events, seconds), seconds);
             writeText(currentEventValue.toFixed(2), eventX, Constants.eventsViewBox.bottom - 20, 30, "white", false);
             writeText(currentEventValue.toFixed(2), eventX, Constants.eventsViewBox.bottom - 20, 30, "blue", true);
-        })
+        }
     }
 }
 export default new EditorRenderer();

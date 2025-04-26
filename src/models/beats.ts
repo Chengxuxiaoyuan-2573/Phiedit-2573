@@ -1,5 +1,5 @@
-import { isInteger, isNumber, isObject } from "lodash";
-import MathUtils from "../tools/math";
+import { isNumber, isObject } from "lodash";
+import MathUtils from "../tools/mathUtils";
 import { isArrayOfNumbers } from "@/tools/typeCheck";
 export interface IBPM {
     bpm: number
@@ -45,11 +45,6 @@ export class BPM implements IBPM {
  * 第二、三个数字代表小数部分
  * 数值为第一个数字 + 第二个数字 / 第三个数字
  */
-type IBeats = {
-    0: number
-    1: number
-    2: number
-}
 export type Beats = [number, number, number];
 /**
  * @class BeatsImplementation
@@ -79,8 +74,7 @@ export type Beats = [number, number, number];
 另外，关于math.gcd的问题，需要确保该函数存在。
 例如，可以自己实现一个gcd函数，或者引入第三方库。
 但代码中没有导入，所以这里需要添加gcd的实现。
- */
-export class BeatsImplementation implements IBeats {
+export class BeatsImplementation implements Beats {
     0: number;
     1: number;
     2: number;
@@ -116,16 +110,28 @@ export class BeatsImplementation implements IBeats {
             Number.isNaN(+split[1]) ? 0 : +split[1],
             Number.isNaN(+split[2]) ? 1 : +split[2]);
     }
+    toObject() {
+        return [this.integer, this.numerator, this.denominator];
+    }
     validate() {
-        if (this.denominator == 0) {
-            this.denominator = 1;
+
+        // 确保分母不为零且不为负数
+        if (this.denominator === 0) this.denominator = 1;
+        if (this.denominator < 0) {
+            this.numerator *= -1;
+            this.denominator *= -1;
         }
-        this.integer += Math.floor(this.numerator / this.denominator);
-        this.numerator %= this.denominator;
-        const gcd = MathUtils.gcd(this.numerator, this.denominator);
-        this.numerator /= gcd;
-        this.denominator /= gcd;
-        return this;
+
+        // 确保分子非负数
+        const carry = Math.floor(this.numerator / this.denominator);
+        this.integer += carry;
+        this.numerator -= carry * this.denominator;
+
+        // 约分
+        const g = MathUtils.gcd(this.numerator, this.denominator);
+        this.numerator /= g;
+        this.denominator /= g;
+
     }
     addBeats(beats2: BeatsImplementation) {
         return new BeatsImplementation(
@@ -158,6 +164,7 @@ export class BeatsImplementation implements IBeats {
         this.validate();
     }
 }
+*/
 export function beatsToSeconds(BPMList: BPM[], beats: Beats | number): number {
     const beatsValue = isNumber(beats) ? beats : getBeatsValue(beats);
     let seconds = 0;
@@ -183,12 +190,29 @@ export function beatsToSeconds(BPMList: BPM[], beats: Beats | number): number {
 export function secondsToBeats(BPMList: BPM[], seconds: number): number {
     let beats = 0;
     let cumulativeSeconds = 0;
+
     for (let i = 0; i < BPMList.length; i++) {
-        const bpm = BPMList[i];
-        const nextCumulativeSeconds = i == BPMList.length - 1 ? seconds : beatsToSeconds(BPMList, BPMList[i + 1].startTime);
-        beats += (nextCumulativeSeconds - cumulativeSeconds) * bpm.bpm / 60;
-        cumulativeSeconds = nextCumulativeSeconds;
+        const currentBPM = BPMList[i];
+        const segmentStart = beatsToSeconds(BPMList, currentBPM.startTime);
+        
+        // Determine segment end time
+        const segmentEnd = i < BPMList.length - 1 
+            ? beatsToSeconds(BPMList, BPMList[i + 1].startTime)
+            : Infinity;
+
+        // Actual calculation boundaries
+        const effectiveStart = Math.max(cumulativeSeconds, segmentStart);
+        const effectiveEnd = Math.min(segmentEnd, seconds);
+
+        if (effectiveStart >= effectiveEnd) continue;
+
+        const duration = effectiveEnd - effectiveStart;
+        beats += duration * currentBPM.bpm / 60;
+        cumulativeSeconds = effectiveEnd;
+
+        if (cumulativeSeconds >= seconds) break;
     }
+
     return beats;
 }
 
@@ -197,7 +221,7 @@ export function getBeatsValue(beats: Beats) {
 }
 
 export function validateBeats(beats: Beats): Beats {
-    const newBeats: Beats = [...beats];
+    const newBeats: Beats = [beats[0], beats[1], beats[2]];
 
     // 确保分母不为零且不为负数
     if (newBeats[2] === 0) newBeats[2] = 1;
@@ -273,4 +297,13 @@ export function divideBeats(beats: Beats, ratio: number) {
         beats[2] * ratio
     ];
     return validateBeats(newBeats);
+}
+export function divide2Beats(beats1: Beats, beats2: Beats) {
+    return getBeatsValue(beats1) / getBeatsValue(beats2);
+}
+export function isLessThanBeats(beats1: Beats, beats2: Beats){
+    return getBeatsValue(beats1) < getBeatsValue(beats2);
+}
+export function isGreaterThanBeats(beats1: Beats, beats2: Beats){
+    return getBeatsValue(beats1) > getBeatsValue(beats2);
 }

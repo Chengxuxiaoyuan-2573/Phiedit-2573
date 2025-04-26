@@ -16,10 +16,13 @@ import { ElSwitch } from 'element-plus'
 import { ref, watch } from 'vue';
 const inputData = ref<A>(false);
 type A = string | number | boolean;
-const props = defineProps<{
-    activeValue: A,
-    inactiveValue: A
-}>()
+const props = withDefaults(defineProps<{
+    activeValue?: A,
+    inactiveValue?: A
+}>(),{
+    activeValue: true,
+    inactiveValue: false
+})
 const model = defineModel<A>({
     required: true
 });

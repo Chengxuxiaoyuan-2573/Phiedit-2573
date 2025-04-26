@@ -1,26 +1,22 @@
-import { getBeatsValue } from "@/classes/beats";
-import { easingFuncs, EasingType } from "@/classes/easing";
-import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue } from "@/classes/event";
-import { Note, NoteType, NoteAbove } from "@/classes/note";
+import { getBeatsValue } from "@/models/beats";
+import { easingFuncs, EasingType } from "@/models/easing";
+import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue } from "@/models/event";
+import { Note, NoteType, NoteAbove } from "@/models/note";
 import store from "@/store";
 import { sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { RGBcolor } from "@/tools/color";
-import MathUtils from "@/tools/math";
+import MathUtils from "@/tools/mathUtils";
 import { TaskQueue } from "@/tools/taskQueue";
 import { ceil } from "lodash";
+import settingsManager from "../settings";
 
 class ChartRenderer {
     /** 显示谱面到canvas上 */
     renderChart() {
-        try {
-            this.drawBackground();
-            this.drawJudgeLines();
-            this.drawNotes();
-        }
-        catch (err) {
-            console.error(err);
-        }
+        this.drawBackground();
+        this.drawJudgeLines();
+        this.drawNotes();
     }
     /** 显示背景的曲绘 */
     private drawBackground() {
@@ -59,7 +55,7 @@ class ChartRenderer {
             canvas.height,
             "black",
             true,
-            chartPackage.config.backgroundDarkness / 100);
+            settingsManager.backgroundDarkness / 100);
     }
     /** 显示判定线 */
     private drawJudgeLines() {
@@ -87,13 +83,13 @@ class ChartRenderer {
             ctx.save();
             ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
             ctx.rotate(radians);
+            // 显示判定线号
             writeText(i.toString(), 0, 30, 30, color);
             ctx.scale(scaleX, scaleY);
             if (alpha < 0)
                 ctx.globalAlpha = 0;
             else
                 ctx.globalAlpha = alpha / 255;
-            // if (judgeLine.Texture != "line.png") console.log(textures, judgeLine.Texture);
             if (judgeLine.Texture in textures) {
                 const image = textures[judgeLine.Texture];
                 ctx.drawImage(
@@ -105,12 +101,12 @@ class ChartRenderer {
             }
             else if (text == undefined) {
                 drawLine(
-                    -chartPackage.config.lineLength,
+                    -settingsManager.lineLength,
                     0,
-                    chartPackage.config.lineLength,
+                    settingsManager.lineLength,
                     0,
                     color,
-                    chartPackage.config.lineWidth,
+                    settingsManager.lineWidth,
                     alpha / 255);
             }
             else {
@@ -118,7 +114,7 @@ class ChartRenderer {
                     text,
                     0,
                     0,
-                    chartPackage.config.textSize,
+                    settingsManager.textSize,
                     color,
                     true,
                     alpha / 255);
@@ -126,15 +122,14 @@ class ChartRenderer {
             ctx.restore();
         })
     }
-    /** 显示note和打击特效 */
+    /** 显示音符及其打击特效 */
     private drawNotes() {
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
         const chart = store.useChart();
-        const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
         const ctx = canvasUtils.getContext(canvas);
-        
+
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const writeText = canvasUtils.writeText.bind(ctx);
         const drawNote = (
@@ -152,7 +147,11 @@ class ChartRenderer {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
                     ctx.globalAlpha = note.alpha / 255;
-                    // 以判定线为坐标系
+                    const missed = seconds > startSeconds + missSeconds && note.getJudgement() == 'none';
+                    if (missed) {
+                        ctx.globalAlpha *= 0.5;
+                    }
+                    // 以判定线为参考系
                     ctx.save();
                     ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
                     ctx.rotate(radians);
@@ -175,14 +174,15 @@ class ChartRenderer {
                         // -5  \_____/  B.sy > B.ey +5
                         // -6                       +6                     
                         // 上下翻转之后，y坐标再变相反数，可以正确显示倒打长条，否则会显示成倒的
-                        //
+                        // 因为canvas绘制图片时，无论图片的宽高是正数还是负数，图片都是正立的
+
                         ctx.scale(1, -1);
                         noteInfo.startPositionY = -noteInfo.startPositionY;
                         noteInfo.endPositionY = -noteInfo.endPositionY;
                     }
                     const height = noteInfo.endPositionY - noteInfo.startPositionY;
                     const { head, body, end } = resourcePackage.getSkin(type, highlight);
-                    const width = note.size * chartPackage.config.noteSize *
+                    const width = note.size * settingsManager.noteSize *
                         resourcePackage.getSkin(type, highlight).body.width / resourcePackage.getSkin(type, false).body.width;
                     const headHeight = head.height / head.width * width;
                     const endHeight = end.height / end.width * width;
@@ -222,9 +222,9 @@ class ChartRenderer {
                         ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
                     }
                     const image = resourcePackage.getSkin(type, highlight);
-                    const width = note.size * chartPackage.config.noteSize *
+                    const width = note.size * settingsManager.noteSize *
                         resourcePackage.getSkin(type, highlight).width / resourcePackage.getSkin(type, false).width;
-                    const height = image.height / image.width * chartPackage.config.noteSize;
+                    const height = image.height / image.width * settingsManager.noteSize;
                     // const noteHeight = noteImage.height / noteImage.width * noteWidth; // 会让note等比缩放
                     ctx.save();
                     ctx.translate(this.convertXToCanvas(judgeLineInfo.x), this.convertYToCanvas(judgeLineInfo.y));
@@ -258,16 +258,18 @@ class ChartRenderer {
                 const startSeconds = note.cachedStartSeconds;
                 const endSeconds = note.cachedEndSeconds;
                 const noteInfo = this.getNoteInfo(judgeLineNumber, noteNumber, seconds);
-                if (note.getJudgement() == 'none' && !note.isFake) {
-                    if (seconds >= startSeconds - autoplayOffset) {
-                        note.hitSeconds = startSeconds - autoplayOffset;
+                // 自动击打音符（autoplay）
+                if (seconds >= startSeconds - autoplayOffset) {
+                    const hitted = note.hit(startSeconds - autoplayOffset);
+                    if (hitted) {
                         resourcePackage.playSound(note.type);
                     }
                 }
+                // 如果当前时间小于击打时间，说明用户在音符被击打以后把进度条往回拖动了，重新把该音符设置为未击打状态
                 if (note.hitSeconds && seconds < note.hitSeconds) {
                     note.hitSeconds = undefined;
                 }
-                // 里面有return，要用立即执行函数
+                // 显示打击特效
                 if (!note.isFake) (() => {
                     const hitSeconds = note.hitSeconds;
                     if (note.type == NoteType.Hold) {
@@ -294,40 +296,62 @@ class ChartRenderer {
                         });
                         const radians = MathUtils.convertDegreesToRadians(angle);
                         const judgement = note.getJudgement();
-                        const hash = (a: number, b: number, c: number) => {
-                            return a * a + b * b + c * c;
-                        }
-                        const showHitFx = (type: 'perfect' | 'good', frameNumber: number, x: number, y: number, angle: number, n: number) => {
-                            const angles: readonly number[] = MathUtils.randomNumbers(particleCount, hash(judgeLineNumber, noteNumber, n), 0, 360);
-                            const xys = angles.map(angle => MathUtils.pole(0, 0, angle, particleRadius));
-                            ctx.save();
-                            const frames = type == 'perfect' ? resourcePackage.perfectHitFxFrames : resourcePackage.goodHitFxFrames;
-                            const color = type == 'perfect' ? resourcePackage.config.colorPerfect : resourcePackage.config.colorGood;
-                            const progress = frameNumber / frames.length;
-
-                            const hitFxPosition = MathUtils.moveAndRotate(x, y, angle, note.positionX, note.yOffset);
-                            const canvasX = this.convertXToCanvas(hitFxPosition.x);
-                            const canvasY = this.convertYToCanvas(hitFxPosition.y);
-
-                            if (frameNumber >= frames.length) return;
-                            const frame = frames[frameNumber];
-                            ctx.save();
-                            ctx.translate(canvasX, canvasY);
-                            if (resourcePackage.config.hitFxRotate) ctx.rotate(radians);
-                            ctx.globalAlpha = 1;
-                            ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
-                            if (!resourcePackage.config.hideParticles) {
-                                xys.forEach(({ x, y }) => {
-                                    drawRect(x * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
-                                        y * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
-                                        particleSize,
-                                        particleSize,
-                                        color,
-                                        true,
-                                        1 - easingFuncs[EasingType.SineIn](progress));
-                                });
+                        /** */
+                        const hash = (a: number, b: number, c: number) => a * a + b * b + c * c;
+                        const showHitFx = (type: 'perfect' | 'good' | 'bad', hitFxStartSeconds: number, n: number) => {
+                            if (type == 'bad') {
+                                const noteInfo = this.getNoteInfo(judgeLineNumber, noteNumber, hitSeconds);
+                                ctx.globalAlpha = 1 - (seconds - hitSeconds) / resourcePackage.config.hitFxDuration;
+                                ctx.save();
+                                ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
+                                ctx.rotate(radians);
+                                // 暂时没做好Bad特效的显示，所以用文字“BAD”来代替了
+                                writeText("BAD", note.positionX, -noteInfo.startPositionY, 50, "red", true);
+                                ctx.restore();
                             }
-                            ctx.restore();
+                            else {
+                                const { x, y, angle } = this.getJudgeLineInfo(judgeLineNumber, hitFxStartSeconds, {
+                                    getX: true,
+                                    getY: true,
+                                    getAngle: true
+                                });
+                                const frameNumber = Math.floor(
+                                    (seconds - hitFxStartSeconds)
+                                    / resourcePackage.config.hitFxDuration
+                                    * resourcePackage.perfectHitFxFrames.length
+                                );
+                                const angles: readonly number[] = MathUtils.randomNumbers(particleCount, hash(judgeLineNumber, noteNumber, n), 0, 360);
+                                const xys = angles.map(angle => MathUtils.pole(0, 0, angle, particleRadius));
+                                ctx.save();
+                                const progress = (seconds - hitFxStartSeconds) / resourcePackage.config.hitFxDuration;
+
+                                const hitFxPosition = MathUtils.moveAndRotate(x, y, angle, note.positionX, note.yOffset);
+                                const canvasX = this.convertXToCanvas(hitFxPosition.x);
+                                const canvasY = this.convertYToCanvas(hitFxPosition.y);
+
+                                const frames = type == 'perfect' ? resourcePackage.perfectHitFxFrames : resourcePackage.goodHitFxFrames;
+                                const color = type == 'perfect' ? resourcePackage.config.colorPerfect : resourcePackage.config.colorGood;
+                                if (frameNumber >= frames.length) return;
+                                const frame = frames[frameNumber];
+
+                                ctx.save();
+                                ctx.translate(canvasX, canvasY);
+                                if (resourcePackage.config.hitFxRotate) ctx.rotate(radians);
+                                ctx.globalAlpha = 1;
+                                ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
+                                if (!resourcePackage.config.hideParticles) {
+                                    xys.forEach(({ x, y }) => {
+                                        drawRect(x * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
+                                            y * easingFuncs[EasingType.SineOut](progress) - particleSize / 2,
+                                            particleSize,
+                                            particleSize,
+                                            color,
+                                            true,
+                                            1 - easingFuncs[EasingType.SineIn](progress));
+                                    });
+                                }
+                                ctx.restore();
+                            }
                         }
                         if (judgement == 'perfect' || judgement == 'good') {
                             if (note.type == NoteType.Hold) {
@@ -350,36 +374,16 @@ class ChartRenderer {
                                     n++
                                 ) {
                                     const hitFxStartSeconds = hitSeconds + n * hitFxFrequency;
-                                    const { x, y, angle } = this.getJudgeLineInfo(judgeLineNumber, hitFxStartSeconds, {
-                                        getX: true,
-                                        getY: true,
-                                        getAngle: true
-                                    });
-                                    const frameNumber = Math.floor(
-                                        (seconds - hitFxStartSeconds)
-                                        / resourcePackage.config.hitFxDuration
-                                        * resourcePackage.perfectHitFxFrames.length
-                                    );
-                                    showHitFx(judgement, frameNumber, x, y, angle, n);
+
+                                    showHitFx(judgement, hitFxStartSeconds, n);
                                 }
                             }
                             else {
-                                const frameNumber = Math.floor(
-                                    (seconds - hitSeconds)
-                                    / resourcePackage.config.hitFxDuration
-                                    * resourcePackage.perfectHitFxFrames.length
-                                )
-                                showHitFx(judgement, frameNumber, x, y, angle, 0);
+                                showHitFx(judgement, hitSeconds, 0);
                             }
                         }
                         else if (judgement == 'bad') {
-                            const noteInfo = this.getNoteInfo(judgeLineNumber, noteNumber, hitSeconds);
-                            ctx.globalAlpha = 1 - (seconds - hitSeconds) / resourcePackage.config.hitFxDuration;
-                            ctx.save();
-                            ctx.translate(this.convertXToCanvas(x), this.convertYToCanvas(y));
-                            ctx.rotate(radians);
-                            writeText("BAD", note.positionX, -noteInfo.startPositionY, 50, "red", true);
-                            ctx.restore();
+                            showHitFx(judgement, hitSeconds, 0);
                         }
                     }, Priority.HitFx);
                 })();
@@ -398,7 +402,6 @@ class ChartRenderer {
     /** 获取note的Y坐标信息 */
     private getNoteInfo(lineNumber: number, noteNumber: number, seconds: number) {
         const chart = store.useChart();
-        const chartPackage = store.useChartPackage();
         // 异常处理
         if (!chart.judgeLineList || lineNumber < 0 || lineNumber >= chart.judgeLineList.length) {
             throw new Error('Invalid line number');
@@ -480,8 +483,8 @@ class ChartRenderer {
             }
         }
 
-        startPositionY *= chartPackage.config.chartSpeed;
-        endPositionY *= chartPackage.config.chartSpeed;
+        startPositionY *= settingsManager.chartSpeed;
+        endPositionY *= settingsManager.chartSpeed;
 
         if (seconds >= noteStartSeconds) startPositionY = -startPositionY;
         if (seconds >= noteEndSeconds) endPositionY = -endPositionY;
@@ -529,10 +532,8 @@ class ChartRenderer {
                 getAngle: true
             }, visited);
             const { x: newX, y: newY } = MathUtils.moveAndRotate(fatherX, fatherY, fatherAngle, x, y);
-            const newAngle = angle;
             x = newX;
             y = newY;
-            angle = newAngle;
         }
         const scaleX = getScaleX ? interpolateNumberEventValue(findLastEvent(judgeLine.extended.scaleXEvents, seconds), seconds) || 1 : 1;
         const scaleY = getScaleY ? interpolateNumberEventValue(findLastEvent(judgeLine.extended.scaleYEvents, seconds), seconds) || 1 : 1;

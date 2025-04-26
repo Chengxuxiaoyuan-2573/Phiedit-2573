@@ -5,7 +5,7 @@
     />
 </template>
 <script setup lang="ts">
-import { EasingTypeGroups } from '@/classes/easing';
+import { EasingTypeGroups } from '@/models/easing';
 import MySelect from './MySelect.vue';
 const model = defineModel<EasingTypeGroups>({
     required: true

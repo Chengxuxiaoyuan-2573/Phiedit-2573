@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { Beats, formatBeats, parseBeats, validateBeats } from "@/classes/beats";
+import { Beats, formatBeats, parseBeats, validateBeats } from "@/models/beats";
 import MyInput from "./MyInput.vue";
 import { reactive, useSlots } from "vue";
 const inputData = reactive({
