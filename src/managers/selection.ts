@@ -1,13 +1,14 @@
 import { SelectedElement } from "@/types";
 import { reactive } from "vue";
-import stateManager from "./state";
 import globalEventEmitter from "@/eventEmitter";
-import historyManager from "./history";
 import { Note } from "@/models/note";
+import store from "@/store";
+import Manager from "./abstract";
 
-class SelectionManager {
+export default class SelectionManager extends Manager {
     readonly selectedElements: SelectedElement[] = reactive([]);
     constructor() {
+        super();
         globalEventEmitter.on("DELETE", () => {
             this.deleteSelection();
         })
@@ -41,6 +42,7 @@ class SelectionManager {
     }
 
     deleteSelection() {
+        const historyManager = store.useManager("historyManager");
         for (const element of this.selectedElements) {
             if (element instanceof Note) {
                 historyManager.removeNote(element.id);
@@ -55,6 +57,7 @@ class SelectionManager {
      * 全选
      */
     selectAll() {
+        const stateManager = store.useManager("stateManager");
         this.unselectAll();
         for (const element of stateManager.currentJudgeLine.notes) {
             this.selectedElements.push(element);
@@ -76,4 +79,3 @@ class SelectionManager {
         }
     }
 }
-export default new SelectionManager();

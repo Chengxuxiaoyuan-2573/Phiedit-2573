@@ -17,6 +17,7 @@ interface GlobalEventMap {
     CUT: []
     COPY: []
     PASTE: []
+    PASTE_MIRROR: []
     DELETE: []
     SELECT_ALL: []
     UNSELECT_ALL: []
@@ -30,13 +31,14 @@ interface GlobalEventMap {
     CHANGE_TYPE: [keyof typeof NoteType]
     PREVIEW: []
     STOP_PREVIEW: []
-    DOWNLOAD: []
     MOVE_TO_JUDGE_LINE: [number]
     SAVE_FAST_EDIT: [string, string]
     EVALUATE_CODE: [string]
     CLONE: []
     UNDO: []
     REDO: []
+    EXIT: []
+    SAVE: []
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 const globalEventEmitter = new GlobalEventEmitter();

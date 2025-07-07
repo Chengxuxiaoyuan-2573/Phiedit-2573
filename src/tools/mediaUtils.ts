@@ -26,7 +26,8 @@ export default class MediaUtils {
         }
         return audioBuffer;
     }
-    static createImage(blob: Blob) {
+    static createImage(imageData: Blob | ArrayBuffer) {
+        const blob = imageData instanceof Blob ? imageData : MediaUtils.arrayBufferToBlob(imageData);
         return new Promise<HTMLImageElement>((resolve, reject) => {
             const objectUrl = URL.createObjectURL(blob);
             const image = new Image();
@@ -41,7 +42,8 @@ export default class MediaUtils {
             }
         })
     }
-    static createAudio(blob: Blob) {
+    static createAudio(audioData: ArrayBuffer | Blob) {
+        const blob = audioData instanceof Blob ? audioData : MediaUtils.arrayBufferToBlob(audioData);
         return new Promise<HTMLAudioElement>((resolve, reject) => {
             const objectUrl = URL.createObjectURL(blob);
             const audio = new Audio();
@@ -56,7 +58,8 @@ export default class MediaUtils {
             }
         })
     }
-    static createObjectURL(blob: Blob) {
+    static createObjectURL(data: Blob | ArrayBuffer) {
+        const blob = data instanceof Blob ? data : MediaUtils.arrayBufferToBlob(data);
         return new Promise<string>((resolve) => {
             const objectUrl = URL.createObjectURL(blob);
             window.addEventListener('beforeunload', () => {
@@ -64,11 +67,6 @@ export default class MediaUtils {
             })
             resolve(objectUrl);
         })
-    }
-    static Image(src: string) {
-        const image = new Image();
-        image.src = src;
-        return image;
     }
     static togglePlay(audio: HTMLAudioElement) {
         if (audio.paused) {
@@ -86,5 +84,8 @@ export default class MediaUtils {
         a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
+    }
+    static arrayBufferToBlob(arrayBuffer: ArrayBuffer) {
+        return new Blob([arrayBuffer]);
     }
 }

@@ -3,13 +3,15 @@ import { IEvent } from "@/models/event";
 import { INote } from "@/models/note";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
+import Manager from "./abstract";
 
-class HistoryManager {
+export default class HistoryManager extends Manager {
     /** 撤销栈，最先被执行的操作在最前面 */
     undoStack: Command[] = [];
     /** 重做栈，最先被撤销的操作在最前面 */
     redoStack: Command[] = [];
     constructor() {
+        super();
         globalEventEmitter.on("UNDO", createCatchErrorByMessage(() => {
             this.undo();
         }, "撤销"))
@@ -183,4 +185,3 @@ class RemoveEventCommand extends Command {
         return `删除事件 ${this.id}`
     }
 }
-export default new HistoryManager();

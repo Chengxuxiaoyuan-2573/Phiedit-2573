@@ -9,9 +9,9 @@ import { RGBcolor } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
 import { TaskQueue } from "@/tools/taskQueue";
 import { ceil } from "lodash";
-import settingsManager from "../settings";
+import Manager from "../abstract";
 
-class ChartRenderer {
+export default class ChartRenderer extends Manager {
     /** 显示谱面到canvas上 */
     renderChart() {
         this.drawBackground();
@@ -20,6 +20,7 @@ class ChartRenderer {
     }
     /** 显示背景的曲绘 */
     private drawBackground() {
+        const settingsManager = store.useManager("settingsManager");
         const canvas = store.useCanvas();
         const chartPackage = store.useChartPackage();
         const ctx = canvasUtils.getContext(canvas);
@@ -59,6 +60,7 @@ class ChartRenderer {
     }
     /** 显示判定线 */
     private drawJudgeLines() {
+        const settingsManager = store.useManager("settingsManager");
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
         const chart = store.useChart();
@@ -124,6 +126,7 @@ class ChartRenderer {
     }
     /** 显示音符及其打击特效 */
     private drawNotes() {
+        const settingsManager = store.useManager("settingsManager");
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
         const chart = store.useChart();
@@ -401,6 +404,7 @@ class ChartRenderer {
     }
     /** 获取note的Y坐标信息 */
     private getNoteInfo(lineNumber: number, noteNumber: number, seconds: number) {
+        const settingsManager = store.useManager("settingsManager");
         const chart = store.useChart();
         // 异常处理
         if (!chart.judgeLineList || lineNumber < 0 || lineNumber >= chart.judgeLineList.length) {
@@ -553,4 +557,3 @@ class ChartRenderer {
         return (canvas.height / 2) - y;
     }
 }
-export default new ChartRenderer();

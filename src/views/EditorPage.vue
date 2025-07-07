@@ -20,19 +20,13 @@
                         :max="audioRef.duration"
                         :step="0.01"
                         :format-tooltip="seconds => {
-                            const beats = secondsToBeats(store.useChart().BPMList, seconds);
-                            return `第${beats.toFixed(2)}拍`;
+                            const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+                            const sec = Math.round(seconds % 60).toString().padStart(2, '0');
+                            return `${min}:${sec}`;
                         }"
                         @input="audioRef.pause(), audioRef.currentTime = typeof time == 'number' ? time : time[0]"
                     />
                 </template>
-
-                <ElButton
-                    type="primary"
-                    @click="globalEventEmitter.emit(stateManager.state.isPreviewing ? 'STOP_PREVIEW' : 'PREVIEW')"
-                >
-                    {{ stateManager.state.isPreviewing ? '停止预览' : '预览谱面' }}（P）
-                </ElButton>
                 <p
                     :style="{
                         color: (() => {
@@ -54,7 +48,7 @@
                     }"
                     useless-attribute
                 >
-                    FPS: {{ fps.toFixed(1) }}
+                    FPS: {{ fps.toFixed(0) }}
                 </p>
             </ElRow>
             <ElRow>
@@ -165,13 +159,6 @@
                         竖线数
                     </template>
                 </MyInputNumber>
-                <!-- 右键放置，
-                左键选择，
-                选择之后按住拖动，
-                QWER切换note种类，
-                方括号或Ctrl+B切换判定线，
-                短按空格播放或暂停，
-                长按空格预览谱面 -->
             </ElRow>
         </ElHeader>
         <ElAside id="left">
@@ -179,31 +166,29 @@
                 v-if="selectionManager.selectedElements.length == 0"
                 class="left-inner"
             >
-                <h1>Phiedit 2573 线上制谱器</h1>
-                <!-- eslint-disable-next-line vue/first-attribute-linebreak -->
-                <ElUpload :before-upload="uploadChartPackage">
-                    <template #trigger>
-                        <ElButton type="primary">
-                            上传谱面文件（zip或pez格式）
-                        </ElButton>
-                    </template>
-                </ElUpload>
-                <ElUpload
-                    :before-upload="uploadResourcePackage"
-                    useless-attribute
-                >
-                    <template #trigger>
-                        <ElButton type="primary">
-                            上传资源包（zip格式）
-                        </ElButton>
-                    </template>
-                </ElUpload>
+                <h1>Phiedit 2573</h1>
                 <ElButton
                     type="primary"
-                    @click="globalEventEmitter.emit('DOWNLOAD')"
+                    @click="globalEventEmitter.emit('SAVE')"
                 >
-                    下载谱面文件（json格式）
+                    保存
                 </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="$router.push('/')"
+                >
+                    退出
+                </ElButton>
+                <ul>
+                    <li>按Q/W/E/R键：将当前放置的音符切换为Tap/Drag/Flick/Hold</li>
+                    <li>按T键：预览谱面（松开T键回到原位置）</li>
+                    <li>按U键：预览谱面（松开U键不回到原位置）</li>
+                    <li>按I键：预览谱面（需要再次按下I键停止预览）</li>
+                    <li>按鼠标左键：选择音符</li>
+                    <li>按鼠标右键：放置音符</li>
+                    <li>滚动鼠标滚轮：时间前后移动</li>
+                    <li>按Ctrl+鼠标滚轮：缩放</li>
+                </ul>
             </div>
             <template v-else>
                 <MyBackHeader
@@ -272,6 +257,26 @@
                     >
                         历史记录
                     </ElButton>
+                    <MyGridContainer
+                        :columns="5"
+                        :gap="5"
+                    >
+                        <ElButton
+                            v-for="(item, index) in chartPackageRef?.chart.judgeLineList"
+                            :key="index + (u ? 0 : 0)"
+                            type="primary"
+                            :plain="index != stateManager.state.currentJudgeLineNumber"
+                            @click="stateManager.state.currentJudgeLineNumber = index"
+                        >
+                            {{ index }}
+                        </ElButton>
+                        <ElButton
+                            type="success"
+                            @click="chartPackageRef?.chart.addNewJudgeLine(), update()"
+                        >
+                            +
+                        </ElButton>
+                    </MyGridContainer>
                 </div>
                 <template v-else>
                     <MyBackHeader
@@ -305,49 +310,50 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElButton, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElMessageBox, ElRow, ElSlider, ElUpload } from "element-plus";
+import { ElAside, ElButton, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElMessageBox, ElRow, ElSlider } from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { clamp, debounce } from "lodash";
+import { clamp, } from "lodash";
 
-import chartPackageURL from "./assets/DefaultChartPackage.zip";
-import resourcePackageURL from "./assets/DefaultResourcePackage.zip";
+import resourcePackageURL from "@/assets/DefaultResourcePackage.zip";
 
-import MediaUtils from "./tools/mediaUtils";
+import MediaUtils from "@/tools/mediaUtils";
 
-import { ChartPackage } from "./models/chartPackage";
-import { NumberEvent } from "./models/event";
-import { Note, NoteType } from "./models/note";
-import { ResourcePackage } from "./models/resourcePackage";
-import { secondsToBeats } from "./models/beats";
+import { NumberEvent } from "@/models/event";
+import { Note, NoteType } from "@/models/note";
+import { ResourcePackage } from "@/models/resourcePackage";
+import { ChartPackage } from "@/models/chartPackage";
 
-import MySelect from "./myElements/MySelect.vue";
-import MyInputNumber from "./myElements/MyInputNumber.vue";
-import MyBackHeader from "./myElements/MyBackHeader.vue";
+import MySelect from "@/myElements/MySelect.vue";
+import MyInputNumber from "@/myElements/MyInputNumber.vue";
+import MyBackHeader from "@/myElements/MyBackHeader.vue";
 
-import stateManager from "./services/managers/state";
-import selectionManager from "./services/managers/selection";
-import chartRenderer from "./services/managers/render/chartRenderer";
-import editorRenderer from "./services/managers/render/editorRenderer";
-import "./services/managers/clipboard";
-import "./services/managers/clone";
-import "./services/managers/download";
-import "./services/managers/mouse";
-import "./services/managers/move";
-import "./services/managers/settings";
-import "./services/managers/history";
+import ChartRenderer from "@/managers/render/chartRenderer";
+import SaveManager from "@/managers/save";
+import MouseManager from "@/managers/mouse";
+import HistoryManager from "@/managers/history";
+import CloneManager from "@/managers/clone";
+import EditorRenderer from "@/managers/render/editorRenderer";
+import ClipboardManager from "@/managers/clipboard";
+import StateManager from "@/managers/state";
+import MoveManager from "@/managers/move";
+import SelectionManager from "@/managers/selection";
+import SettingsManager from "@/managers/settings";
 
-import BPMListEditor from "./editorComponents/BPMListEditor.vue";
-import ChartMetaEditor from "./editorComponents/ChartMetaEditor.vue";
-import JudgeLineEditor from "./editorComponents/JudgeLineEditor.vue";
-import NoteEditor from "./editorComponents/NoteEditor.vue";
-import NumberEventEditor from "./editorComponents/NumberEventEditor.vue";
-import MutipleEditor from "./editorComponents/MutipleEditor.vue";
-import SettingsEditor from "./editorComponents/SettingsEditor.vue";
-import HistoryEditor from "./editorComponents/HistoryEditor.vue"
+import BPMListEditor from "@/editorComponents/BPMListEditor.vue";
+import ChartMetaEditor from "@/editorComponents/ChartMetaEditor.vue";
+import JudgeLineEditor from "@/editorComponents/JudgeLineEditor.vue";
+import NoteEditor from "@/editorComponents/NoteEditor.vue";
+import NumberEventEditor from "@/editorComponents/NumberEventEditor.vue";
+import MutipleEditor from "@/editorComponents/MutipleEditor.vue";
+import SettingsEditor from "@/editorComponents/SettingsEditor.vue";
+import HistoryEditor from "@/editorComponents/HistoryEditor.vue"
 
-import globalEventEmitter from "./eventEmitter";
-import { RightPanelState } from "./types";
-import store, { audioRef, canvasRef, chartPackageRef, resourcePackageRef } from "./store";
+import globalEventEmitter from "@/eventEmitter";
+import { RightPanelState } from "@/types";
+import store, { audioRef, canvasRef, chartPackageRef } from "@/store";
+import { useRoute } from "vue-router";
+import MyGridContainer from "@/myElements/MyGridContainer.vue";
+
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -355,32 +361,79 @@ const loadStart = inject("loadStart", () => {
 const loadEnd = inject("loadEnd", () => {
     throw new Error("loadEnd is not defined");
 });
+store.route = useRoute();
+
 loadStart();
-store.chartPackageRef.value = await fetch(chartPackageURL)
-    .then(res => res.blob())
-    .then(blob => ChartPackage.load(blob));
-store.resourcePackageRef.value = await fetch(resourcePackageURL)
-    .then(res => res.blob())
-    .then(blob => ResourcePackage.load(blob));
+{
+    // 读取chartPackage
+    const chartId = store.getChartId();
+    const readResult = await window.electronAPI.readChart(chartId);
+    const musicBlob = MediaUtils.arrayBufferToBlob(readResult.musicData);
+    const musicSrc = URL.createObjectURL(musicBlob);
+    const backgroundBlob = MediaUtils.arrayBufferToBlob(readResult.backgroundData);
+    const backgroundSrc = URL.createObjectURL(backgroundBlob);
+    const textureBlobs = readResult.textureDatas.map(textureData => MediaUtils.arrayBufferToBlob(textureData));
+    const textureSrcs = textureBlobs.map(textureBlob => URL.createObjectURL(textureBlob));
+    store.chartPackageRef.value = new ChartPackage({
+        musicSrc,
+        background: (() => {
+            const image = new Image();
+            image.src = backgroundSrc;
+            return image;
+        })(),
+        textures: (() => {
+            const textures: Record<string, HTMLImageElement> = {};
+            for (let i = 0; i < textureSrcs.length; i++) {
+                textures[readResult.texturePaths[i]] = (() => {
+                    const image = new Image();
+                    image.src = textureSrcs[i];
+                    return image;
+                })();
+            }
+            return textures;
+        })(),
+        chart: JSON.parse(readResult.chartContent),
+    })
+
+    // 加载resourcePackage
+    store.resourcePackageRef.value = await getResourcePackage();
+
+    // 创建并设置managers
+    store.setManager("chartRenderer", new ChartRenderer());
+    store.setManager("editorRenderer", new EditorRenderer());
+    store.setManager("clipboardManager", new ClipboardManager());
+    store.setManager("cloneManager", new CloneManager());
+    store.setManager("historyManager", new HistoryManager());
+    store.setManager("mouseManager", new MouseManager());
+    store.setManager("moveManager", new MoveManager());
+    store.setManager("saveManager", new SaveManager());
+    store.setManager("selectionManager", new SelectionManager());
+    store.setManager("settingsManager", new SettingsManager());
+    store.setManager("stateManager", new StateManager());
+}
 loadEnd();
 
+const stateManager = store.useManager("stateManager");
+const selectionManager = store.useManager("selectionManager");
+const chartRenderer = store.useManager("chartRenderer");
+const editorRenderer = store.useManager("editorRenderer");
+const settingsManager = store.useManager("settingsManager");
 
 const fps = ref(0);
 const time = ref(0);
+const u = ref(false);
 const audioIsPlaying = ref(false);
 
 let cachedRect: DOMRect;
-async function uploadChartPackage(file: File) {
-    loadStart();
-    const chartPackage = await ChartPackage.load(file);
-    store.chartPackageRef.value = chartPackage;
-    loadEnd();
+
+function update() {
+    u.value = !u.value;
 }
-async function uploadResourcePackage(file: File) {
-    loadStart();
-    const resourcePackage = await ResourcePackage.load(file);
-    store.resourcePackageRef.value = resourcePackage;
-    loadEnd();
+
+async function getResourcePackage() {
+    const res = await fetch(resourcePackageURL);
+    const blob = await res.blob();
+    return await ResourcePackage.load(blob);
 }
 function canvasMouseDown(e: MouseEvent) {
     const options = createKeyOptions(e);
@@ -408,7 +461,7 @@ function windowOnWheel(e: WheelEvent) {
         e.preventDefault();
         stateManager.state.pxPerSecond = clamp(stateManager.state.pxPerSecond + e.deltaY * -0.05, 1, 1000);
     } else {
-        audio.currentTime += e.deltaY / -stateManager.state.pxPerSecond;
+        audio.currentTime += e.deltaY * settingsManager.wheelSpeed / -stateManager.state.pxPerSecond;
     }
 }
 function canvasOnResize() {
@@ -438,12 +491,27 @@ async function windowOnKeyDown(e: KeyboardEvent) {
         case "R":
             globalEventEmitter.emit("CHANGE_TYPE", "Hold");
             return;
-        case "P": {
+        case "T": {
+            globalEventEmitter.emit("PREVIEW");
+            const time = audio.currentTime;
+            // 松开P键时停止预览
+            const keyUpHandler = (e: KeyboardEvent) => {
+                const key = formatKey(e);
+                if (key === "T") {
+                    globalEventEmitter.emit("STOP_PREVIEW");
+                    audio.currentTime = time;
+                    window.removeEventListener("keyup", keyUpHandler);
+                }
+            }
+            window.addEventListener("keyup", keyUpHandler);
+            return;
+        }
+        case "U": {
             globalEventEmitter.emit("PREVIEW");
             // 松开P键时停止预览
             const keyUpHandler = (e: KeyboardEvent) => {
                 const key = formatKey(e);
-                if (key === "P") {
+                if (key === "U") {
                     globalEventEmitter.emit("STOP_PREVIEW");
                     window.removeEventListener("keyup", keyUpHandler);
                 }
@@ -451,10 +519,25 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             window.addEventListener("keyup", keyUpHandler);
             return;
         }
+        case "I": {
+            if (stateManager.state.isPreviewing) {
+                globalEventEmitter.emit("STOP_PREVIEW");
+            }
+            else {
+                globalEventEmitter.emit("PREVIEW");
+            }
+            return;
+        }
         case "[":
             globalEventEmitter.emit("PREVIOUS_JUDGE_LINE");
             return;
         case "]":
+            globalEventEmitter.emit("NEXT_JUDGE_LINE");
+            return;
+        case "A":
+            globalEventEmitter.emit("PREVIOUS_JUDGE_LINE");
+            return;
+        case "D":
             globalEventEmitter.emit("NEXT_JUDGE_LINE");
             return;
         case "Esc":
@@ -476,10 +559,11 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             globalEventEmitter.emit("MOVE_RIGHT");
             return;
         case "Ctrl B":
-            globalEventEmitter.emit("CHANGE_JUDGE_LINE", parseInt((await ElMessageBox.prompt("请输入判定线号", "切换判定线")).value))
+            globalEventEmitter.emit("PASTE_MIRROR");
+            //globalEventEmitter.emit("CHANGE_JUDGE_LINE", parseInt((await ElMessageBox.prompt("请输入判定线号", "切换判定线")).value))
             return;
         case "Ctrl S":
-            globalEventEmitter.emit("DOWNLOAD");
+            globalEventEmitter.emit("SAVE");
             return;
         case "Ctrl A":
             globalEventEmitter.emit("SELECT_ALL");
@@ -632,7 +716,7 @@ onMounted(() => {
     canvas.addEventListener('mousedown', canvasMouseDown);
     canvas.addEventListener('mousemove', canvasMouseMove);
     canvas.addEventListener('mouseup', canvasMouseUp);
-    const resizeObserver = new ResizeObserver(debounce(canvasOnResize, 100));
+    const resizeObserver = new ResizeObserver(canvasOnResize);
     resizeObserver.observe(canvas);
     window.addEventListener('wheel', windowOnWheel, { passive: false });
     window.addEventListener('keydown', windowOnKeyDown);
@@ -649,23 +733,23 @@ onMounted(() => {
     let renderTime = performance.now();
     let isRendering = true;
     const renderLoop = () => {
-        if (stateManager.state.isPreviewing) {
-            chartRenderer.renderChart();
-        }
-        else {
-            editorRenderer.render();
-        }
-        const now = performance.now();
-        const delta = now - renderTime;
-
-        if (delta > 0) {
-            const currentFPS = 1000 / delta;
-            fps.value = currentFPS;
-        } else {
-            fps.value = 0;
-        }
-        renderTime = now;
         if (isRendering) {
+            if (stateManager.state.isPreviewing) {
+                chartRenderer.renderChart();
+            }
+            else {
+                editorRenderer.render();
+            }
+            const now = performance.now();
+            const delta = now - renderTime;
+
+            if (delta > 0) {
+                const currentFPS = 1000 / delta;
+                fps.value = currentFPS;
+            } else {
+                fps.value = 0;
+            }
+            renderTime = now;
             requestAnimationFrame(renderLoop);
         }
     };
@@ -680,11 +764,7 @@ onMounted(() => {
         window.removeEventListener("wheel", windowOnWheel);
         window.removeEventListener("keydown", windowOnKeyDown);
         isRendering = false;
-        // globalEventEmitter.destroy();
-        chartPackageRef.value = null;
-        resourcePackageRef.value = null;
-        canvasRef.value = null;
-        audioRef.value = null;
+        globalEventEmitter.destroy();
     });
 });
 </script>

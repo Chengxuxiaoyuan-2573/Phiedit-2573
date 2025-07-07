@@ -16,7 +16,7 @@ export default class Constants {
     static readonly notesViewBox = new Box(0, 900, 50, 650)
     static readonly eventsViewBox = new Box(0, 900, 700, 1300)
     static readonly eventWidth = 80
-    static readonly selectPadding = 10
+    static readonly selectPadding = 20
     static readonly eventLinePrecision = 0.01
     static readonly baseEventLayerTracks = ["moveX", "moveY", "rotate", "alpha", "speed"] as const
     static readonly extendedEventLayerTracks = ["scaleX", "scaleY", "color", "paint", "text"] as const

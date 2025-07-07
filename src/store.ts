@@ -1,20 +1,84 @@
 import { Ref, ref } from "vue";
 import { ChartPackage } from "./models/chartPackage";
 import { ResourcePackage } from "./models/resourcePackage";
-import { INote, Note } from "./models/note";
+import { INote } from "./models/note";
 import { IEvent, NumberEvent } from "./models/event";
+import type { useRoute } from "vue-router";
+import globalEventEmitter from "./eventEmitter";
+import ChartRenderer from "./managers/render/chartRenderer";
+import EditorRenderer from "./managers/render/editorRenderer";
+import ClipboardManager from "./managers/clipboard";
+import CloneManager from "./managers/clone";
+import HistoryManager from "./managers/history";
+import MouseManager from "./managers/mouse";
+import MoveManager from "./managers/move";
+import SaveManager from "./managers/save";
+import SelectionManager from "./managers/selection";
+import SettingsManager from "./managers/settings";
+import StateManager from "./managers/state";
 
+/** 数据集中管理的对象 */
 class Store {
     chartPackageRef: Ref<ChartPackage | null>;
     resourcePackageRef: Ref<ResourcePackage | null>;
     canvasRef: Ref<HTMLCanvasElement | null>;
     audioRef: Ref<HTMLAudioElement | null>;
+    route: ReturnType<typeof useRoute> | null;
+
+    managers: {
+        chartRenderer: ChartRenderer | null
+        editorRenderer: EditorRenderer | null
+        clipboardManager: ClipboardManager | null
+        cloneManager: CloneManager | null
+        historyManager: HistoryManager | null
+        mouseManager: MouseManager | null
+        moveManager: MoveManager | null
+        saveManager: SaveManager | null
+        selectionManager: SelectionManager | null
+        settingsManager: SettingsManager | null
+        stateManager: StateManager | null
+    } = {
+            chartRenderer: null,
+            editorRenderer: null,
+            clipboardManager: null,
+            cloneManager: null,
+            historyManager: null,
+            mouseManager: null,
+            moveManager: null,
+            saveManager: null,
+            selectionManager: null,
+            settingsManager: null,
+            stateManager: null
+        }
     constructor() {
         this.chartPackageRef = ref(null);
         this.resourcePackageRef = ref(null);
         this.canvasRef = ref(null);
         this.audioRef = ref(null);
+        this.route = null;
+        globalEventEmitter.on("EXIT", () => {
+            this.chartPackageRef.value = null;
+            this.resourcePackageRef.value = null;
+            this.canvasRef.value = null;
+            this.audioRef.value = null;
+            this.route = null;
+        })
     }
+
+    /** 获取管理器 */
+    useManager<T extends keyof typeof this.managers>(name: T): NonNullable<typeof this.managers[T]> {
+        const manager = this.managers[name];
+        if (manager == null) {
+            throw new Error(`${name}没有初始化`);
+        }
+        return manager;
+    }
+
+    /** 设置管理器 */
+    setManager<T extends keyof typeof this.managers>(name: T, manager: NonNullable<typeof this.managers[T]>) {
+        this.managers[name] = manager;
+    }
+
     useChartPackage() {
         const chartPackage = this.chartPackageRef.value;
         if (!chartPackage)
@@ -47,6 +111,18 @@ class Store {
     }
     getSeconds() {
         return this.useAudio().currentTime - this.useChart().META.offset / 1000;
+    }
+    getChartId() {
+        if (!this.route) {
+            throw new Error("route is not defined");
+        }
+        const chartId = this.route.query.chartId;
+        if (!chartId) {
+            throw new Error("chartId is not defined");
+        }
+        return Array.isArray(chartId)
+            ? chartId[0] ?? ''
+            : String(chartId);
     }
     // 音符id的格式：0-note-0
     // 事件id的格式：0-0-moveX-0
@@ -83,7 +159,6 @@ class Store {
         const judgeLine = chart.judgeLineList[judgeLineNumber];
         return judgeLine.notes.find(note => note.id === id) ?? null;
     }
-
     getEventById(id: string) {
         const chart = this.useChart();
         const { judgeLineNumber, eventLayerId, eventType } = this.parseEventId(id);
@@ -92,16 +167,8 @@ class Store {
         return eventLayer.getEventsByType(eventType).find(event => event.id == id) ?? null;
     }
     addNote(noteObject: INote, judgeLineNumber: number, id?: string) {
-        const chart = this.useChart();
         const judgeLine = this.getJudgeLineById(judgeLineNumber);
-        const note = new Note(noteObject, {
-            judgeLineNumber,
-            BPMList: chart.BPMList,
-            id
-        })
-        if(noteObject.startTime == noteObject.endTime) alert("a");
-        judgeLine.notes.push(note);
-        return note;
+        return judgeLine.addNote(noteObject, id);
     }
     removeNote(id: string) {
         const parsedId = this.parseNoteId(id);

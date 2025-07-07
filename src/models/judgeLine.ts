@@ -117,6 +117,7 @@ export class JudgeLine implements IJudgeLine {
     }]
     zOrder: number = 0
     readonly id: number
+    private noteNumber = 0;
     getAllEvents() {
         const events: BaseEvent[] = [];
         this.eventLayers.forEach(eventLayer => {
@@ -169,7 +170,17 @@ export class JudgeLine implements IJudgeLine {
             notes: this.notes.map(note => note.toObject())
         }
     }
-    constructor(judgeLine: unknown, options: JudgeLineOptions) {
+    addNote(note: unknown, id?: string) {
+        const newNote = new Note(note, {
+            judgeLineNumber: this.options.judgeLineNumber,
+            BPMList: this.options.BPMList,
+            noteNumber: this.noteNumber++,
+            id
+        });
+        this.notes.push(newNote);
+        return newNote;
+    }
+    constructor(judgeLine: unknown, readonly options: JudgeLineOptions) {
         if (isObject(judgeLine)) {
             if ("Group" in judgeLine && isNumber(judgeLine.Group))
                 this.Group = judgeLine.Group;
@@ -201,10 +212,7 @@ export class JudgeLine implements IJudgeLine {
                 });
             if ("notes" in judgeLine && isArray(judgeLine.notes)) {
                 for (const note of judgeLine.notes) {
-                    this.notes.push(new Note(note, {
-                        judgeLineNumber: options.judgeLineNumber,
-                        BPMList: options.BPMList
-                    }));
+                    this.addNote(note);
                 }
             }
         }

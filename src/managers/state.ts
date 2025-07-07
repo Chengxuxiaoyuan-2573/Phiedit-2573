@@ -7,9 +7,8 @@ import store from "@/store";
 import { BoxWithData } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { reactive } from "vue";
-import settingsManager from "./settings";
-
-class StateManager {
+import Manager from "./abstract";
+export default class StateManager extends Manager {
     readonly _state = {
         /** 右侧菜单栏的状态 */
         right: RightPanelState.Default,
@@ -30,13 +29,15 @@ class StateManager {
     }
     readonly state = reactive(this._state)
     constructor() {
+        super();
         globalEventEmitter.on("PREVIOUS_JUDGE_LINE", () => {
             if (this.state.currentJudgeLineNumber > 0) {
                 this.state.currentJudgeLineNumber--;
             }
         })
         globalEventEmitter.on("NEXT_JUDGE_LINE", () => {
-            if (this.state.currentJudgeLineNumber < this.state.horizonalLineCount - 1) {
+            const chart = store.useChart();
+            if (this.state.currentJudgeLineNumber < chart.judgeLineList.length - 1) {
                 this.state.currentJudgeLineNumber++;
             }
         })
@@ -61,6 +62,7 @@ class StateManager {
         })
     }
     calculateBoxes(): BoxWithData<SelectedElement>[] {
+        const settingsManager = store.useManager("settingsManager");
         const boxes = [];
         const canvas = store.useCanvas();
         const resourcePackage = store.useResourcePackage();
@@ -68,33 +70,23 @@ class StateManager {
         const baseNoteSize = Constants.notesViewBox.width / canvas.width * settingsManager.noteSize;
 
         for (const note of this.currentJudgeLine.notes) {
-                const noteX = note.positionX * (Constants.notesViewBox.width / canvas.width) + Constants.notesViewBox.left + Constants.notesViewBox.width / 2;
+            const noteX = note.positionX * (Constants.notesViewBox.width / canvas.width) + Constants.notesViewBox.left + Constants.notesViewBox.width / 2;
             if (note.type == NoteType.Hold) {
-                const noteWidth = baseNoteSize * note.size
-                    * resourcePackage.getSkin(note.type, note.highlight).body.width
-                    / resourcePackage.getSkin(note.type, false).body.width;
+                const noteSkin = resourcePackage.getSkin(note.type, note.highlight);
+                const noteScale = baseNoteSize / resourcePackage.getSkin(note.type, false).body.width;
+                const noteWidth = noteSkin.body.width * note.size * noteScale;
                 const noteStartY = this.getAbsolutePositionYOfSeconds(note.cachedStartSeconds);
                 const noteEndY = this.getAbsolutePositionYOfSeconds(note.cachedEndSeconds);
-                boxes.push(new BoxWithData(
-                    noteEndY - Constants.selectPadding,
-                    noteStartY + Constants.selectPadding,
-                    noteX - noteWidth / 2 - Constants.selectPadding,
-                    noteX + noteWidth / 2 + Constants.selectPadding,
-                    note
-                ));
+                const box = new BoxWithData(noteEndY + noteSkin.end.height * noteScale, noteStartY - noteSkin.head.height * noteScale, noteX - noteWidth / 2, noteX + noteWidth / 2, note);
+                boxes.push(box);
             }
             else {
+                const noteSkin = resourcePackage.getSkin(note.type, note.highlight);
                 const noteY = this.getAbsolutePositionYOfSeconds(note.cachedStartSeconds);
-                const noteWidth = baseNoteSize * note.size
-                    * resourcePackage.getSkin(note.type, note.highlight).width
-                    / resourcePackage.getSkin(note.type, false).width;
-                boxes.push(new BoxWithData(
-                    noteY - Constants.selectPadding,
-                    noteY + Constants.selectPadding,
-                    noteX - noteWidth / 2 - Constants.selectPadding,
-                    noteX + noteWidth / 2 + Constants.selectPadding,
-                    note
-                ));
+                const noteScale = baseNoteSize / resourcePackage.getSkin(note.type, false).width;
+                const noteWidth = noteSkin.width * note.size * noteScale;
+                const box = new BoxWithData(noteY + noteSkin.height * noteScale / 2, noteY - noteSkin.height * noteScale / 2, noteX - noteWidth / 2, noteX + noteWidth / 2, note);
+                boxes.push(box);
             }
         }
         const types = ["moveX", "moveY", "rotate", "alpha", "speed"] as const;
@@ -195,4 +187,3 @@ class StateManager {
         return [int, fenzi, fenmu];
     }
 }
-export default new StateManager();

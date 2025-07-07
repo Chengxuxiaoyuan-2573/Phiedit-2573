@@ -8,27 +8,24 @@ import { floor, ceil } from "lodash";
 import Constants from "../../constants";
 import { MouseMoveMode } from "@/types";
 import store from "@/store";
-import mouseManager from "@/services/managers/mouse";
-import stateManager from "@/services/managers/state";
-import selectionManager from "../selection";
-import settingsManager from "../settings";
+import Manager from "../abstract";
+import { Box } from "@/tools/box";
 
-
-class EditorRenderer {
+export default class EditorRenderer extends Manager {
     /** 显示编辑器界面到canvas上 */
     render() {
-        const canvas = store.useCanvas();
-        const ctx = canvasUtils.getContext(canvas);
-
-        ctx.reset();
         this.renderBackground();
         this.renderGrid();
         this.renderSelection();
         this.renderNotes();
         this.renderEvents();
+        // this.renderBoxes();
     }
     /** 显示选择框 */
     private renderSelection() {
+        const mouseManager = store.useManager("mouseManager");
+        const stateManager = store.useManager("stateManager");
+
         const selectionBox = mouseManager.selectionBox;
         if (!selectionBox) return;
         const canvas = store.useCanvas();
@@ -50,6 +47,8 @@ class EditorRenderer {
     }
     /** 显示网格 */
     private renderGrid() {
+        const stateManager = store.useManager("stateManager");
+
         const canvas = store.useCanvas();
         const chart = store.useChart();
         const ctx = canvasUtils.getContext(canvas);
@@ -143,11 +142,15 @@ class EditorRenderer {
     }
     /** 显示音符 */
     private renderNotes() {
+        const mouseManager = store.useManager("mouseManager");
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        const settingsManager = store.useManager("settingsManager");
+
         const canvas = store.useCanvas();
         const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
         const chart = chartPackage.chart;
-        const seconds = store.getSeconds();
         const ctx = canvasUtils.getContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const judgeLine = stateManager.currentJudgeLine;
@@ -183,9 +186,16 @@ class EditorRenderer {
             return relative(sec * stateManager._state.pxPerSecond);
         }
 
+        const s1 = stateManager.getSecondsOfRelativePositionY(Constants.notesViewBox.top);
+        const s2 = stateManager.getSecondsOfRelativePositionY(Constants.notesViewBox.bottom);
+
         for (const note of notes) {
             const noteStartSeconds = note.cachedStartSeconds;
             const noteEndSeconds = note.cachedEndSeconds;
+            if (noteStartSeconds > s1 + Constants.selectPadding || noteEndSeconds < s2 - Constants.selectPadding) {
+                continue;
+            }
+            /*
             if (seconds >= noteStartSeconds && note.hitSeconds == undefined && !note.isFake) {
                 note.hitSeconds = noteStartSeconds;
                 resourcePackage.playSound(note.type);
@@ -193,6 +203,7 @@ class EditorRenderer {
             if (note.hitSeconds && seconds < note.hitSeconds) {
                 note.hitSeconds = undefined;
             }
+            */
             ctx.globalAlpha = note == imaginaryNote ? 0.5 : 1;
             if (note.type == NoteType.Hold) {
                 const { head, body, end } = resourcePackage.getSkin(note.type, note.highlight);
@@ -212,7 +223,8 @@ class EditorRenderer {
                 ctx.drawImage(head, noteX - noteWidth / 2, noteStartY, noteWidth, noteHeadHeight);
                 ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
                 ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
-                if (note instanceof Note && selectionManager.isSelected(note)) {
+                const box = new Box(noteEndY - noteEndHeight, noteStartY + noteHeadHeight, noteX - noteWidth / 2, noteX + noteWidth / 2);
+                if (note instanceof Note && selectionManager.isSelected(note) || box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteEndY - noteEndHeight,
@@ -240,7 +252,9 @@ class EditorRenderer {
                     noteY - noteHeight / 2,
                     noteWidth,
                     noteHeight);
-                if (note instanceof Note && selectionManager.isSelected(note)) {
+                const box = new Box(noteY - noteHeight / 2, noteY + noteHeight / 2, noteX - noteWidth / 2, noteX + noteWidth / 2);
+                // 音符被选中或被鼠标碰到时高亮显示
+                if (note instanceof Note && (selectionManager.isSelected(note) || box.touch(mouseManager.mouseX, mouseManager.mouseY))) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteY - noteHeight / 2,
@@ -254,6 +268,9 @@ class EditorRenderer {
     }
     /** 显示事件 */
     private renderEvents() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
         const ctx = canvasUtils.getContext(canvas);
@@ -364,5 +381,16 @@ class EditorRenderer {
             writeText(currentEventValue.toFixed(2), eventX, Constants.eventsViewBox.bottom - 20, 30, "blue", true);
         }
     }
+    /** 测试专用：显示碰撞箱 */
+    private renderBoxes() {
+        const canvas = store.useCanvas();
+        const stateManager = store.useManager("stateManager");
+        if (!canvas) return;
+        const ctx = canvasUtils.getContext(canvas);
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        for (const box of stateManager.calculateBoxes()) {
+            const top = stateManager.relative(box.bottom);
+            drawRect(box.left, top, box.width, box.height, "rgba(255,255,0,0.4)", true);
+        }
+    }
 }
-export default new EditorRenderer();

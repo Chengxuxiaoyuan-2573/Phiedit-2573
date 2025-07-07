@@ -18,13 +18,13 @@ export interface IEvent<T> {
 interface EventOptions {
     judgeLineNumber: number;
     eventLayerId: string;
+    eventNumber: number;
     BPMList: BPM[];
     type: string;
     id?: string;
 }
 export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text"] as const;
 export abstract class BaseEvent<T = unknown> implements IEvent<T> {
-    static nextId = 0;
     bezier: 0 | 1 = 0;
     bezierPoints: BezierPoints = [0, 0, 1, 1];
     easingLeft: number = 0;
@@ -95,7 +95,7 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
         this.judgeLineNumber = options.judgeLineNumber;
         this.eventLayerId = options.eventLayerId;
         this.type = options.type;
-        this.id = options.id ?? `${options.judgeLineNumber}-${options.eventLayerId}-${options.type}-${BaseEvent.nextId++}`;
+        this.id = options.id ?? `${options.judgeLineNumber}-${options.eventLayerId}-${options.type}-${options.eventNumber}`;
         if (isObject(event)) {
             if ("bezier" in event)
                 this.bezier = event.bezier ? 1 : 0;

@@ -201,22 +201,23 @@ import MyInputNumber from '@/myElements/MyInputNumber.vue';
 import { ElButton, ElMessage, ElSelect, ElOption } from 'element-plus';
 import { computed, ref } from 'vue';
 import MyDialog from '@/myElements/MyDialog.vue';
-import selectionManager from '@/services/managers/selection';
 import globalEventEmitter from '@/eventEmitter';
 import store from '@/store';
 import MyInputBeats from '@/myElements/MyInputBeats.vue';
-import cloneManager, { CloneValidStateCode } from '@/services/managers/clone';
 import { eventTypes, NumberEvent } from '@/models/event';
 import MySwitch from '@/myElements/MySwitch.vue';
 import { easingFuncs, EasingType } from '@/models/easing';
 import MySelectEasing from '@/myElements/MySelectEasing.vue';
 import { catchErrorByMessage } from '@/tools/catchError';
+import { CloneValidStateCode } from '@/managers/clone';
 type NoteAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime";
 type EventAttrs = "start" | "end" | "easingType";
 const props = defineProps<{
     titleTeleport: string
 }>();
 const chart = store.useChart();
+const selectionManager = store.useManager("selectionManager");
+const cloneManager = store.useManager("cloneManager");
 
 const numOfSelectedElements = computed(() => {
     return selectionManager.selectedElements.length

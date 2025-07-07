@@ -23,6 +23,7 @@ export interface INote {
 interface NoteOptions {
     judgeLineNumber: number,
     BPMList: BPM[],
+    noteNumber: number
     id?: string
 }
 export enum NoteType { Tap = 1, Hold, Flick, Drag }
@@ -34,7 +35,6 @@ export class Note implements INote {
     static readonly HOLD_GOOD = 0.16
     static readonly HOLD_BAD = 0.18
     static readonly DRAGFLICK_PERFECT = 0.18
-    static nextId = 0
     above = NoteAbove.Above
     alpha = 255
     isFake: 0 | 1 = 0
@@ -112,7 +112,7 @@ export class Note implements INote {
             // 该音符是假音符，无法被击打
             return false;
         }
-        if (this.hitSeconds) {
+        if (this.hitSeconds != undefined) {
             // 该音符已经被击打
             return false;
         }
@@ -154,7 +154,7 @@ export class Note implements INote {
     }
     constructor(note: unknown, options: NoteOptions) {
         this.judgeLineNumber = options.judgeLineNumber;
-        this.id = options.id ?? `${options.judgeLineNumber}-note-${Note.nextId++}`;
+        this.id = options.id ?? `${options.judgeLineNumber}-note-${options.noteNumber}`;
         if (isObject(note)) {
             if ("startTime" in note && isArrayOfNumbers(note.startTime, 3))
                 this._startTime = [...note.startTime];

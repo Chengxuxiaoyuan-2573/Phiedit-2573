@@ -4,13 +4,11 @@ import MathUtils from "@/tools/mathUtils";
 import { MouseMoveMode, SelectedElement } from "@/types";
 import { floor } from "lodash";
 import Constants from "../constants";
-import selectionManager from "./selection";
-import stateManager from "./state";
 import globalEventEmitter from "@/eventEmitter";
-import historyManager from "./history";
 import { EasingType } from "@/models/easing";
-
-class MouseManager {
+import Manager from "./abstract";
+import store from "@/store";
+export default class MouseManager extends Manager {
     /** 鼠标的x坐标 */
     mouseX = 0
     /** 鼠标的y坐标 */
@@ -20,6 +18,7 @@ class MouseManager {
     /** 鼠标拖拽选择框的碰撞箱，使用绝对坐标 */
     selectionBox: Box | null = null;
     constructor() {
+        super();
         globalEventEmitter.on("MOUSE_LEFT_CLICK", (x, y, options) => {
             this.mouseLeft(x, y, options.ctrl);
         })
@@ -34,15 +33,30 @@ class MouseManager {
         })
     }
     mouseUp() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+
         if (this.mouseMoveMode == MouseMoveMode.AddHold) {
             selectionManager.selectedElements[0].validateTime();
         }
         else if (this.mouseMoveMode == MouseMoveMode.Select) {
+            if (!this.selectionBox) {
+                return;
+            }
+            selectionManager.unselectAll();
+            for (const box of stateManager.calculateBoxes()) {
+                if (box.overlap(this.selectionBox) && !selectionManager.isSelected(box.data)) {
+                    selectionManager.select(box.data);
+                }
+            }
             this.selectionBox = null;
         }
         this.mouseMoveMode = MouseMoveMode.None;
     }
     mouseMove(x: number, y: number, dragEnd: boolean) {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+
         switch (this.mouseMoveMode) {
             case MouseMoveMode.AddHold:
                 selectionManager.selectedElements[0].endTime = stateManager.attatchY(y);
@@ -68,12 +82,7 @@ class MouseManager {
                 }
                 this.selectionBox.right = x;
                 this.selectionBox.bottom = stateManager.absolute(y);
-                selectionManager.unselectAll();
-                for (const box of stateManager.calculateBoxes()) {
-                    if (box.overlap(this.selectionBox)) {
-                        selectionManager.select(box.data);
-                    }
-                }
+
                 break;
 
         }
@@ -81,7 +90,11 @@ class MouseManager {
         this.mouseY = y;
     }
     mouseLeft(x: number, y: number, mutiple: boolean) {
-        if(stateManager.state.isPreviewing) return;
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        
+
+        if (stateManager.state.isPreviewing) return;
         const boxes = stateManager.calculateBoxes();
         let minDistance = Infinity;
         let clickedBox: BoxWithData<SelectedElement> | null = null;
@@ -122,6 +135,10 @@ class MouseManager {
         }
     }
     mouseRight(x: number, y: number) {
+        const stateManager = store.useManager("stateManager");
+        const historyManager = store.useManager("historyManager");
+        const selectionManager = store.useManager("selectionManager");
+
         if (Constants.notesViewBox.touch(x, y)) {
             const time = stateManager.attatchY(y);
             const positionX = stateManager.attatchX(x);
@@ -164,4 +181,3 @@ class MouseManager {
         }
     }
 }
-export default new MouseManager();

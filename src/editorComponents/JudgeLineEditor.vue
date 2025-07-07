@@ -56,12 +56,12 @@ import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySelect from '../myElements/MySelect.vue';
 import MySwitch from '../myElements/MySwitch.vue';
 import store from '@/store';
-import stateManager from '@/services/managers/state';
 const props = defineProps<{
     titleTeleport: string
 }>();
 const chartPackage = store.useChartPackage();
 const chart = store.useChart();
+const stateManager = store.useManager("stateManager");
 </script>
 <style scoped>
 .judgeline-editor {

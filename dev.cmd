@@ -1,1 +1,1 @@
-code . && npm run serve
+code . && npm run electron:serve

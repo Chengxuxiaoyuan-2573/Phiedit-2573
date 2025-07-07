@@ -1,11 +1,11 @@
 <template>
     <Suspense>
-        <App />
+        <RouterView />
     </Suspense>
 </template>
 <script setup lang="ts">
 import { ElLoading } from 'element-plus';
-import App from './App.vue'
+import { RouterView } from 'vue-router';
 import { provide } from 'vue';
 defineOptions({
     name: 'MainRoot'

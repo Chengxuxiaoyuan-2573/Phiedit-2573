@@ -90,12 +90,12 @@
 <script setup lang="ts">
 import MyInputNumber from '@/myElements/MyInputNumber.vue';
 import store from '@/store';
-import settingsManager from '@/services/managers/settings';
 import { ElCheckbox } from 'element-plus';
 const props = defineProps<{
     titleTeleport: string
 }>();
 const resourcePackage = store.useResourcePackage();
+const settingsManager = store.useManager("settingsManager");
 </script>
 <style scoped>
 .settings-editor {

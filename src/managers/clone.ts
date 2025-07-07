@@ -1,11 +1,9 @@
 import { reactive } from "vue";
-import stateManager from "./state";
 import { addBeats, Beats, divide2Beats, getBeatsValue, isGreaterThanBeats, isLessThanBeats, subBeats } from "@/models/beats";
 import store from "@/store";
-import selectionManager from "./selection";
-import historyManager from "./history";
 import { Note } from "@/models/note";
 import globalEventEmitter from "@/eventEmitter";
+import Manager from "./abstract";
 export enum CloneValidStateCode {
     OK,
     Overlap,
@@ -15,20 +13,22 @@ interface CloneValidResult {
     code: CloneValidStateCode;
     message?: string;
 }
-class CloneManager {
+export default class CloneManager extends Manager {
     readonly options = reactive({
         targetJudgeLines: new Array<number>(),
         targetEventLayer: 0,
         timeDuration: [8, 0, 1] as Beats,
-        timeDelta: [0, 1, stateManager.state.horizonalLineCount] as Beats,
+        timeDelta: [0, 1, 4] as Beats,
         // isContain: false
     })
     constructor() {
+        super();
         globalEventEmitter.on("CLONE", () => {
             this.clone();
         })
     }
     checkIsValid(): CloneValidResult {
+        const selectionManager = store.useManager("selectionManager");
         const chart = store.useChart();
         let beats: Beats = [0, 0, 1];
         let i = 0;
@@ -88,6 +88,9 @@ class CloneManager {
         };
     }
     clone() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
         const chart = store.useChart();
         let beats: Beats = [0, 0, 1];
         let i = 0;
@@ -114,4 +117,3 @@ class CloneManager {
         selectionManager.deleteSelection();
     }
 }
-export default new CloneManager();

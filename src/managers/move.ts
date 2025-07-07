@@ -2,14 +2,13 @@ import { addBeats, subBeats } from "@/models/beats";
 import { NumberEvent } from "@/models/event";
 import { Note } from "@/models/note";
 import { SelectedElement } from "@/types";
-import selectionManager from "./selection";
-import stateManager from "./state";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
-import historyManager from "./history";
+import Manager from "./abstract";
 
-class MoveManager {
+export default class MoveManager extends Manager {
     constructor() {
+        super();
         globalEventEmitter.on("MOVE_LEFT", () => {
             this.moveLeft();
         })
@@ -30,6 +29,8 @@ class MoveManager {
      * 左移
      */
     moveLeft() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
         const canvas = store.useCanvas();
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
@@ -41,6 +42,8 @@ class MoveManager {
      * 右移
      */
     moveRight() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
         const canvas = store.useCanvas();
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
@@ -52,6 +55,8 @@ class MoveManager {
      * 上移
      */
     moveUp() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
         for (const element of selectionManager.selectedElements) {
             element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
             element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
@@ -61,6 +66,8 @@ class MoveManager {
      * 下移
      */
     moveDown() {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
         for (const element of selectionManager.selectedElements) {
             element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
             element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
@@ -68,6 +75,9 @@ class MoveManager {
     }
 
     moveToJudgeLine(targetJudgeLineNumber: number) {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
         const elements = new Array<SelectedElement>();
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
@@ -84,4 +94,3 @@ class MoveManager {
         selectionManager.select(...elements);
     }
 }
-export default new MoveManager();

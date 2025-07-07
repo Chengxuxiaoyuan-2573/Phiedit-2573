@@ -28,13 +28,14 @@
 </template>
 <script setup lang="ts">
 import { ElButton, ElTable, ElTableColumn } from "element-plus";
-import historyManager from "../services/managers/history";
 import globalEventEmitter from "@/eventEmitter";
 import { ref } from "vue";
+import store from "@/store";
 const props = defineProps<{
     titleTeleport: string
 }>();
 const u = ref(false);
+const historyManager = store.useManager("historyManager");
 function update() {
     u.value = !u.value;
 }
@@ -59,7 +60,7 @@ function getData() {
             description: "",
             isCurrent: true
         },
-        ...padEnd(historyManager.redoStack.slice(-5).toReversed().map(command => {
+        ...padEnd(historyManager.redoStack.slice(-5).reverse().map(command => {
             return {
                 description: command.getDescription(),
                 isCurrent: false

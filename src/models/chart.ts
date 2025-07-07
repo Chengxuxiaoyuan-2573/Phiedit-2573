@@ -3,8 +3,9 @@ import { beatsToSeconds, BPM, getBeatsValue, IBPM } from "./beats"
 import { ChartMeta, IChartMeta } from "./chartMeta"
 import { IJudgeLine, JudgeLine } from "./judgeLine"
 import { Note } from "./note"
-import { BaseEvent } from "./event"
+import { BaseEvent, NumberEvent } from "./event"
 import { markRaw, reactive } from "vue"
+import { BaseEventLayer } from "./eventLayer"
 
 export interface IChart {
     /** BPM列表，控制曲谱的BPM */
@@ -105,20 +106,58 @@ export class Chart implements IChart {
 
         }
         else {
-
             this.META = reactive(new ChartMeta(null));
-
             if (isNumber(chart)) {
                 for (let i = 0; i < chart; i++) {
-                    this.judgeLineList.push(new JudgeLine(null, {
-                        BPMList: this.BPMList,
-                        judgeLineNumber: i
-                    }));
+                    this.addNewJudgeLine();
                 }
             }
-
         }
         markRaw(this);
         this.highlightNotes();
+    }
+    addNewJudgeLine() {
+        const judgeLineNumber = this.judgeLineList.length;
+        const judgeLine = new JudgeLine(null, {
+            BPMList: this.BPMList,
+            judgeLineNumber
+        });
+        judgeLine.eventLayers.push(new BaseEventLayer({
+            moveXEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: 0,
+                end: 0
+            }, { judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'moveX', BPMList: this.BPMList })],
+            moveYEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: 0,
+                end: 0
+            }, { judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'moveY', BPMList: this.BPMList })],
+            rotateEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: 0,
+                end: 0
+            }, { judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'rotate', BPMList: this.BPMList })],
+            alphaEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: 0,
+                end: 0
+            }, { judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'alpha', BPMList: this.BPMList })],
+            speedEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: 10,
+                end: 10
+            }, { judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'speed', BPMList: this.BPMList })]
+        }, {
+            judgeLineNumber,
+            eventLayerNumber: 0,
+            BPMList: this.BPMList
+        }))
+        this.judgeLineList.push(judgeLine);
     }
 }
