@@ -1,7 +1,7 @@
-'use strict'
 /* eslint-disable @typescript-eslint/no-explicit-any */
+'use strict'
 
-import { app, protocol, BrowserWindow, ipcMain } from 'electron'
+import { app, protocol, BrowserWindow, ipcMain, dialog } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS3_DEVTOOLS } from 'electron-devtools-installer'
 import path from 'path'
@@ -306,10 +306,10 @@ async function createWindow() {
     });
 
     ipcMain.handle('load-chart', async (event, chartPackagePath: string) => {
+        console.log(chartPackagePath);
         ensurePathExists();
         const chartPackageFile = await fs.promises.readFile(chartPackagePath);
-        const arrayBuffer = chartPackageFile.buffer.slice(chartPackageFile.byteOffset, chartPackageFile.byteOffset + chartPackageFile.byteLength);
-        const jszip = await JSZip.loadAsync(arrayBuffer);
+        const jszip = await JSZip.loadAsync(chartPackageFile);
         const { musicPath, backgroundPath, chartPath, texturePaths } = await findFileInZip(jszip);
 
         const musicFile = jszip.file(musicPath)!;
@@ -345,6 +345,58 @@ async function createWindow() {
         await fs.promises.rmdir(path666, { recursive: true });
         deleteIdFromChartList(chartId);
     })
+
+    async function packageFolderToZip(chartId: string) {
+        const zip = new JSZip();
+        async function addFolderToZip(zip: JSZip, folderPath: string, relativePath = '') {
+            const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(folderPath, entry.name);
+                const zipPath = path.join(relativePath, entry.name);
+                // 如果是文件夹，则递归添加
+                if (entry.isDirectory()) {
+                    const subFolder = zip.folder(entry.name);
+                    if (subFolder) {
+                        await addFolderToZip(subFolder, fullPath, zipPath);
+                    }
+                }
+                // 如果是文件，则直接添加到zip中
+                else {
+                    const fileData = await fs.promises.readFile(fullPath);
+                    zip.file(zipPath, fileData);
+                }
+            }
+        }
+        const folderPath = path.join(chartsDir, chartId);
+        await addFolderToZip(zip, folderPath);
+        return zip.generateAsync({ type: 'uint8array' });
+    }
+
+    ipcMain.handle('show-save-dialog', async (event, name: string) => {
+        const result = await dialog.showSaveDialog({
+            title: '保存谱面',
+            defaultPath: `${name}.pez`,
+            filters: [
+                { name: 'RPE 格式谱面', extensions: ['pez'] },
+                { name: 'ZIP 文件', extensions: ['zip'] }
+            ]
+        });
+        return result.filePath;
+    });
+    // Add this IPC handler to expose the functionality
+    ipcMain.handle('export-chart', async (event, chartId: string, targetPath: string) => {
+        try {
+            const data = await packageFolderToZip(chartId);
+            console.log(targetPath, data); // targetPath == undefined
+            return fs.promises.writeFile(targetPath, data);
+        }
+        catch (error) {
+            console.error('Folder packaging failed:', error);
+            throw error;
+        }
+    });
+
 
 
     // Create the browser window.

@@ -10,6 +10,7 @@ export default class Constants {
     static readonly borderColor: RGBcolor = [255, 255, 0] as const
     static readonly backgroundColor: RGBcolor = [30, 30, 30] as const
     static readonly selectionColor: RGBAcolor = [70, 100, 255, 0.6] as const
+    static readonly hoverColor: RGBAcolor = [70, 100, 255, 0.3] as const
     static readonly eventColor: RGBAcolor = [255, 255, 255, 0.6] as const
     static readonly eventNumberColor: RGBcolor = [255, 165, 0] as const
     static readonly eventLineColor: RGBcolor = [0, 205, 255] as const

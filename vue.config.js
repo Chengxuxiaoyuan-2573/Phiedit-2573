@@ -17,5 +17,25 @@ module.exports = defineConfig({
 			return definitions
 		})
 	},
-	publicPath: './'
+	publicPath: './',
+	pluginOptions: {
+		electronBuilder: {
+			mainProcessFile: 'src/background.ts',
+			preload: 'src/preload.ts',
+			outputDir: 'dist_electron',
+			mainProcessWatch: ['src/**/*.ts'],
+			builderOptions: {
+				extraMetadata: {
+					main: 'background.js'
+				},
+				extraFiles: [
+					{
+						from: 'dist-electron',
+						to: '.',
+						filter: ['**/*']
+					}
+				]
+			}
+		}
+	}
 })

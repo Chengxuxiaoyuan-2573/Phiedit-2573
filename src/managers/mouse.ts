@@ -8,6 +8,8 @@ import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/easing";
 import Manager from "./abstract";
 import store from "@/store";
+import { beatsToSeconds } from "@/models/beats";
+import { findLastEvent } from "@/models/event";
 export default class MouseManager extends Manager {
     /** 鼠标的x坐标 */
     mouseX = 0
@@ -25,14 +27,14 @@ export default class MouseManager extends Manager {
         globalEventEmitter.on("MOUSE_RIGHT_CLICK", (x, y) => {
             this.mouseRight(x, y);
         })
-        globalEventEmitter.on("MOUSE_MOVE", (x, y, options) => {
-            this.mouseMove(x, y, options.alt);
+        globalEventEmitter.on("MOUSE_MOVE", (x, y) => {
+            this.mouseMove(x, y);
         })
-        globalEventEmitter.on("MOUSE_UP", () => {
-            this.mouseUp();
+        globalEventEmitter.on("MOUSE_UP", (x, y, options) => {
+            this.mouseUp(options.ctrl);
         })
     }
-    mouseUp() {
+    mouseUp(mutiple: boolean) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
 
@@ -43,7 +45,9 @@ export default class MouseManager extends Manager {
             if (!this.selectionBox) {
                 return;
             }
-            selectionManager.unselectAll();
+            if(!mutiple){
+                selectionManager.unselectAll();
+            }
             for (const box of stateManager.calculateBoxes()) {
                 if (box.overlap(this.selectionBox) && !selectionManager.isSelected(box.data)) {
                     selectionManager.select(box.data);
@@ -53,7 +57,7 @@ export default class MouseManager extends Manager {
         }
         this.mouseMoveMode = MouseMoveMode.None;
     }
-    mouseMove(x: number, y: number, dragEnd: boolean) {
+    mouseMove(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
 
@@ -64,12 +68,16 @@ export default class MouseManager extends Manager {
 
             case MouseMoveMode.Drag: {
                 const beats = stateManager.attatchY(y);
-                if (dragEnd) {
-                    selectionManager.selectedElements[0].endTime = beats;
+                selectionManager.selectedElements[0].startTime = beats;
+                if (selectionManager.selectedElements[0] instanceof Note) {
+                    selectionManager.selectedElements[0].positionX = stateManager.attatchX(x);
                 }
-                else {
-                    selectionManager.selectedElements[0].startTime = beats;
-                }
+                break;
+            }
+
+            case MouseMoveMode.DragEnd: {
+                const beats = stateManager.attatchY(y);
+                selectionManager.selectedElements[0].endTime = beats;
                 if (selectionManager.selectedElements[0] instanceof Note) {
                     selectionManager.selectedElements[0].positionX = stateManager.attatchX(x);
                 }
@@ -89,12 +97,8 @@ export default class MouseManager extends Manager {
         this.mouseX = x;
         this.mouseY = y;
     }
-    mouseLeft(x: number, y: number, mutiple: boolean) {
+    private getClickedBox(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
-        const selectionManager = store.useManager("selectionManager");
-        
-
-        if (stateManager.state.isPreviewing) return;
         const boxes = stateManager.calculateBoxes();
         let minDistance = Infinity;
         let clickedBox: BoxWithData<SelectedElement> | null = null;
@@ -107,6 +111,15 @@ export default class MouseManager extends Manager {
                 }
             }
         }
+        return clickedBox;
+    }
+    mouseLeft(x: number, y: number, mutiple: boolean) {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        if (stateManager.state.isPreviewing) return;
+
+        const clickedBox = this.getClickedBox(x, y);
+
         const clickedObject = clickedBox ? clickedBox.data : null;
         // 如果点到某个元素了，就选择这个元素
         if (clickedObject) {
@@ -139,7 +152,13 @@ export default class MouseManager extends Manager {
         const historyManager = store.useManager("historyManager");
         const selectionManager = store.useManager("selectionManager");
 
-        if (Constants.notesViewBox.touch(x, y)) {
+        const clickedBox = this.getClickedBox(x, y);
+
+        const clickedObject = clickedBox ? clickedBox.data : null;
+        if (clickedObject && selectionManager.isSelected(clickedObject)) {
+            this.mouseMoveMode = MouseMoveMode.DragEnd;
+        }
+        else if (Constants.notesViewBox.touch(x, y)) {
             const time = stateManager.attatchY(y);
             const positionX = stateManager.attatchX(x);
             const addedNote = historyManager.addNote({
@@ -161,19 +180,22 @@ export default class MouseManager extends Manager {
                 this.mouseMoveMode = MouseMoveMode.AddHold;
         }
         else if (Constants.eventsViewBox.touch(x, y)) {
+            const chart = store.useChart();
             const time = stateManager.attatchY(y);
             const track = floor((x - Constants.eventsViewBox.left) / (Constants.eventsViewBox.right - Constants.eventsViewBox.left) * 5);
-            const type = ["moveX", "moveY", "rotate", "alpha", "speed"][track];
+            const type = (["moveX", "moveY", "rotate", "alpha", "speed"] as const)[track];
+            const timeSeconds = beatsToSeconds(chart.BPMList, time);
+            const lastEvent = findLastEvent(stateManager.currentEventLayer[`${type}Events`], timeSeconds);
             const addedEvent = historyManager.addEvent({
                 startTime: [...time],
                 endTime: [...time],
-                start: 0,
-                end: 0,
+                start: lastEvent?.end ?? 0,
+                end: lastEvent?.end ?? 0,
                 bezier: 0,
                 bezierPoints: [0, 0, 1, 1],
                 easingLeft: 0,
                 easingRight: 0,
-                easingType: EasingType.Linear
+                easingType: lastEvent?.easingType ?? EasingType.Linear,
             }, type, stateManager.state.currentEventLayerNumber.toString(), stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
             selectionManager.select(addedEvent);

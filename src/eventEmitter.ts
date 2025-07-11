@@ -1,3 +1,4 @@
+import { Beats } from "./models/beats";
 import type { NoteType } from "./models/note";
 import EventEmitter from "./tools/eventEmitter";
 type PositionX = number;
@@ -11,13 +12,13 @@ type KeyOptions = {
 
 interface GlobalEventMap {
     MOUSE_LEFT_CLICK: [PositionX, PositionY, KeyOptions]
-    MOUSE_RIGHT_CLICK: [PositionX, PositionY, KeyOptions?]
+    MOUSE_RIGHT_CLICK: [PositionX, PositionY, KeyOptions]
     MOUSE_MOVE: [PositionX, PositionY, KeyOptions]
-    MOUSE_UP: [PositionX?, PositionY?, KeyOptions?]
+    MOUSE_UP: [PositionX, PositionY, KeyOptions]
     CUT: []
     COPY: []
-    PASTE: []
-    PASTE_MIRROR: []
+    PASTE: [Beats?]
+    PASTE_MIRROR: [Beats?]
     DELETE: []
     SELECT_ALL: []
     UNSELECT_ALL: []
@@ -39,6 +40,8 @@ interface GlobalEventMap {
     REDO: []
     EXIT: []
     SAVE: []
+    EXPORT: [string]
+    REPEAT_PARAGRAPH: []
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 const globalEventEmitter = new GlobalEventEmitter();

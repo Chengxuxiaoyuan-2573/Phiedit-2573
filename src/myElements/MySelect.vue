@@ -2,6 +2,7 @@
     <ElSelect
         v-model="inputData"
         @change="onChange"
+        @wheel.stop="onWheel"
     >
         <template
             v-for="option in props.options"
@@ -47,5 +48,8 @@ watch(model, () => {
 })
 function onChange() {
     model.value = inputData.value;
+}
+function onWheel(e: WheelEvent) {
+    e.stopPropagation();
 }
 </script>

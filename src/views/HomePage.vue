@@ -6,40 +6,40 @@
         <ElUpload
             drag
             @change="file => {
-                musicFile = file.raw;
-            }" 
+                musicFileUrl = file.url;
+            }"
         >
             点击此处导入音乐
         </ElUpload>
         <ElUpload
             drag
             @change="file => {
-                backgroundFile = file.raw;
+                backgroundFileUrl = file.url;
             }"
         >
             点击此处导入曲绘
         </ElUpload>
-        <ElInput 
-            v-model="name" 
+        <ElInput
+            v-model="name"
             placeholder="请输入谱面名称"
         />
-        <ElButton 
-            type="success" 
+        <ElButton
+            type="success"
             @click="catchErrorByMessage(addChart, '添加谱面')"
         >
             创建
         </ElButton>
     </MyDialog>
-    <ElUpload 
-        :before-upload="createCatchErrorByMessage(loadChart, '导入谱面')" 
+    <ElUpload
         drag
+        @change="catchErrorByMessage(() => loadChart($event.url), '导入谱面')"
     >
         点击此处导入谱面
     </ElUpload>
     <div class="chart-list">
-        <RouterLink 
-            v-for="chartId in chartList" 
-            :key="chartId" 
+        <RouterLink
+            v-for="chartId in chartList"
+            :key="chartId"
             :to="`/editor?chartId=${chartId}`"
         >
             <ElCard class="chart-card">
@@ -54,14 +54,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { ElCard, ElInput, ElUpload, ElButton } from 'element-plus';
-import { inject, ref } from 'vue';
+import { inject, onErrorCaptured, ref } from 'vue';
 import MediaUtils from '@/tools/mediaUtils';
 import MyDialog from '@/myElements/MyDialog.vue';
-import { catchErrorByMessage, createCatchErrorByMessage } from '@/tools/catchError';
+import { catchErrorByMessage } from '@/tools/catchError';
 
 const router = useRouter();
-let musicFile: File | undefined;
-let backgroundFile: File | undefined;
+let musicFileUrl: string | undefined;
+let backgroundFileUrl: string | undefined;
 const name = ref("");
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -72,7 +72,7 @@ const loadEnd = inject("loadEnd", () => {
 loadStart();
 const chartList = await window.electronAPI.readChartList();
 const backgroundSrcs: Record<string, string> = {};
-for(let i = 0; i < chartList.length; i++){
+for (let i = 0; i < chartList.length; i++) {
     const chartId = chartList[i];
     const chartObject = await window.electronAPI.readChart(chartId);
     const src = await MediaUtils.createObjectURL(chartObject.backgroundData);
@@ -80,31 +80,40 @@ for(let i = 0; i < chartList.length; i++){
 }
 loadEnd();
 
-async function loadChart(file: File) {
-    console.log(file.path);
-    const chartId = await window.electronAPI.loadChart(file.path);
+async function loadChart(fileUrl: string | undefined) {
+    if (!fileUrl) {
+        throw new Error("请选择谱面文件");
+    }
+    const chartId = await window.electronAPI.loadChart(fileUrl);
     router.push(`/editor?chartId=${chartId}`);
 }
 async function addChart() {
     console.log(1);
-    if(!musicFile || !backgroundFile){
+    if (!musicFileUrl || !backgroundFileUrl) {
         throw new Error("请先选择音乐和背景");
     }
-    if(name.value.trim() === ""){
+    if (name.value.trim() === "") {
         throw new Error("请填写名称");
     }
-    const chartId = await window.electronAPI.addChart(musicFile.path, backgroundFile.path, name.value);
+    const chartId = await window.electronAPI.addChart(musicFileUrl, backgroundFileUrl, name.value);
     router.push(`/editor?chartId=${chartId}`);
 }
+onErrorCaptured((err) => {
+    console.error('组件初始化错误:', err)
+    // 这里可以添加用户友好的错误提示
+    return false // 阻止错误继续传播
+})
 </script>
 <style scoped>
 .top-title {
     font-size: revert;
 }
+
 .chart-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px; /* Adjust as needed */
+    gap: 20px;
+    /* Adjust as needed */
 }
 
 .chart-card {

@@ -1,4 +1,4 @@
-import { ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
 const electronAPI: ElectronAPI = {
     loadChart: (chartPackagePath: string) => ipcRenderer.invoke("load-chart", chartPackagePath),
@@ -6,7 +6,9 @@ const electronAPI: ElectronAPI = {
     saveChart: (chartId: string, chartContent: string) => ipcRenderer.invoke("save-chart", chartId, chartContent),
     deleteChart: (chartId: string) => ipcRenderer.invoke("delete-chart", chartId),
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
-    readChart: (chartId: string) => ipcRenderer.invoke("load-chart", chartId),
+    readChart: (chartId: string) => ipcRenderer.invoke("read-chart", chartId),
+    exportChart: (chartId: string, targetPath: string) => ipcRenderer.invoke("export-chart", chartId, targetPath),
+    showSaveDialog: (name: string) => ipcRenderer.invoke("show-save-dialog", name)
 }
 
 interface ElectronAPI {
@@ -22,6 +24,8 @@ interface ElectronAPI {
     saveChart: (chartId: string, chartContent: string) => Promise<void>,
     deleteChart: (chartId: string) => Promise<void>,
     readChartList: () => Promise<string[]>,
+    exportChart: (chartId: string, targetPath: string) => Promise<void>,
+    showSaveDialog: (name: string) => Promise<string>,
 }
 
 // 扩展 Window 接口以包含 electronAPI
@@ -31,5 +35,5 @@ declare global {
     }
 }
 
-window.electronAPI = electronAPI;
+contextBridge.exposeInMainWorld("electronAPI", electronAPI);
 export default electronAPI;

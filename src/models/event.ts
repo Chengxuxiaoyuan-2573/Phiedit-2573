@@ -199,8 +199,9 @@ export function interpolateNumberEventValue(event: IEvent<number> & S | null, se
     }
 }
 export function interpolateColorEventValue(event: ColorEvent | null, seconds: number): RGBcolor {
+    const defaultColor: RGBcolor = [0xff, 0xec, 0x9f];
     const endSeconds = event?.cachedEndSeconds ?? 0;
-    const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = [255, 255, 255], end = [255, 255, 255], easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime = [0, 0, 1], endTime = [0, 0, 1] } = event ?? {};
+    const { bezier = 0, bezierPoints = [0, 0, 1, 1], start = defaultColor, end = defaultColor, easingType = EasingType.Linear, easingLeft = 0, easingRight = 1, startTime = [0, 0, 1], endTime = [0, 0, 1] } = event ?? {};
     const _interpolate = (part: 0 | 1 | 2) => {
         if (!event) return 127;
         const e = {

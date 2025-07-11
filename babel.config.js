@@ -19,4 +19,3 @@ module.exports = {
         ["@babel/plugin-syntax-top-level-await"]
     ]
 }
-console.log(__filename + ": Babel configuration loaded.")

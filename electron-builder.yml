@@ -1,0 +1,12 @@
+appId: com.cxxy.phiedit2573
+directories:
+  output: dist_electron
+files:
+  - from: dist
+    to: .
+    filter:
+      - "**/*"
+  - from: src/background.ts
+    to: .
+  - from: src/preload.ts
+    to: .

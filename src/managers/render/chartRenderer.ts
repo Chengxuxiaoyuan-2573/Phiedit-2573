@@ -12,6 +12,8 @@ import { ceil } from "lodash";
 import Manager from "../abstract";
 
 export default class ChartRenderer extends Manager {
+    combo: number = 0;
+    score: number = 0;
     /** 显示谱面到canvas上 */
     renderChart() {
         this.drawBackground();
@@ -221,7 +223,11 @@ export default class ChartRenderer extends Manager {
                 const { type, highlight } = note;
                 taskQueue.addTask(() => {
                     ctx.globalAlpha = note.alpha / 255;
+                    // 当前时间大于音符时间，说明音符时间到了还没有击打，显示为即将miss（不透明度降低）
                     if (seconds >= startSeconds) {
+                        if (note.isFake) {
+                            return;
+                        }
                         ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
                     }
                     const image = resourcePackage.getSkin(type, highlight);
@@ -247,6 +253,7 @@ export default class ChartRenderer extends Manager {
             HitFx = 5
         }
         const autoplayOffset = 0;
+        let combo = 0, realNotes = 0;
         const taskQueue = new TaskQueue<void, Priority>();
         for (let judgeLineNumber = 0; judgeLineNumber < chart.judgeLineList.length; judgeLineNumber++) {
             const judgeLine = chart.judgeLineList[judgeLineNumber];
@@ -267,6 +274,12 @@ export default class ChartRenderer extends Manager {
                     if (hitted) {
                         resourcePackage.playSound(note.type);
                     }
+                }
+                if (!note.isFake) {
+                    if (seconds >= endSeconds) {
+                        combo++;
+                    }
+                    realNotes++;
                 }
                 // 如果当前时间小于击打时间，说明用户在音符被击打以后把进度条往回拖动了，重新把该音符设置为未击打状态
                 if (note.hitSeconds && seconds < note.hitSeconds) {
@@ -401,6 +414,8 @@ export default class ChartRenderer extends Manager {
             }
         }
         taskQueue.run();
+        this.combo = combo;
+        this.score = combo / realNotes * (10 ** 6);
     }
     /** 获取note的Y坐标信息 */
     private getNoteInfo(lineNumber: number, noteNumber: number, seconds: number) {

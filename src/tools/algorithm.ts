@@ -150,7 +150,13 @@ function parse(tokens: string[]) {
                 const args = [];
                 while (tokens[index] !== ')') {
                     args.push(parse1());
-                    if (tokens[index] === ',') index++;
+                    if (index < tokens.length && tokens[index] === ',') {
+                        index++;
+                    } 
+                    // 如果索引超出范围或者下一个字符不是逗号或者右括号，则抛出错误
+                    if (index >= tokens.length || tokens[index] !== ')' && tokens[index] !== ',') {
+                        throw new Error(`括号不匹配`);
+                    }
                 }
                 index++;
                 return new CallExpression(id, args);
@@ -256,7 +262,7 @@ export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
         arr.sort(compare);
     }
 }
-export function max<T>(arr: T[], compare: (a: T, b: T) => number){
+export function max<T>(arr: T[], compare: (a: T, b: T) => number) {
     return arr.reduce((max, current) => compare(current, max) > 0 ? current : max, arr[0]);
 }
 export function min<T>(arr: T[], compare: (a: T, b: T) => number) {

@@ -1,7 +1,7 @@
 <template>
     <ElContainer>
         <ElHeader id="header">
-            <ElRow>
+            <ElRow class="header-row header-first-row">
                 <audio
                     ref="audioRef"
                     :src="store.chartPackageRef.value?.musicSrc"
@@ -51,7 +51,7 @@
                     FPS: {{ fps.toFixed(0) }}
                 </p>
             </ElRow>
-            <ElRow>
+            <ElRow class="header-row header-second-row">
                 <MySelect
                     v-if="audioRef"
                     v-model="audioRef.playbackRate"
@@ -67,6 +67,11 @@
                             text: '0.5x'
                         },
                         {
+                            label: '播放速度：0.3x',
+                            value: 0.3,
+                            text: '0.3x'
+                        },
+                        {
                             label: '播放速度：0.25x',
                             value: 0.25,
                             text: '0.25x'
@@ -75,11 +80,6 @@
                             label: '播放速度：0.125x',
                             value: 0.125,
                             text: '0.125x'
-                        },
-                        {
-                            label: '播放速度：0.0625x',
-                            value: 0.0625,
-                            text: '0.0625x'
                         },
                         {
                             label: '播放速度：0.0x',
@@ -123,15 +123,12 @@
                         }
                     ]"
                 />
-                <MyInputNumber
-                    v-model="stateManager.state.currentJudgeLineNumber"
-                    :min="0"
-                    :max="chartPackageRef!.chart.judgeLineList.length - 1"
-                >
-                    <template #prepend>
-                        当前判定线号
-                    </template>
-                </MyInputNumber>
+                <p>
+                    COMBO: {{ combo }}
+                </p>
+                <p>
+                    SCORE: {{ score }}
+                </p>
                 <MyInputNumber
                     v-model="stateManager.state.currentEventLayerNumber"
                     :min="0"
@@ -179,13 +176,19 @@
                 >
                     退出
                 </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="handleExport"
+                >
+                    导出
+                </ElButton>
                 <ul>
                     <li>按Q/W/E/R键：将当前放置的音符切换为Tap/Drag/Flick/Hold</li>
                     <li>按T键：预览谱面（松开T键回到原位置）</li>
                     <li>按U键：预览谱面（松开U键不回到原位置）</li>
                     <li>按I键：预览谱面（需要再次按下I键停止预览）</li>
-                    <li>按鼠标左键：选择音符</li>
-                    <li>按鼠标右键：放置音符</li>
+                    <li>按鼠标左键：选择音符事件/拖动音符事件的头部</li>
+                    <li>按鼠标右键：放置音符事件/拖动音符事件的尾部</li>
                     <li>滚动鼠标滚轮：时间前后移动</li>
                     <li>按Ctrl+鼠标滚轮：缩放</li>
                 </ul>
@@ -227,36 +230,44 @@
                     v-if="stateManager.state.right == RightPanelState.Default"
                     class="right-inner"
                 >
-                    <ElButton
-                        type="primary"
-                        @click="stateManager.state.right = RightPanelState.Settings"
-                    >
-                        设置
-                    </ElButton>
-                    <ElButton
-                        type="primary"
-                        @click="stateManager.state.right = RightPanelState.BPMList"
-                    >
-                        BPM编辑
-                    </ElButton>
-                    <ElButton
-                        type="primary"
-                        @click="stateManager.state.right = RightPanelState.Meta"
-                    >
-                        谱面基本信息
-                    </ElButton>
-                    <ElButton
-                        type="primary"
-                        @click="stateManager.state.right = RightPanelState.JudgeLine"
-                    >
-                        判定线编辑
-                    </ElButton>
-                    <ElButton
-                        type="primary"
-                        @click="stateManager.state.right = RightPanelState.History"
-                    >
-                        历史记录
-                    </ElButton>
+                    <MyGridContainer :columns="2">
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.Settings"
+                        >
+                            设置
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.BPMList"
+                        >
+                            BPM编辑
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.Meta"
+                        >
+                            谱面基本信息
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.JudgeLine"
+                        >
+                            判定线编辑
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.History"
+                        >
+                            历史记录
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.Clipboard"
+                        >
+                            剪贴板管理
+                        </ElButton>
+                    </MyGridContainer>
                     <MyGridContainer
                         :columns="5"
                         :gap="5"
@@ -264,7 +275,7 @@
                         <ElButton
                             v-for="(item, index) in chartPackageRef?.chart.judgeLineList"
                             :key="index + (u ? 0 : 0)"
-                            type="primary"
+                            :type="(['primary', 'warning', 'danger'] as const)[Math.floor(index / 10) % 3]"
                             :plain="index != stateManager.state.currentJudgeLineNumber"
                             @click="stateManager.state.currentJudgeLineNumber = index"
                         >
@@ -277,6 +288,7 @@
                             +
                         </ElButton>
                     </MyGridContainer>
+                    <MyCalculator />
                 </div>
                 <template v-else>
                     <MyBackHeader
@@ -303,6 +315,10 @@
                         v-else-if="stateManager.state.right == RightPanelState.History"
                         title-teleport=".title-right"
                     />
+                    <ClipboardEditor
+                        v-else-if="stateManager.state.right == RightPanelState.Clipboard"
+                        title-teleport=".title-right"
+                    />
                 </template>
             </ElScrollbar>
         </ElAside>
@@ -312,7 +328,8 @@
 <script setup lang="ts">
 import { ElAside, ElButton, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElMessageBox, ElRow, ElSlider } from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { clamp, } from "lodash";
+import { useRoute } from "vue-router";
+import { clamp, round } from "lodash";
 
 import resourcePackageURL from "@/assets/DefaultResourcePackage.zip";
 
@@ -326,6 +343,8 @@ import { ChartPackage } from "@/models/chartPackage";
 import MySelect from "@/myElements/MySelect.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyBackHeader from "@/myElements/MyBackHeader.vue";
+import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import MyCalculator from "@/myElements/MyCalculator.vue";
 
 import ChartRenderer from "@/managers/render/chartRenderer";
 import SaveManager from "@/managers/save";
@@ -338,6 +357,7 @@ import StateManager from "@/managers/state";
 import MoveManager from "@/managers/move";
 import SelectionManager from "@/managers/selection";
 import SettingsManager from "@/managers/settings";
+import ParagraphRepeater from "@/managers/paragraphRepeater";
 
 import BPMListEditor from "@/editorComponents/BPMListEditor.vue";
 import ChartMetaEditor from "@/editorComponents/ChartMetaEditor.vue";
@@ -347,12 +367,12 @@ import NumberEventEditor from "@/editorComponents/NumberEventEditor.vue";
 import MutipleEditor from "@/editorComponents/MutipleEditor.vue";
 import SettingsEditor from "@/editorComponents/SettingsEditor.vue";
 import HistoryEditor from "@/editorComponents/HistoryEditor.vue"
+import ClipboardEditor from "@/editorComponents/ClipboardEditor.vue";
 
 import globalEventEmitter from "@/eventEmitter";
 import { RightPanelState } from "@/types";
 import store, { audioRef, canvasRef, chartPackageRef } from "@/store";
-import { useRoute } from "vue-router";
-import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import ExportManager from "@/managers/export";
 
 
 const loadStart = inject("loadStart", () => {
@@ -410,6 +430,8 @@ loadStart();
     store.setManager("selectionManager", new SelectionManager());
     store.setManager("settingsManager", new SettingsManager());
     store.setManager("stateManager", new StateManager());
+    store.setManager("paragraphRepeater", new ParagraphRepeater());
+    store.setManager("exportManager", new ExportManager());
 }
 loadEnd();
 
@@ -421,13 +443,25 @@ const settingsManager = store.useManager("settingsManager");
 
 const fps = ref(0);
 const time = ref(0);
+const combo = ref(0);
+const score = ref(0);
 const u = ref(false);
 const audioIsPlaying = ref(false);
 
+let windowIsFocused = true;
 let cachedRect: DOMRect;
 
 function update() {
     u.value = !u.value;
+}
+
+
+async function handleExport() {
+    const chartName = store.chartPackageRef.value?.chart.META.name || 'untitled';
+    // 使用预加载的 API 替代直接导入
+    const filePath = await window.electronAPI.showSaveDialog(chartName);
+    if (!filePath) return;
+    globalEventEmitter.emit("EXPORT", filePath);
 }
 
 async function getResourcePackage() {
@@ -443,7 +477,7 @@ function canvasMouseDown(e: MouseEvent) {
             globalEventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
             return;
         case 2:
-            globalEventEmitter.emit("MOUSE_RIGHT_CLICK", x, y);
+            globalEventEmitter.emit("MOUSE_RIGHT_CLICK", x, y, options);
             return;
     }
 }
@@ -452,8 +486,10 @@ function canvasMouseMove(e: MouseEvent) {
     const { x, y } = calculatePosition(e);
     globalEventEmitter.emit("MOUSE_MOVE", x, y, options);
 }
-function canvasMouseUp() {
-    globalEventEmitter.emit("MOUSE_UP");
+function canvasMouseUp(e: MouseEvent) {
+    const options = createKeyOptions(e);
+    const { x, y } = calculatePosition(e);
+    globalEventEmitter.emit("MOUSE_UP", x, y, options);
 }
 function windowOnWheel(e: WheelEvent) {
     const audio = store.useAudio();
@@ -595,7 +631,15 @@ function documentOnContextmenu(e: Event) {
     e.preventDefault();
 }
 
+function windowOnBlur() {
+    const audio = store.useAudio();
+    audio.pause();
+    windowIsFocused = false;
+}
 
+function windowOnFocus() {
+    windowIsFocused = true;
+}
 
 function createKeyOptions(e: KeyboardEvent | MouseEvent) {
     return {
@@ -720,6 +764,8 @@ onMounted(() => {
     resizeObserver.observe(canvas);
     window.addEventListener('wheel', windowOnWheel, { passive: false });
     window.addEventListener('keydown', windowOnKeyDown);
+    window.addEventListener('blur', windowOnBlur);
+    window.addEventListener('focus', windowOnFocus);
     document.oncontextmenu = documentOnContextmenu;
     audio.addEventListener('timeupdate', () => {
         time.value = audio.currentTime;
@@ -734,22 +780,35 @@ onMounted(() => {
     let isRendering = true;
     const renderLoop = () => {
         if (isRendering) {
-            if (stateManager.state.isPreviewing) {
-                chartRenderer.renderChart();
-            }
-            else {
-                editorRenderer.render();
-            }
-            const now = performance.now();
-            const delta = now - renderTime;
+            if (windowIsFocused) {
+                try {
+                    if (stateManager.state.isPreviewing) {
+                        chartRenderer.renderChart();
+                    }
+                    else {
+                        editorRenderer.render();
+                    }
+                }
+                catch (error) {
+                    console.error(error);
+                }
+                const now = performance.now();
+                const delta = now - renderTime;
 
-            if (delta > 0) {
-                const currentFPS = 1000 / delta;
-                fps.value = currentFPS;
-            } else {
-                fps.value = 0;
+                if (delta > 0) {
+                    const currentFPS = 1000 / delta;
+                    fps.value = currentFPS;
+                } else {
+                    fps.value = 0;
+                }
+                renderTime = now;
+                if (combo.value !== chartRenderer.combo) {
+                    combo.value = chartRenderer.combo;
+                }
+                if (score.value !== chartRenderer.score) {
+                    score.value = round(chartRenderer.score);
+                }
             }
-            renderTime = now;
             requestAnimationFrame(renderLoop);
         }
     };

@@ -116,6 +116,14 @@
                 label="可见时间"
                 value="visibleTime"
             />
+            <ElOption
+                label="真假"
+                value="isFake"
+            />
+            <ElOption
+                label="方向"
+                value="above"
+            />
         </ElSelect>
         <ElSelect
             v-else
@@ -139,7 +147,32 @@
             />
         </ElSelect>
         <h1>修改模式</h1>
-        <ElSelect v-model="mode">
+        <ElSelect
+            v-if="paramType == 'boolean'"
+            v-model="mode"
+        >
+            <ElOption
+                label="设置为指定值"
+                value="to"
+            />
+            <ElOption
+                label="取反"
+                value="invert"
+            />
+        </ElSelect>
+        <ElSelect
+            v-else-if="paramType == 'easing'"
+            v-model="mode"
+        >
+            <ElOption
+                label="设置为指定值"
+                value="to"
+            />
+        </ElSelect>
+        <ElSelect
+            v-else
+            v-model="mode"
+        >
             <ElOption
                 label="设置为指定值"
                 value="to"
@@ -161,7 +194,7 @@
                 value="random"
             />
         </ElSelect>
-        <template v-if="mode == 'to' || mode == 'by' || mode == 'times'">
+        <template v-if="paramType == 'number' && (mode == 'to' || mode == 'by' || mode == 'times')">
             <MySwitch v-model="isDynamic">
                 启用动态参数
             </MySwitch>
@@ -187,6 +220,19 @@
                 </template>
             </MyInputNumber>
         </template>
+        <template v-else-if="paramType == 'boolean'">
+            <MySwitch v-model="paramBoolean">
+                <template v-if="attributeNote == 'isFake'">
+                    是否为假音符
+                </template>
+                <template v-else>
+                    是否为正落音符
+                </template>
+            </MySwitch>
+        </template>
+        <template v-else>
+            <MySelectEasing v-model="paramEasing" />
+        </template>
         <ElButton
             type="primary"
             @click="catchErrorByMessage(run, '操作')"
@@ -196,7 +242,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { Note } from '@/models/note';
+import { Note, NoteAbove } from '@/models/note';
 import MyInputNumber from '@/myElements/MyInputNumber.vue';
 import { ElButton, ElMessage, ElSelect, ElOption } from 'element-plus';
 import { computed, ref } from 'vue';
@@ -210,8 +256,8 @@ import { easingFuncs, EasingType } from '@/models/easing';
 import MySelectEasing from '@/myElements/MySelectEasing.vue';
 import { catchErrorByMessage } from '@/tools/catchError';
 import { CloneValidStateCode } from '@/managers/clone';
-type NoteAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime";
-type EventAttrs = "start" | "end" | "easingType";
+type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime";
+type EventNumberAttrs = "start" | "end";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -230,18 +276,26 @@ const numOfEvents = computed(() => {
 });
 
 const targetJudgeLineNumber = ref(0);
-const type = ref(numOfNotes.value == 0 ? "event" : "note");
+const type = ref<"note" | "event">(numOfNotes.value == 0 ? "event" : "note");
 const eventType = ref("moveX");
-const attributeNote = ref<NoteAttrs>("positionX");
-const attributeEvent = ref<EventAttrs | "both">("both");
+const attributeNote = ref<NoteNumberAttrs | "isFake" | "above">("positionX");
+const attributeEvent = ref<EventNumberAttrs | "both" | "easingType">("both");
 const mode = ref<"to" | "by" | "times" | "invert" | "random">("to")
 const isDynamic = ref(false);
 const param = ref(0);
 const paramStart = ref(0);
 const paramEnd = ref(0);
+const paramBoolean = ref(false);
 const paramEasing = ref(EasingType.Linear);
 
-
+const paramType = computed(() => {
+    if (type.value == "note") {
+        return attributeNote.value == "isFake" || attributeNote.value == "above" ? "boolean" : "number";
+    }
+    else {
+        return attributeEvent.value == "easingType" ? "easing" : "number";
+    }
+})
 
 async function clone() {
     const result = cloneManager.checkIsValid();
@@ -261,7 +315,7 @@ async function clone() {
  * 6. 写不下去了，______________
  */
 function run() {
-    function modifyNote(note: Note, attr: NoteAttrs, value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+    function modifyNoteWithNumber(note: Note, attr: NoteNumberAttrs, value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
         switch (mode) {
             case "to":
                 note[attr] = value;
@@ -298,10 +352,10 @@ function run() {
                 }
         }
     }
-    function modifyEvent(event: NumberEvent, attr: EventAttrs | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+    function modifyEventWithNumber(event: NumberEvent, attr: EventNumberAttrs | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
         if (attr == "both") {
-            modifyEvent(event, "start", value, mode);
-            modifyEvent(event, "end", value, mode);
+            modifyEventWithNumber(event, "start", value, mode);
+            modifyEventWithNumber(event, "end", value, mode);
             return;
         }
         switch (mode) {
@@ -318,36 +372,32 @@ function run() {
                 event[attr] = -event[attr];
                 break;
             case "random":
-                if (attr == "easingType") {
-                    event[attr] = Math.floor(Math.random() * 29);
-                }
-                else {
-                    switch (event.type) {
-                        case "moveX":
-                            event[attr] = Math.random() * 1350 - 675;
-                            break;
-                        case "moveY":
-                            event[attr] = Math.random() * 900 - 450;
-                            break;
-                        case "rotate":
-                            event[attr] = Math.random() * 360 - 180;
-                            break;
-                        case "alpha":
-                            event[attr] = Math.random() * 255;
-                            break;
-                        case "speed":
-                            event[attr] = Math.random() * 100;
-                            break;
-                        case "scaleX":
-                            event[attr] = Math.random() * 10;
-                            break;
-                        case "scaleY":
-                            event[attr] = Math.random() * 10;
-                            break;
-                        case "paint":
-                            event[attr] = Math.random() * 100;
-                            break;
-                    }
+
+                switch (event.type) {
+                    case "moveX":
+                        event[attr] = Math.random() * 1350 - 675;
+                        break;
+                    case "moveY":
+                        event[attr] = Math.random() * 900 - 450;
+                        break;
+                    case "rotate":
+                        event[attr] = Math.random() * 360 - 180;
+                        break;
+                    case "alpha":
+                        event[attr] = Math.random() * 255;
+                        break;
+                    case "speed":
+                        event[attr] = Math.random() * 100;
+                        break;
+                    case "scaleX":
+                        event[attr] = Math.random() * 10;
+                        break;
+                    case "scaleY":
+                        event[attr] = Math.random() * 10;
+                        break;
+                    case "paint":
+                        event[attr] = Math.random() * 100;
+                        break;
                 }
                 break;
         }
@@ -361,7 +411,15 @@ function run() {
         notes.forEach((note, i) => {
             const value = isDynamic.value ? paramStart.value + easingFuncs[paramEasing.value](i / (length - 1)) * (paramEnd.value - paramStart.value) : param.value;
             const attrName = attributeNote.value;
-            modifyNote(note, attrName, value, mode.value);
+            if (attrName === 'isFake') {
+                note.isFake = paramBoolean.value ? 1 : 0;
+            }
+            else if (attrName === 'above') {
+                note.above = paramBoolean.value ? NoteAbove.Above : NoteAbove.Below;
+            }
+            else {
+                modifyNoteWithNumber(note, attrName, value, mode.value);
+            }
         });
     }
     else {
@@ -373,7 +431,12 @@ function run() {
         events.forEach((event, i) => {
             const value = isDynamic.value ? paramStart.value + easingFuncs[paramEasing.value](i / (length - 1)) * (paramEnd.value - paramStart.value) : param.value;
             const attrName = attributeEvent.value;
-            modifyEvent(event, attrName, value, mode.value);
+            if (attrName === 'easingType') {
+                event[attrName] = paramEasing.value;
+            }
+            else {
+                modifyEventWithNumber(event, attrName, value, mode.value);
+            }
         })
     }
 }

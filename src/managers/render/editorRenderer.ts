@@ -224,13 +224,23 @@ export default class EditorRenderer extends Manager {
                 ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
                 ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
                 const box = new Box(noteEndY - noteEndHeight, noteStartY + noteHeadHeight, noteX - noteWidth / 2, noteX + noteWidth / 2);
-                if (note instanceof Note && selectionManager.isSelected(note) || box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
+                if (!(note instanceof Note)) continue;
+                if (selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteEndY - noteEndHeight,
                         noteWidth,
                         noteEndHeight + noteHeight + noteHeadHeight,
                         Constants.selectionColor,
+                        true);
+                }
+                else if (box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
+                    drawRect(
+                        noteX - noteWidth / 2,
+                        noteEndY - noteEndHeight,
+                        noteWidth,
+                        noteEndHeight + noteHeight + noteHeadHeight,
+                        Constants.hoverColor,
                         true);
                 }
             }
@@ -253,14 +263,23 @@ export default class EditorRenderer extends Manager {
                     noteWidth,
                     noteHeight);
                 const box = new Box(noteY - noteHeight / 2, noteY + noteHeight / 2, noteX - noteWidth / 2, noteX + noteWidth / 2);
-                // 音符被选中或被鼠标碰到时高亮显示
-                if (note instanceof Note && (selectionManager.isSelected(note) || box.touch(mouseManager.mouseX, mouseManager.mouseY))) {
+                if (!(note instanceof Note)) continue;
+                if ((selectionManager.isSelected(note))) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteY - noteHeight / 2,
                         noteWidth,
                         noteHeight,
                         Constants.selectionColor,
+                        true);
+                }
+                else if (box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
+                    drawRect(
+                        noteX - noteWidth / 2,
+                        noteY - noteHeight / 2,
+                        noteWidth,
+                        noteHeight,
+                        Constants.hoverColor,
                         true);
                 }
             }
@@ -270,6 +289,7 @@ export default class EditorRenderer extends Manager {
     private renderEvents() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const mouseManager = store.useManager("mouseManager");
 
         const canvas = store.useCanvas();
         const seconds = store.getSeconds();
@@ -318,6 +338,8 @@ export default class EditorRenderer extends Manager {
                     const eventEndY = getRelativePositionYOfSeconds(endSeconds);
                     const eventHeight = eventStartY - eventEndY;
 
+                    const box = new Box(eventEndY, eventStartY, eventX - Constants.eventWidth / 2, eventX + Constants.eventWidth / 2);
+
                     // 显示事件主体
                     drawRect(
                         eventX - Constants.eventWidth / 2,
@@ -335,6 +357,16 @@ export default class EditorRenderer extends Manager {
                             Constants.eventWidth,
                             eventHeight,
                             Constants.selectionColor,
+                            true);
+                    }
+                    else if (box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
+                        // 显示选中框
+                        drawRect(
+                            eventX - Constants.eventWidth / 2,
+                            eventEndY,
+                            Constants.eventWidth,
+                            eventHeight,
+                            Constants.hoverColor,
                             true);
                     }
 

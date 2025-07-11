@@ -16,11 +16,11 @@ export default class ClipboardManager extends Manager {
         globalEventEmitter.on("COPY", createCatchErrorByMessage(() => {
             this.copy();
         }, "复制"))
-        globalEventEmitter.on("PASTE", createCatchErrorByMessage(() => {
-            this.paste();
+        globalEventEmitter.on("PASTE", createCatchErrorByMessage((time) => {
+            this.paste(time);
         }, "粘贴"))
-        globalEventEmitter.on("PASTE_MIRROR", createCatchErrorByMessage(() => {
-            this.pasteMirror();
+        globalEventEmitter.on("PASTE_MIRROR", createCatchErrorByMessage((time) => {
+            this.pasteMirror(time);
         }, "镜像粘贴"))
     }
     /**
@@ -36,12 +36,13 @@ export default class ClipboardManager extends Manager {
      */
     copy() {
         const selectionManager = store.useManager("selectionManager");
+        if(selectionManager.selectedElements.length == 0) return;
         this.clipboard = [...selectionManager.selectedElements];
     }
     /**
      * 把剪切板内的元素粘贴到鼠标位置
      */
-    paste() {
+    paste(time?: Beats) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const mouseManager = store.useManager("mouseManager");
@@ -50,8 +51,8 @@ export default class ClipboardManager extends Manager {
         const minStartTime = this.clipboard.reduce<Beats>((min, element) => {
             return getBeatsValue(min) < getBeatsValue(element.startTime) ? min : element.startTime;
         }, [Infinity, 0, 1]);
-        const mouseTime = stateManager.attatchY(y);
-        const delta = subBeats(mouseTime, minStartTime);
+        const pasteTime = time ?? stateManager.attatchY(y);
+        const delta = subBeats(pasteTime, minStartTime);
         const elements = new Array<SelectedElement>();
         for (const element of this.clipboard) {
             if (element instanceof Note) {
@@ -72,17 +73,18 @@ export default class ClipboardManager extends Manager {
         selectionManager.unselectAll();
         selectionManager.select(...elements);
     }
-    pasteMirror() {
+    pasteMirror(time?: Beats) {
         const selectionManager = store.useManager("selectionManager");
-        this.paste();
+        this.paste(time);
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
                 element.positionX = -element.positionX;
             }
             else {
-                if (element.type == "moveX" || element.type == "moveY" || element.type == "rotate")
+                if (element.type == "moveX" || element.type == "moveY" || element.type == "rotate"){
                     element.start = -element.start;
-                element.end = -element.end;
+                    element.end = -element.end;
+                }
             }
         }
     }

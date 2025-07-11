@@ -248,7 +248,7 @@ export function formatBeats(beats: Beats) {
 }
 
 export function parseBeats(str: string) {
-    const split = str.split(/\D/g);
+    const split = str.replaceAll(/\s/g,"").split(/\D/g);
     const beats: Beats = [
         Number.isNaN(+split[0]) ? 0 : +split[0],
         Number.isNaN(+split[1]) ? 0 : +split[1],

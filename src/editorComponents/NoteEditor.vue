@@ -25,16 +25,15 @@
             音符编辑
         </Teleport>
         音符ID： {{ model.id }}
-        <MyInputBeats v-model="model.startTime">
+        <MyInput
+            v-model="startEndTime"
+            v-model:when1="model._startTime"
+            v-model:when2="model._endTime"
+        >
             <template #prepend>
-                开始时间
+                时间
             </template>
-        </MyInputBeats>
-        <MyInputBeats v-model="model.endTime">
-            <template #prepend>
-                结束时间
-            </template>
-        </MyInputBeats>
+        </MyInput>
         <MySwitch
             v-model="model.isFake"
             :active-value="1"
@@ -92,8 +91,10 @@
     </div>
 </template>
 <script setup lang='ts'>
+import { formatBeats, validateBeats, parseBeats, addBeats } from '@/models/beats';
+import { computed } from 'vue';
 import { Note, NoteAbove } from '../models/note';
-import MyInputBeats from '../myElements/MyInputBeats.vue';
+import MyInput from '@/myElements/MyInput.vue';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySwitch from '../myElements/MySwitch.vue';
 const props = defineProps<{
@@ -102,6 +103,33 @@ const props = defineProps<{
 const model = defineModel<Note>({
     required: true
 });
+
+const startEndTime = computed({
+    get() {
+        const start = formatBeats(model.value.startTime);
+        const end = formatBeats(model.value.endTime);
+        if (start === end) {
+            return start;
+        }
+        else {
+            return `${formatBeats(model.value.startTime)} ~ ${formatBeats(model.value.endTime)}`;
+        }
+    },
+    set(value: string) {
+        const [start, end] = value.split("~");
+        if (!start) return;
+        const startTime = validateBeats(parseBeats(start));
+        // 如果只输入了一个时间，则将结束时间设置为开始时间加1拍
+        if (!end) {
+            model.value.startTime = startTime;
+            model.value.endTime = addBeats(startTime, [1, 0, 1]);
+            return;
+        }
+        const endTime = validateBeats(parseBeats(end));
+        model.value.startTime = startTime;
+        model.value.endTime = endTime;
+    }
+})
 </script>
 <style scoped>
 .note-editor {
