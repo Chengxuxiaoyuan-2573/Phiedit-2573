@@ -21,6 +21,8 @@ export default class SelectionManager extends Manager {
     }
     select(...elements: SelectedElement[]) {
         this.selectedElements.push(...elements);
+        if(this.selectedElements.length > 0) 
+            globalEventEmitter.emit("SELECTION_UPDATE");
     }
     unselect(...elements: SelectedElement[]) {
         for (const element of elements) {
@@ -32,6 +34,8 @@ export default class SelectionManager extends Manager {
                 console.warn("SelectionManager: unselect failed");
             }
         }
+        if(this.selectedElements.length === 0)
+            globalEventEmitter.emit("SELECTION_UPDATE");
     }
     isSelected(element: SelectedElement) {
         return this.selectedElements.includes(element);
@@ -39,6 +43,7 @@ export default class SelectionManager extends Manager {
     /** 取消所有选中元素 */
     unselectAll() {
         this.selectedElements.splice(0);
+        globalEventEmitter.emit("SELECTION_UPDATE");
     }
 
     deleteSelection() {
@@ -51,7 +56,8 @@ export default class SelectionManager extends Manager {
                 historyManager.removeEvent(element.id);
             }
         }
-        this.unselectAll();
+        this.selectedElements.splice(0);
+        globalEventEmitter.emit("SELECTION_UPDATE");
     }
     /**
      * 全选
@@ -77,5 +83,6 @@ export default class SelectionManager extends Manager {
         for (const element of stateManager.currentEventLayer.speedEvents) {
             this.selectedElements.push(element);
         }
+        globalEventEmitter.emit("SELECTION_UPDATE");
     }
 }

@@ -1,11 +1,14 @@
-
 import { beatsToSeconds, BPM, validateBeats } from "./beats"
 import { isArrayOfNumbers } from "../tools/typeCheck"
 import { Beats, getBeatsValue } from "./beats"
 import { isObject, isNumber } from "lodash"
 export enum NoteAbove {
     Above = 1,
-    Below = 2
+    Below = 0,
+}
+export enum NoteFake {
+    Real = 0,
+    Fake = 1,
 }
 export interface INote {
     above: NoteAbove

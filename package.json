@@ -10,6 +10,8 @@
         "serve": "vue-cli-service serve",
         "build": "vue-cli-service build",
         "lint": "vue-cli-service lint",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder",
         "electron:build": "vue-cli-service electron:build",
         "electron:serve": "vue-cli-service electron:serve",
         "postinstall": "electron-builder install-app-deps && patch-package",
@@ -128,5 +130,39 @@
     ],
     "repository": {
         "url": "https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573"
+    },
+    "license": "MIT",
+    "build": {
+        "appId": "com.cxxy.phiedit2573",
+        "productName": "Phiedit 2573",
+        "copyright": "Copyright © ${year} Chengxuxiaoyuan_2573",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "**/*",
+            "!node_modules/*"
+        ],
+        "win": {
+            "target": [
+                "nsis",
+                "msi"
+            ],
+            "icon": "build/icon.ico"
+        },
+        "mac": {
+            "target": [
+                "dmg",
+                "pkg"
+            ],
+            "icon": "build/icon.icns"
+        },
+        "linux": {
+            "target": [
+                "deb",
+                "rpm"
+            ],
+            "icon": "build/icon.png"
+        }
     }
 }

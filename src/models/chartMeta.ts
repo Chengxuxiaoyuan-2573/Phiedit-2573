@@ -15,7 +15,7 @@ export interface IChartMeta {
     offset: number,
     /** 编辑器版本，10代表0.1.0版本，100代表1.0.0版本，以此类推 */
     RPEVersion: number,
-    /** 是否是由本编辑器----2573编辑器编辑的谱面 */
+    /** 是否是由本编辑器编辑的谱面 */
     is2573: true
 }
 export class ChartMeta implements IChartMeta {

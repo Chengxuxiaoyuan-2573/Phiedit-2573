@@ -2,7 +2,7 @@ import { isObject, isNumber, isString, isArray } from "lodash"
 import { EasingType } from "./easing"
 import { BaseEventLayer, ExtendedEventLayer, IBaseEventLayer, IExtendedEventLayer } from "./eventLayer"
 import { INote, Note } from "./note"
-import { BaseEvent } from "./event"
+import { BaseEvent, NumberEvent } from "./event"
 import { BPM } from "./beats"
 interface JudgeLineOptions {
     BPMList: BPM[],
@@ -23,6 +23,8 @@ export interface IJudgeLine {
     father: number
     /** 是否显示在判定线下面的note，0表示显示，1表示不显示 */
     isCover: 0 | 1
+    /** 音符的数量 */
+    numOfNotes?: number,
     /** 该判定线的所有note */
     notes: INote[]
     /** 显示的层号，越大越靠前 */
@@ -116,6 +118,7 @@ export class JudgeLine implements IJudgeLine {
         x: 0
     }]
     zOrder: number = 0
+    attachUI?: "pause" | "combonumber" | "combo" | "score" | "bar" | "name" | "level"
     readonly id: number
     private noteNumber = 0;
     getAllEvents() {
@@ -165,9 +168,11 @@ export class JudgeLine implements IJudgeLine {
                 scaleYEvents: this.extended.scaleYEvents.map(event => event.toObject()),
                 colorEvents: this.extended.colorEvents.map(event => event.toObject()),
                 paintEvents: this.extended.paintEvents.map(event => event.toObject()),
-                textEvents: this.extended.textEvents.map(event => event.toObject())
+                textEvents: this.extended.textEvents.map(event => event.toObject()),
+                inclineEvents: this.extended.inclineEvents.map(event => event.toObject()) // unsupported
             },
-            notes: this.notes.map(note => note.toObject())
+            notes: this.notes.map(note => note.toObject()),
+            numOfNotes: this.notes.length,
         }
     }
     addNote(note: unknown, id?: string) {
@@ -179,6 +184,64 @@ export class JudgeLine implements IJudgeLine {
         });
         this.notes.push(newNote);
         return newNote;
+    }
+    addEventLayer() {
+        const newEventLayer = this.createAnInitializedEventLayer();
+        this.eventLayers.push(newEventLayer);
+        return newEventLayer;
+    }
+    initializeEvents() {
+        this.eventLayers.push(this.createAnInitializedEventLayer(0, 0, 0, 0, 10));
+        this.extended.inclineEvents.push(new NumberEvent({
+            startTime: [0, 0, 1],
+            endTime: [1, 0, 1],
+            start: 0,
+            end: 0
+        }, {
+            judgeLineNumber: this.options.judgeLineNumber,
+            eventLayerId: 'X',
+            eventNumber: 0,
+            type: 'incline',
+            BPMList: this.options.BPMList
+        }));
+    }
+    createAnInitializedEventLayer(x = 0, y = 0, angle = 0, alpha = 0, speed = 0) {
+        return new BaseEventLayer({
+            moveXEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: x,
+                end: x
+            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'moveX', BPMList: this.options.BPMList })],
+            moveYEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: y,
+                end: y
+            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'moveY', BPMList: this.options.BPMList })],
+            rotateEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: angle,
+                end: angle
+            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'rotate', BPMList: this.options.BPMList })],
+            alphaEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: alpha,
+                end: alpha
+            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'alpha', BPMList: this.options.BPMList })],
+            speedEvents: [new NumberEvent({
+                startTime: [0, 0, 1],
+                endTime: [1, 0, 1],
+                start: speed,
+                end: speed
+            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: '0', eventNumber: 0, type: 'speed', BPMList: this.options.BPMList })]
+        }, {
+            judgeLineNumber: this.options.judgeLineNumber,
+            eventLayerNumber: 0,
+            BPMList: this.options.BPMList
+        })
     }
     constructor(judgeLine: unknown, readonly options: JudgeLineOptions) {
         if (isObject(judgeLine)) {

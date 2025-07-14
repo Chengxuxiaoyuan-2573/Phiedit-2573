@@ -310,24 +310,24 @@ export default class EditorRenderer extends Manager {
             const attrName = `${type}Events` as const;
             const events = stateManager.currentEventLayer[attrName];
             const eventX = Constants.eventsViewBox.width * (column + 0.5) / 5 + Constants.eventsViewBox.left;
-
+            // 确保事件按时间顺序排列
             checkAndSort(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
-            const groups: NumberEvent[][] = [];
-            let cache: NumberEvent[] = [];
+            const eventGroups: NumberEvent[][] = [];
+            let currentGroup: NumberEvent[] = [];
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
-                if (cache.length == 0 || getBeatsValue(event.startTime) == getBeatsValue(cache[cache.length - 1].endTime)) {
-                    cache.push(event);
+                if (currentGroup.length == 0 || getBeatsValue(event.startTime) == getBeatsValue(currentGroup[currentGroup.length - 1].endTime)) {
+                    currentGroup.push(event);
                 }
                 else {
-                    groups.push(cache);
-                    cache = [event];
+                    eventGroups.push(currentGroup);
+                    currentGroup = [event];
                 }
             }
-            groups.push(cache);
+            eventGroups.push(currentGroup);
 
-            for (let i = 0; i < groups.length; i++) {
-                const group = groups[i];
+            for (let i = 0; i < eventGroups.length; i++) {
+                const group = eventGroups[i];
                 const minValue = Math.min(...group.flatMap(x => [x.start, x.end]));
                 const maxValue = Math.max(...group.flatMap(x => [x.start, x.end]));
                 for (let j = 0; j < group.length; j++) {
@@ -346,7 +346,7 @@ export default class EditorRenderer extends Manager {
                         eventEndY,
                         Constants.eventWidth,
                         eventHeight,
-                        Constants.eventColor,
+                        event.isDisabled ? Constants.eventDisabledColor : Constants.eventColor,
                         true);
 
                     if (selectionManager.isSelected(event)) {

@@ -61,24 +61,18 @@ const slots: ReturnType<typeof useSlots> = useSlots();
 const model = defineModel<string>({
     required: true,
 });
-const modelWhen1 = defineModel<unknown>("when1", {
-    required: false
-});
-const modelWhen2 = defineModel<unknown>("when2", {
+const modelWhen = defineModel<unknown>("when", {
     required: false
 });
 let isInternalUpdate = false;
 
-if (isEmpty(modelWhen1.value) && isEmpty(modelWhen2.value)) {
+if (isEmpty(modelWhen.value)) {
     watch(model, () => {
         if (!isInternalUpdate) updateShowedValue();
     }, { immediate: true });
 }
 else {
-    watch(modelWhen1, () => {
-        if (!isInternalUpdate) updateShowedValue();
-    }, { immediate: true });
-    watch(modelWhen2, () => {
+    watch(modelWhen, () => {
         if (!isInternalUpdate) updateShowedValue();
     }, { immediate: true });
 }
@@ -92,4 +86,7 @@ function inputHandler() {
     isInternalUpdate = true;
     emit("input", model.value);
 }
+defineExpose({
+    updateShowedValue
+});
 </script>

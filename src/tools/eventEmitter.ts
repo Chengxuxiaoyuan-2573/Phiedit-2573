@@ -9,6 +9,11 @@ export default class EventEmitter<T extends Record<keyof T, unknown[]>> {
         }
         this.listeners[event].push(listener);
     }
+    off<K extends keyof T>(event: K, listener: (...args: T[K]) => void) {
+        if (this.listeners[event]) {
+            this.listeners[event] = this.listeners[event].filter(l => l !== listener);
+        }
+    }
     emit<K extends keyof T>(event: K, ...args: T[K]) {
         if (this.listeners[event]) {
             if (this.listeners[event].length == 0)

@@ -14,6 +14,7 @@ export interface IEvent<T> {
     end: T;
     startTime: Beats;
     endTime: Beats;
+    linkgroup: number;
 }
 interface EventOptions {
     judgeLineNumber: number;
@@ -26,7 +27,7 @@ interface EventOptions {
 export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text"] as const;
 export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     bezier: 0 | 1 = 0;
-    bezierPoints: BezierPoints = [0, 0, 1, 1];
+    bezierPoints: BezierPoints = [0, 0, 0, 0];
     easingLeft: number = 0;
     easingRight: number = 1;
     easingType: EasingType = EasingType.Linear;
@@ -42,6 +43,8 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     judgeLineNumber: number;
     type: string;
     eventLayerId: string;
+    isDisabled: boolean = false;
+    linkgroup = 0;
     get startTime() {
         return this._startTime;
     }
@@ -89,6 +92,7 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             end: this.end,
             startTime: [...this.startTime],
             endTime: [...this.endTime],
+            linkgroup: this.linkgroup
         }
     }
     constructor(event: unknown, options: EventOptions) {
@@ -215,7 +219,8 @@ export function interpolateColorEventValue(event: ColorEvent | null, seconds: nu
             startTime,
             endTime,
             cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
-            cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime)
+            cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
+            linkgroup: 0
         };
         return interpolateNumberEventValue(e, seconds);
     }
@@ -252,7 +257,8 @@ export function interpolateTextEventValue(event: TextEvent | null, seconds: numb
                 start: lengthStart,
                 end: lengthEnd,
                 cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
-                cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime)
+                cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
+                linkgroup: 0
             };
             const length = Math.round(interpolateNumberEventValue(e, seconds));
             return start.length > end.length ? start.slice(0, length) : end.slice(0, length);
@@ -265,7 +271,7 @@ export function findLastEvent<T extends BaseEvent>(events: T[], seconds: number)
     let smallestDifference = Infinity;
     for (const event of events) {
         const startSeconds = event.cachedStartSeconds;
-        if (startSeconds <= seconds) {
+        if (startSeconds <= seconds && !event.isDisabled) {
             const difference = seconds - startSeconds;
             if (difference < smallestDifference) {
                 smallestDifference = difference;

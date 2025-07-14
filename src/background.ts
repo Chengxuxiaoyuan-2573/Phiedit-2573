@@ -250,8 +250,6 @@ async function createWindow() {
     });
 
     ipcMain.handle('read-chart', async (event, chartId: string) => {
-        // folderPath == C:\Users\yuanh\AppData\Roaming\phiedit2573online\charts\Better_Graphic_Animation-fx462e
-        // chartPath == C:\Users\yuanh\AppData\Roaming\phiedit2573online\charts\Better_Graphic_Animation-fx462e\18032738.json
         ensurePathExists();
         const folderPath = path.join(chartsDir, chartId);
         const { musicPath, backgroundPath, chartPath, texturePaths } = await findFileInFolder(folderPath);
@@ -283,19 +281,17 @@ async function createWindow() {
 
         const chart = createEmptyChart(name);
 
-        const musicName = path.basename(musicPath);
-        const backgroundName = path.basename(backgroundPath);
-        const chartName = `${name}.json`;
+        const musicExt = path.extname(musicPath);
+        const backgroundExt = path.extname(backgroundPath);
+
         const promises = [
-            fs.promises.copyFile(musicPath, path.join(path666, musicName)),
-            fs.promises.copyFile(backgroundPath, path.join(path666, backgroundName)),
-            fs.promises.writeFile(path.join(path666, chartName), JSON.stringify(chart.toObject())),
-            fs.promises.writeFile(path.join(path666, "info.txt"), `Song: ${musicName}\nPicture: ${backgroundName}\nChart: ${chartName}`)
+            fs.promises.copyFile(musicPath, path.join(path666, chartId + musicExt)),
+            fs.promises.copyFile(backgroundPath, path.join(path666, chartId + backgroundExt)),
+            fs.promises.writeFile(path.join(path666, chartId + ".json"), JSON.stringify(chart.toObject())),
+            fs.promises.writeFile(path.join(path666, "info.txt"), `#\nName: ${name}\nCharter: unknown\nComposer: unknown\nIllustrator: unknown\nSong: ${chartId + musicExt}\nPicture: ${chartId + backgroundExt}\nChart: ${chartId + ".json"}`)
         ];
         addIdToChartList(chartId);
-        console.log(1);
         await Promise.all(promises);
-        console.log(2);
         return chartId;
     });
     ipcMain.handle('save-chart', async (event, chartId: string, chartContent: string) => {
@@ -306,7 +302,6 @@ async function createWindow() {
     });
 
     ipcMain.handle('load-chart', async (event, chartPackagePath: string) => {
-        console.log(chartPackagePath);
         ensurePathExists();
         const chartPackageFile = await fs.promises.readFile(chartPackagePath);
         const jszip = await JSZip.loadAsync(chartPackageFile);
@@ -333,16 +328,15 @@ async function createWindow() {
             chartFile.async("uint8array").then(data => saveFile(chartFile.name, data)),
             Promise.all(texturesFiles.map(async (textureFile) =>
                 textureFile.async("uint8array").then(data => saveFile(textureFile.name, data)))),
-            saveFile("info.txt", `Song: ${musicPath}\nPicture: ${backgroundPath}\nChart: ${chartPath}`)
+            saveFile("info.txt", `#\nName: ${name}\nCharter: unknown\nComposer: unknown\nIllustrator: unknown\nSong: ${musicPath}\nPicture: ${backgroundPath}\nChart: ${chartPath}`)
         ])
         addIdToChartList(chartId);
         return chartId;
     })
 
     ipcMain.handle('delete-chart', async (event, chartId: string) => {
-        const path666 = path.join(chartsDir, chartId);
-        // 删除文件夹
-        await fs.promises.rmdir(path666, { recursive: true });
+        // const path666 = path.join(chartsDir, chartId);
+        // await fs.promises.rmdir(path666, { recursive: true });
         deleteIdFromChartList(chartId);
     })
 
@@ -384,11 +378,50 @@ async function createWindow() {
         });
         return result.filePath;
     });
+    ipcMain.handle('show-open-chart-dialog', async () => {
+        const result = await dialog.showOpenDialog({
+            title: '打开谱面',
+            properties: ['openFile'],
+            filters: [
+                { name: 'RPE 格式谱面', extensions: ['pez'] },
+                { name: 'ZIP 文件', extensions: ['zip'] }
+            ]
+        });
+        if (result.canceled) {
+            return null;
+        }
+        return result.filePaths;
+    });
+    ipcMain.handle('show-open-music-dialog', async () => {
+        const result = await dialog.showOpenDialog({
+            title: '选择音乐文件',
+            properties: ['openFile'],
+            filters: [
+                { name: '音频文件', extensions: ['mp3', 'wav', 'ogg', 'flac', 'aac'] }
+            ]
+        });
+        if (result.canceled) {
+            return null;
+        }
+        return result.filePaths;
+    });
+    ipcMain.handle('show-open-background-dialog', async () => {
+        const result = await dialog.showOpenDialog({
+            title: '选择图片',
+            properties: ['openFile'],
+            filters: [
+                { name: '图片文件', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg'] }
+            ]
+        });
+        if (result.canceled) {
+            return null;
+        }
+        return result.filePaths;
+    });
     // Add this IPC handler to expose the functionality
     ipcMain.handle('export-chart', async (event, chartId: string, targetPath: string) => {
         try {
             const data = await packageFolderToZip(chartId);
-            console.log(targetPath, data); // targetPath == undefined
             return fs.promises.writeFile(targetPath, data);
         }
         catch (error) {
@@ -403,6 +436,7 @@ async function createWindow() {
     const win = new BrowserWindow({
         width: 800,
         height: 600,
+        icon: path.join(__dirname, 'build/icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             // Use pluginOptions.nodeIntegration, leave this alone

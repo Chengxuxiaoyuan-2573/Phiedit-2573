@@ -1,4 +1,4 @@
-import { Note, NoteAbove, NoteType } from "@/models/note";
+import { Note, NoteAbove, NoteFake, NoteType } from "@/models/note";
 import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
 import { MouseMoveMode, SelectedElement } from "@/types";
@@ -171,7 +171,7 @@ export default class MouseManager extends Manager {
                 size: 1,
                 visibleTime: 999999,
                 yOffset: 0,
-                isFake: 0,
+                isFake: NoteFake.Real,
                 above: NoteAbove.Above
             }, stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
@@ -196,6 +196,7 @@ export default class MouseManager extends Manager {
                 easingLeft: 0,
                 easingRight: 0,
                 easingType: lastEvent?.easingType ?? EasingType.Linear,
+                linkgroup: 0
             }, type, stateManager.state.currentEventLayerNumber.toString(), stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
             selectionManager.select(addedEvent);

@@ -14,7 +14,11 @@ export interface IBaseEventLayer {
     alphaEvents: IEvent<number>[]
     speedEvents: IEvent<number>[]
 }
-export class BaseEventLayer implements IBaseEventLayer {
+abstract class AbstractEventLayer {
+    abstract getEventsByType(type: string): IEvent<unknown>[];
+    abstract addEvent(event: unknown, type: string, id?: string): IEvent<unknown>;
+}
+export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLayer {
     moveXEvents: NumberEvent[] = []
     moveYEvents: NumberEvent[] = []
     rotateEvents: NumberEvent[] = []
@@ -75,6 +79,7 @@ export class BaseEventLayer implements IBaseEventLayer {
         }
     }
     constructor(eventLayer: unknown, readonly options: EventLayerOptions) {
+        super();
         if (isObject(eventLayer)) {
             if ("moveXEvents" in eventLayer && isArray(eventLayer.moveXEvents))
                 for (const event of eventLayer.moveXEvents)
@@ -100,21 +105,23 @@ export interface IExtendedEventLayer {
     colorEvents: IEvent<RGBcolor>[]
     paintEvents: IEvent<number>[]
     textEvents: IEvent<string>[]
-    /*inclineEvents: NumberEvent[]// unsupported */
+    inclineEvents: IEvent<number>[]// unsupported 
 
 }
-export class ExtendedEventLayer implements IExtendedEventLayer {
+export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedEventLayer {
     scaleXEvents: NumberEvent[] = []
     scaleYEvents: NumberEvent[] = []
     colorEvents: ColorEvent[] = []
     paintEvents: NumberEvent[] = []// unsupported
     textEvents: TextEvent[] = []
+    inclineEvents: NumberEvent[] = []// unsupported
     eventNumbers = {
         scaleX: 0,
         scaleY: 0,
         color: 0,
         paint: 0,
-        text: 0
+        text: 0,
+        incline: 0 // unsupported
     }
     getEventsByType(type: string) {
         switch (type) {
@@ -123,6 +130,7 @@ export class ExtendedEventLayer implements IExtendedEventLayer {
             case "color": return this.colorEvents;
             case "paint": return this.paintEvents;
             case "text": return this.textEvents;
+            case "incline": return this.inclineEvents; // unsupported
             default: throw new Error("传入的type参数有误");
         }
     }
@@ -158,11 +166,17 @@ export class ExtendedEventLayer implements IExtendedEventLayer {
                 this.textEvents.push(newEvent);
                 return newEvent;
             }
+            case "incline": {
+                const newEvent = new NumberEvent(event, { ...baseConfig, type: 'incline', id, eventNumber: this.eventNumbers.incline++ });
+                this.inclineEvents.push(newEvent);
+                return newEvent;
+            }
             default:
                 throw new Error(`传入的type参数有误: ${type}`);
         }
     }
     constructor(eventLayer: unknown, readonly options: EventLayerOptions) {
+        super();
         if (isObject(eventLayer)) {
             if ("scaleXEvents" in eventLayer && isArray(eventLayer.scaleXEvents))
                 for (const event of eventLayer.scaleXEvents)
@@ -179,6 +193,9 @@ export class ExtendedEventLayer implements IExtendedEventLayer {
             if ("textEvents" in eventLayer && isArray(eventLayer.textEvents))
                 for (const event of eventLayer.textEvents)
                     this.addEvent(event, "text");
+            if ("inclineEvents" in eventLayer && isArray(eventLayer.inclineEvents))
+                for (const event of eventLayer.inclineEvents)
+                    this.addEvent(event, "incline");
         }
     }
 }

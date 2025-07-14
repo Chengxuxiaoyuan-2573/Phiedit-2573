@@ -12,6 +12,7 @@ export default class Constants {
     static readonly selectionColor: RGBAcolor = [70, 100, 255, 0.6] as const
     static readonly hoverColor: RGBAcolor = [70, 100, 255, 0.3] as const
     static readonly eventColor: RGBAcolor = [255, 255, 255, 0.6] as const
+    static readonly eventDisabledColor: RGBAcolor = [255, 0, 0, 0.6] as const
     static readonly eventNumberColor: RGBcolor = [255, 165, 0] as const
     static readonly eventLineColor: RGBcolor = [0, 205, 255] as const
     static readonly notesViewBox = new Box(0, 900, 50, 650)

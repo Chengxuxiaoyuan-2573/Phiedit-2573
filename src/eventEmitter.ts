@@ -42,6 +42,12 @@ interface GlobalEventMap {
     SAVE: []
     EXPORT: [string]
     REPEAT_PARAGRAPH: []
+    REVERSE: []
+    SWAP: []
+    DISABLE: []
+    ENABLE: []
+
+    SELECTION_UPDATE: []
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 const globalEventEmitter = new GlobalEventEmitter();

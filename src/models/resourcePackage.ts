@@ -10,18 +10,20 @@ import { isObject, isNumber, isBoolean } from "lodash";
 import MediaUtils from "../tools/mediaUtils";
 type Image = HTMLImageElement | HTMLCanvasElement;
 interface IResourcePackage {
-    tap: Image;
-    flick: Image;
-    drag: Image;
-    holdHead: Image;
-    holdEnd: Image;
-    holdBody: Image;
-    tapHL: Image;
-    flickHL: Image;
-    dragHL: Image;
-    holdHLHead: Image;
-    holdHLEnd: Image;
-    holdHLBody: Image;
+    tap: HTMLImageElement;
+    flick: HTMLImageElement;
+    drag: HTMLImageElement;
+    hold: HTMLImageElement;
+    holdHead: HTMLCanvasElement;
+    holdEnd: HTMLCanvasElement;
+    holdBody: HTMLCanvasElement;
+    tapHL: HTMLImageElement;
+    flickHL: HTMLImageElement;
+    dragHL: HTMLImageElement;
+    holdHL: HTMLImageElement;
+    holdHLHead: HTMLCanvasElement;
+    holdHLEnd: HTMLCanvasElement;
+    holdHLBody: HTMLCanvasElement;
     tapSound: AudioBuffer;
     dragSound: AudioBuffer;
     flickSound: AudioBuffer;
@@ -43,26 +45,28 @@ interface ResourceConfig {
 }
 const audioContext = new AudioContext();
 export class ResourcePackage implements IResourcePackage {
-    tap: Image;
-    flick: Image;
-    drag: Image;
-    holdHead: Image;
-    holdEnd: Image;
-    holdBody: Image;
-    tapHL: Image;
-    flickHL: Image;
-    dragHL: Image;
-    holdHLHead: Image;
-    holdHLEnd: Image;
-    holdHLBody: Image;
+    tap: HTMLImageElement;
+    flick: HTMLImageElement;
+    drag: HTMLImageElement;
+    hold: HTMLImageElement;
+    holdHead: HTMLCanvasElement;
+    holdEnd: HTMLCanvasElement;
+    holdBody: HTMLCanvasElement;
+    tapHL: HTMLImageElement;
+    flickHL: HTMLImageElement;
+    dragHL: HTMLImageElement;
+    holdHL: HTMLImageElement;
+    holdHLHead: HTMLCanvasElement;
+    holdHLEnd: HTMLCanvasElement;
+    holdHLBody: HTMLCanvasElement;
     tapSound: AudioBuffer;
     dragSound: AudioBuffer;
     flickSound: AudioBuffer;
     perfectHitFxFrames: Image[];
     goodHitFxFrames: Image[];
     config: ResourceConfig;
-    getSkin(noteType: NoteType.Hold, highlight: boolean): { head: Image, body: Image, end: Image };
-    getSkin(noteType: NoteType.Tap | NoteType.Drag | NoteType.Flick, highlight: boolean): Image;
+    getSkin(noteType: NoteType.Hold, highlight: boolean): { head: HTMLCanvasElement, body: HTMLCanvasElement, end: HTMLCanvasElement };
+    getSkin(noteType: NoteType.Tap | NoteType.Drag | NoteType.Flick, highlight: boolean): HTMLImageElement;
     getSkin(noteType: NoteType, highlight: boolean) {
         if (noteType == NoteType.Drag)
             if (highlight)
@@ -111,12 +115,14 @@ export class ResourcePackage implements IResourcePackage {
         this.tap = resourcePackage.tap;
         this.flick = resourcePackage.flick;
         this.drag = resourcePackage.drag;
+        this.hold = resourcePackage.hold;
         this.holdHead = resourcePackage.holdHead;
         this.holdEnd = resourcePackage.holdEnd;
         this.holdBody = resourcePackage.holdBody;
         this.tapHL = resourcePackage.tapHL;
         this.flickHL = resourcePackage.flickHL;
         this.dragHL = resourcePackage.dragHL;
+        this.holdHL = resourcePackage.holdHL;
         this.holdHLHead = resourcePackage.holdHLHead;
         this.holdHLEnd = resourcePackage.holdHLEnd;
         this.holdHLBody = resourcePackage.holdHLBody;
@@ -323,8 +329,8 @@ export class ResourcePackage implements IResourcePackage {
                         }
                     }
                     return new ResourcePackage({
-                        tap, drag, flick, holdHead, holdEnd, holdBody,
-                        tapHL, dragHL, flickHL, holdHLHead, holdHLEnd, holdHLBody,
+                        tap, drag, flick, holdHead, holdEnd, holdBody, hold,
+                        tapHL, dragHL, flickHL, holdHLHead, holdHLEnd, holdHLBody, holdHL,
                         tapSound, dragSound, flickSound,
                         perfectHitFxFrames, goodHitFxFrames,
                         config: {

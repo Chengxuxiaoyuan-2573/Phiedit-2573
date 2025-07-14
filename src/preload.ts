@@ -8,7 +8,10 @@ const electronAPI: ElectronAPI = {
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
     readChart: (chartId: string) => ipcRenderer.invoke("read-chart", chartId),
     exportChart: (chartId: string, targetPath: string) => ipcRenderer.invoke("export-chart", chartId, targetPath),
-    showSaveDialog: (name: string) => ipcRenderer.invoke("show-save-dialog", name)
+    showSaveDialog: (name: string) => ipcRenderer.invoke("show-save-dialog", name),
+    showOpenChartDialog: () => ipcRenderer.invoke("show-open-chart-dialog"),
+    showOpenMusicDialog: () => ipcRenderer.invoke("show-open-music-dialog"),
+    showOpenBackgroundDialog: () => ipcRenderer.invoke("show-open-background-dialog"),
 }
 
 interface ElectronAPI {
@@ -26,6 +29,9 @@ interface ElectronAPI {
     readChartList: () => Promise<string[]>,
     exportChart: (chartId: string, targetPath: string) => Promise<void>,
     showSaveDialog: (name: string) => Promise<string>,
+    showOpenChartDialog: () => Promise<string[]>,
+    showOpenMusicDialog: () => Promise<string[]>,
+    showOpenBackgroundDialog: () => Promise<string[]>,
 }
 
 // 扩展 Window 接口以包含 electronAPI

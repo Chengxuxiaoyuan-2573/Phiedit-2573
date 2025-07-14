@@ -19,12 +19,18 @@
                         :min="0"
                         :max="audioRef.duration"
                         :step="0.01"
-                        :format-tooltip="seconds => {
-                            const min = Math.floor(seconds / 60).toString().padStart(2, '0');
-                            const sec = Math.round(seconds % 60).toString().padStart(2, '0');
+                        :format-tooltip="(seconds) => {
+                            const min = Math.floor(seconds / 60)
+                                .toString()
+                                .padStart(2, '0');
+                            const sec = Math.round(seconds % 60)
+                                .toString()
+                                .padStart(2, '0');
                             return `${min}:${sec}`;
                         }"
-                        @input="audioRef.pause(), audioRef.currentTime = typeof time == 'number' ? time : time[0]"
+                        @input="
+                            audioRef.pause(),
+                            (audioRef.currentTime = typeof time == 'number' ? time : time[0])"
                     />
                 </template>
                 <p
@@ -32,19 +38,16 @@
                         color: (() => {
                             if (fps >= 60) {
                                 return 'green';
-                            }
-                            else if (fps >= 30) {
+                            } else if (fps >= 30) {
                                 return 'blue';
-                            }
-                            else if (fps >= 15) {
+                            } else if (fps >= 15) {
                                 return 'orange';
-                            }
-                            else {
+                            } else {
                                 return 'red';
                             }
                         })(),
                         display: 'block',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
                     }"
                     useless-attribute
                 >
@@ -59,43 +62,43 @@
                         {
                             label: '播放速度：1.0x',
                             value: 1,
-                            text: '1.0x'
+                            text: '1.0x',
                         },
                         {
                             label: '播放速度：0.5x',
                             value: 0.5,
-                            text: '0.5x'
+                            text: '0.5x',
                         },
                         {
                             label: '播放速度：0.3x',
                             value: 0.3,
-                            text: '0.3x'
+                            text: '0.3x',
                         },
                         {
                             label: '播放速度：0.25x',
                             value: 0.25,
-                            text: '0.25x'
+                            text: '0.25x',
                         },
                         {
                             label: '播放速度：0.125x',
                             value: 0.125,
-                            text: '0.125x'
+                            text: '0.125x',
                         },
                         {
                             label: '播放速度：0.0x',
                             value: 0,
-                            text: '0.0x'
+                            text: '0.0x',
                         },
                         {
                             label: '播放速度：2.0x',
                             value: 2,
-                            text: '2.0x'
+                            text: '2.0x',
                         },
                         {
                             label: '播放速度：4.0x',
                             value: 4,
-                            text: '4.0x'
-                        }
+                            text: '4.0x',
+                        },
                     ]"
                 />
                 <MySelect
@@ -104,40 +107,44 @@
                         {
                             label: '当前音符类型：Tap',
                             value: NoteType.Tap,
-                            text: 'Tap（Q）'
+                            text: 'Tap（Q）',
                         },
                         {
                             label: '当前音符类型：Drag',
                             value: NoteType.Drag,
-                            text: 'Drag（W）'
+                            text: 'Drag（W）',
                         },
                         {
                             label: '当前音符类型：Flick',
                             value: NoteType.Flick,
-                            text: 'Flick（E）'
+                            text: 'Flick（E）',
                         },
                         {
                             label: '当前音符类型：Hold',
                             value: NoteType.Hold,
-                            text: 'Hold（R）'
-                        }
+                            text: 'Hold（R）',
+                        },
                     ]"
                 />
-                <p>
-                    COMBO: {{ combo }}
-                </p>
-                <p>
-                    SCORE: {{ score }}
-                </p>
-                <MyInputNumber
-                    v-model="stateManager.state.currentEventLayerNumber"
-                    :min="0"
-                    :max="chartPackageRef!.chart.judgeLineList[stateManager.state.currentJudgeLineNumber].eventLayers.length - 1"
-                >
-                    <template #prepend>
-                        当前事件层级号
-                    </template>
-                </MyInputNumber>
+                <p>COMBO: {{ combo }}</p>
+                <p>SCORE: {{ score }}</p>
+                <ElButtonGroup>
+                    <ElButton
+                        v-for="i in stateManager.eventLayersCount"
+                        :key="i - 1 + (u ? 0 : 0)"
+                        type="primary"
+                        :plain="i - 1 != stateManager.state.currentEventLayerNumber"
+                        @click="stateManager.state.currentEventLayerNumber = i - 1"
+                    >
+                        {{ i - 1 }}
+                    </ElButton>
+                    <ElButton
+                        type="success"
+                        @click="stateManager.currentJudgeLine.addEventLayer(), update()"
+                    >
+                        +
+                    </ElButton>
+                </ElButtonGroup>
                 <MyInputNumber
                     v-model="stateManager.state.horizonalLineCount"
                     :min="1"
@@ -273,13 +280,13 @@
                         :gap="5"
                     >
                         <ElButton
-                            v-for="(item, index) in chartPackageRef?.chart.judgeLineList"
-                            :key="index + (u ? 0 : 0)"
-                            :type="(['primary', 'warning', 'danger'] as const)[Math.floor(index / 10) % 3]"
-                            :plain="index != stateManager.state.currentJudgeLineNumber"
-                            @click="stateManager.state.currentJudgeLineNumber = index"
+                            v-for="i in stateManager.judgeLinesCount"
+                            :key="i - 1 + (u ? 0 : 0)"
+                            :type="(['primary', 'warning', 'danger'] as const)[Math.floor((i - 1) / 10) % 3]"
+                            :plain="i - 1 != stateManager.state.currentJudgeLineNumber"
+                            @click="stateManager.state.currentJudgeLineNumber = i - 1"
                         >
-                            {{ index }}
+                            {{ i - 1 }}
                         </ElButton>
                         <ElButton
                             type="success"
@@ -326,7 +333,19 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElButton, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElMessageBox, ElRow, ElSlider } from "element-plus";
+import {
+    ElAside,
+    ElButton,
+    ElScrollbar,
+    ElContainer,
+    ElHeader,
+    ElIcon,
+    ElMain,
+    ElMessageBox,
+    ElRow,
+    ElSlider,
+    ElButtonGroup,
+} from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { clamp, round } from "lodash";
@@ -334,6 +353,7 @@ import { clamp, round } from "lodash";
 import resourcePackageURL from "@/assets/DefaultResourcePackage.zip";
 
 import MediaUtils from "@/tools/mediaUtils";
+import KeyboardUtils from "@/tools/keyboardUtils";
 
 import { NumberEvent } from "@/models/event";
 import { Note, NoteType } from "@/models/note";
@@ -355,9 +375,11 @@ import EditorRenderer from "@/managers/render/editorRenderer";
 import ClipboardManager from "@/managers/clipboard";
 import StateManager from "@/managers/state";
 import MoveManager from "@/managers/move";
+import ExportManager from "@/managers/export";
 import SelectionManager from "@/managers/selection";
 import SettingsManager from "@/managers/settings";
 import ParagraphRepeater from "@/managers/paragraphRepeater";
+import EventAbillitiesManager from "@/managers/eventAbillities";
 
 import BPMListEditor from "@/editorComponents/BPMListEditor.vue";
 import ChartMetaEditor from "@/editorComponents/ChartMetaEditor.vue";
@@ -366,14 +388,12 @@ import NoteEditor from "@/editorComponents/NoteEditor.vue";
 import NumberEventEditor from "@/editorComponents/NumberEventEditor.vue";
 import MutipleEditor from "@/editorComponents/MutipleEditor.vue";
 import SettingsEditor from "@/editorComponents/SettingsEditor.vue";
-import HistoryEditor from "@/editorComponents/HistoryEditor.vue"
+import HistoryEditor from "@/editorComponents/HistoryEditor.vue";
 import ClipboardEditor from "@/editorComponents/ClipboardEditor.vue";
 
 import globalEventEmitter from "@/eventEmitter";
 import { RightPanelState } from "@/types";
 import store, { audioRef, canvasRef, chartPackageRef } from "@/store";
-import ExportManager from "@/managers/export";
-
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -392,8 +412,10 @@ loadStart();
     const musicSrc = URL.createObjectURL(musicBlob);
     const backgroundBlob = MediaUtils.arrayBufferToBlob(readResult.backgroundData);
     const backgroundSrc = URL.createObjectURL(backgroundBlob);
-    const textureBlobs = readResult.textureDatas.map(textureData => MediaUtils.arrayBufferToBlob(textureData));
-    const textureSrcs = textureBlobs.map(textureBlob => URL.createObjectURL(textureBlob));
+    const textureBlobs = readResult.textureDatas.map((textureData) =>
+        MediaUtils.arrayBufferToBlob(textureData)
+    );
+    const textureSrcs = textureBlobs.map((textureBlob) => URL.createObjectURL(textureBlob));
     store.chartPackageRef.value = new ChartPackage({
         musicSrc,
         background: (() => {
@@ -413,7 +435,7 @@ loadStart();
             return textures;
         })(),
         chart: JSON.parse(readResult.chartContent),
-    })
+    });
 
     // 加载resourcePackage
     store.resourcePackageRef.value = await getResourcePackage();
@@ -432,6 +454,16 @@ loadStart();
     store.setManager("stateManager", new StateManager());
     store.setManager("paragraphRepeater", new ParagraphRepeater());
     store.setManager("exportManager", new ExportManager());
+    store.setManager("eventAbillitiesManager", new EventAbillitiesManager());
+
+    onBeforeUnmount(() => {
+        // 释放资源
+        URL.revokeObjectURL(musicSrc);
+        URL.revokeObjectURL(backgroundSrc);
+        for (const textureSrc of textureSrcs) {
+            URL.revokeObjectURL(textureSrc);
+        }
+    });
 }
 loadEnd();
 
@@ -455,9 +487,8 @@ function update() {
     u.value = !u.value;
 }
 
-
 async function handleExport() {
-    const chartName = store.chartPackageRef.value?.chart.META.name || 'untitled';
+    const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
     // 使用预加载的 API 替代直接导入
     const filePath = await window.electronAPI.showSaveDialog(chartName);
     if (!filePath) return;
@@ -470,7 +501,7 @@ async function getResourcePackage() {
     return await ResourcePackage.load(blob);
 }
 function canvasMouseDown(e: MouseEvent) {
-    const options = createKeyOptions(e);
+    const options = KeyboardUtils.createKeyOptions(e);
     const { x, y } = calculatePosition(e);
     switch (e.button) {
         case 0:
@@ -482,12 +513,12 @@ function canvasMouseDown(e: MouseEvent) {
     }
 }
 function canvasMouseMove(e: MouseEvent) {
-    const options = createKeyOptions(e);
+    const options = KeyboardUtils.createKeyOptions(e);
     const { x, y } = calculatePosition(e);
     globalEventEmitter.emit("MOUSE_MOVE", x, y, options);
 }
 function canvasMouseUp(e: MouseEvent) {
-    const options = createKeyOptions(e);
+    const options = KeyboardUtils.createKeyOptions(e);
     const { x, y } = calculatePosition(e);
     globalEventEmitter.emit("MOUSE_UP", x, y, options);
 }
@@ -495,9 +526,14 @@ function windowOnWheel(e: WheelEvent) {
     const audio = store.useAudio();
     if (e.ctrlKey) {
         e.preventDefault();
-        stateManager.state.pxPerSecond = clamp(stateManager.state.pxPerSecond + e.deltaY * -0.05, 1, 1000);
+        stateManager.state.pxPerSecond = clamp(
+            stateManager.state.pxPerSecond + e.deltaY * -0.05,
+            1,
+            1000
+        );
     } else {
-        audio.currentTime += e.deltaY * settingsManager.wheelSpeed / -stateManager.state.pxPerSecond;
+        audio.currentTime +=
+            (e.deltaY * settingsManager.wheelSpeed) / -stateManager.state.pxPerSecond;
     }
 }
 function canvasOnResize() {
@@ -509,7 +545,7 @@ async function windowOnKeyDown(e: KeyboardEvent) {
     if (e.repeat) {
         return;
     }
-    const key = formatKey(e);
+    const key = KeyboardUtils.formatKey(e);
     console.debug(key);
     switch (key) {
         case "Space":
@@ -532,13 +568,13 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             const time = audio.currentTime;
             // 松开P键时停止预览
             const keyUpHandler = (e: KeyboardEvent) => {
-                const key = formatKey(e);
+                const key = KeyboardUtils.formatKey(e);
                 if (key === "T") {
                     globalEventEmitter.emit("STOP_PREVIEW");
                     audio.currentTime = time;
                     window.removeEventListener("keyup", keyUpHandler);
                 }
-            }
+            };
             window.addEventListener("keyup", keyUpHandler);
             return;
         }
@@ -546,20 +582,19 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             globalEventEmitter.emit("PREVIEW");
             // 松开P键时停止预览
             const keyUpHandler = (e: KeyboardEvent) => {
-                const key = formatKey(e);
+                const key = KeyboardUtils.formatKey(e);
                 if (key === "U") {
                     globalEventEmitter.emit("STOP_PREVIEW");
                     window.removeEventListener("keyup", keyUpHandler);
                 }
-            }
+            };
             window.addEventListener("keyup", keyUpHandler);
             return;
         }
         case "I": {
             if (stateManager.state.isPreviewing) {
                 globalEventEmitter.emit("STOP_PREVIEW");
-            }
-            else {
+            } else {
                 globalEventEmitter.emit("PREVIEW");
             }
             return;
@@ -596,7 +631,6 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             return;
         case "Ctrl B":
             globalEventEmitter.emit("PASTE_MIRROR");
-            //globalEventEmitter.emit("CHANGE_JUDGE_LINE", parseInt((await ElMessageBox.prompt("请输入判定线号", "切换判定线")).value))
             return;
         case "Ctrl S":
             globalEventEmitter.emit("SAVE");
@@ -614,7 +648,10 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             globalEventEmitter.emit("PASTE");
             return;
         case "Ctrl M":
-            globalEventEmitter.emit("MOVE_TO_JUDGE_LINE", parseInt((await ElMessageBox.prompt("请输入判定线号", "移动到指定判定线")).value))
+            globalEventEmitter.emit(
+                "MOVE_TO_JUDGE_LINE",
+                parseInt((await ElMessageBox.prompt("请输入判定线号", "移动到指定判定线")).value)
+            );
             return;
         case "Ctrl R":
             // not implemented
@@ -625,6 +662,19 @@ async function windowOnKeyDown(e: KeyboardEvent) {
         case "Ctrl Y":
             globalEventEmitter.emit("REDO");
             return;
+        case "Ctrl D":
+            globalEventEmitter.emit("DISABLE");
+            return;
+        case "Ctrl E":
+            globalEventEmitter.emit("ENABLE");
+            return;
+        case "Alt A":
+            globalEventEmitter.emit("REVERSE");
+            return;
+        case "Alt S":
+            globalEventEmitter.emit("SWAP");
+            return;
+
     }
 }
 function documentOnContextmenu(e: Event) {
@@ -640,23 +690,24 @@ function windowOnBlur() {
 function windowOnFocus() {
     windowIsFocused = true;
 }
-
-function createKeyOptions(e: KeyboardEvent | MouseEvent) {
-    return {
-        ctrl: e.ctrlKey,
-        shift: e.shiftKey,
-        alt: e.altKey,
-        meta: e.metaKey
-    };
+function audioOnTimeUpdate() {
+    const audio = store.useAudio();
+    time.value = audio.currentTime;
+}
+function audioOnPause() {
+    audioIsPlaying.value = false;
+}
+function audioOnPlay() {
+    audioIsPlaying.value = true;
 }
 /**
- * 该函数用于在含有object-fit:contain的canvas上，
- * 根据MouseEvent对象计算出点击位置在canvas绘制上下文中的坐标
- * 
- * 解决了由于canvas外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
- */
+     * 该函数用于在含有object-fit:contain的canvas上，
+     * 根据MouseEvent对象计算出点击位置在canvas绘制上下文中的坐标
+     *
+     * 解决了由于canvas外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
+     */
 function calculatePosition({ offsetX: x, offsetY: y }: MouseEvent) {
-    const canvas = canvasRef.value;
+    const canvas = store.useCanvas();
     if (!canvas) throw new Error("canvas is null");
 
     const innerWidth = canvas.width;
@@ -689,93 +740,24 @@ function calculatePosition({ offsetX: x, offsetY: y }: MouseEvent) {
         return { y: y * ratio, x: (x - padding) * ratio };
     }
 }
-/**
- * 将键盘事件对象格式化为可读的按键组合字符串
- * 
- * 功能说明：
- * 1. 检测并拼接修饰键（Ctrl、Shift、Alt、Meta）
- * 2. 转换特殊按键的显示名称（如 Space、Esc 等）
- * 3. 自动排除修饰键自身事件（如单独按下 Control 键）
- * 
- * @param e - 键盘事件对象，包含按键信息和修饰键状态
- * @returns 格式化后的组合按键字符串（例如 "Ctrl Shift S"）
- */
-function formatKey(e: KeyboardEvent) {
-
-    // 特殊情况，修饰键自身事件
-    if (e.key == "Control") {
-        return "Ctrl";
-    }
-    if (e.key == "Shift") {
-        return "Shift";
-    }
-    if (e.key == "Alt") {
-        return "Alt";
-    }
-    if (e.key == "Meta") {
-        return "Meta";
-    }
-
-    let str = "";
-
-    // 处理修饰键：按固定顺序拼接 Ctrl/Shift/Alt/Meta
-    if (e.ctrlKey) str += "Ctrl ";
-    if (e.shiftKey) str += "Shift ";
-    if (e.altKey) str += "Alt ";
-    if (e.metaKey) str += "Meta ";
-
-    /**
-     * 格式化单个按键的显示文本
-     * @param key - 原始按键值
-     * @returns 转换后的标准按键名称（全大写，特殊按键转换）
-     */
-    function formatSingleKey(key: string) {
-        switch (key) {
-            case " ": return "Space";
-            case "Escape": return "Esc";
-            case "Delete": return "Del";
-            case "ArrowLeft": return "Left";
-            case "ArrowRight": return "Right";
-            case "ArrowUp": return "Up";
-            case "ArrowDown": return "Down";
-            default:
-                // 判断按键是否为单个字符，如果是则转换为大写，否则返回原始值
-                // 避免将Home、End等按键转换为大写
-                if (key.length == 1)
-                    return key.toUpperCase();
-                else
-                    return key;
-        }
-    }
-
-    str += formatSingleKey(e.key);
-
-    return str;
-}
 onMounted(() => {
     const canvas = store.useCanvas();
     const audio = store.useAudio();
     cachedRect = canvas.getBoundingClientRect();
 
-    canvas.addEventListener('mousedown', canvasMouseDown);
-    canvas.addEventListener('mousemove', canvasMouseMove);
-    canvas.addEventListener('mouseup', canvasMouseUp);
+    canvas.addEventListener("mousedown", canvasMouseDown);
+    canvas.addEventListener("mousemove", canvasMouseMove);
+    canvas.addEventListener("mouseup", canvasMouseUp);
     const resizeObserver = new ResizeObserver(canvasOnResize);
     resizeObserver.observe(canvas);
-    window.addEventListener('wheel', windowOnWheel, { passive: false });
-    window.addEventListener('keydown', windowOnKeyDown);
-    window.addEventListener('blur', windowOnBlur);
-    window.addEventListener('focus', windowOnFocus);
+    window.addEventListener("wheel", windowOnWheel, { passive: false });
+    window.addEventListener("keydown", windowOnKeyDown);
+    window.addEventListener("blur", windowOnBlur);
+    window.addEventListener("focus", windowOnFocus);
     document.oncontextmenu = documentOnContextmenu;
-    audio.addEventListener('timeupdate', () => {
-        time.value = audio.currentTime;
-    })
-    audio.addEventListener('pause', () => {
-        audioIsPlaying.value = false;
-    })
-    audio.addEventListener('play', () => {
-        audioIsPlaying.value = true;
-    })
+    audio.addEventListener("timeupdate", audioOnTimeUpdate);
+    audio.addEventListener("pause", audioOnPause);
+    audio.addEventListener("play", audioOnPlay);
     let renderTime = performance.now();
     let isRendering = true;
     const renderLoop = () => {
@@ -784,12 +766,10 @@ onMounted(() => {
                 try {
                     if (stateManager.state.isPreviewing) {
                         chartRenderer.renderChart();
-                    }
-                    else {
+                    } else {
                         editorRenderer.render();
                     }
-                }
-                catch (error) {
+                } catch (error) {
                     console.error(error);
                 }
                 const now = performance.now();
@@ -815,13 +795,34 @@ onMounted(() => {
     renderLoop();
     onBeforeUnmount(() => {
         audio.pause();
-        canvas.removeEventListener('mousedown', canvasMouseDown);
-        canvas.removeEventListener('mousemove', canvasMouseMove);
-        canvas.removeEventListener('mouseup', canvasMouseUp);
+        canvas.removeEventListener("mousedown", canvasMouseDown);
+        canvas.removeEventListener("mousemove", canvasMouseMove);
+        canvas.removeEventListener("mouseup", canvasMouseUp);
         resizeObserver.unobserve(canvas);
         resizeObserver.disconnect();
         window.removeEventListener("wheel", windowOnWheel);
         window.removeEventListener("keydown", windowOnKeyDown);
+        window.removeEventListener("blur", windowOnBlur);
+        window.removeEventListener("focus", windowOnFocus);
+        audio.removeEventListener("timeupdate", audioOnTimeUpdate);
+        audio.removeEventListener("pause", audioOnPause);
+        audio.removeEventListener("play", audioOnPlay);
+        isRendering = false;
+        requestAnimationFrame(() => {
+            // 确保在下一个帧结束时停止渲染循环
+            isRendering = false;
+        });
+        // 清理canvas和document事件
+        canvas.remove();
+        store.chartPackageRef.value = null;
+        store.resourcePackageRef.value = null;
+        store.audioRef.value = null;
+        store.canvasRef.value = null;
+        store.route = null;
+        for (const key in store.managers) {
+            store.managers[key as keyof typeof store.managers] = null;
+        }
+
         isRendering = false;
         globalEventEmitter.destroy();
     });
@@ -880,14 +881,12 @@ onMounted(() => {
     grid-template-columns: 100%;
 }
 
-
 #right {
     grid-area: right;
     display: grid;
     grid-template-rows: auto auto;
     grid-template-columns: 100%;
 }
-
 
 .el-header>.el-row {
     flex-grow: 1;
@@ -905,11 +904,15 @@ onMounted(() => {
     gap: 10px;
 }
 
-
 .canvas {
     object-fit: contain;
     display: block;
     width: 100%;
     height: 100%;
+}
+
+.el-button-group {
+    display: flex;
+    flex-wrap: nowrap;
 }
 </style>

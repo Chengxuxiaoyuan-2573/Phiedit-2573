@@ -98,10 +98,10 @@ export default class StateManager extends Manager {
                 const eventStartY = this.getRelativePositionYOfSeconds(event.cachedStartSeconds);
                 const eventEndY = this.getRelativePositionYOfSeconds(event.cachedEndSeconds);
                 boxes.push(new BoxWithData(
-                    this.absolute(eventEndY - Constants.selectPadding),
-                    this.absolute(eventStartY + Constants.selectPadding),
-                    eventX - Constants.eventWidth / 2 - Constants.selectPadding,
-                    eventX + Constants.eventWidth / 2 + Constants.selectPadding,
+                    this.absolute(eventEndY),
+                    this.absolute(eventStartY),
+                    eventX - Constants.eventWidth / 2,
+                    eventX + Constants.eventWidth / 2,
                     event));
             }
         }
@@ -109,10 +109,25 @@ export default class StateManager extends Manager {
     }
     get currentJudgeLine() {
         const chart = store.useChart();
+        if( this._state.currentJudgeLineNumber < 0 || this._state.currentJudgeLineNumber >= this.judgeLinesCount) {
+            console.error("Invalid current judge line number, returning the first judge line.");
+            this._state.currentJudgeLineNumber = 0; // Reset to a valid state
+        }
         return chart.judgeLineList[this._state.currentJudgeLineNumber];
     }
     get currentEventLayer() {
+        if( this._state.currentEventLayerNumber < 0 || this._state.currentEventLayerNumber >= this.eventLayersCount) {
+            console.error("Invalid current event layer number, returning the first event layer.");
+            this._state.currentEventLayerNumber = 0; // Reset to a valid state
+        }
         return this.currentJudgeLine.eventLayers[this._state.currentEventLayerNumber];
+    }
+    get judgeLinesCount() {
+        const chart = store.useChart();
+        return chart.judgeLineList.length;
+    }
+    get eventLayersCount() {
+        return this.currentJudgeLine.eventLayers.length;
     }
     get verticalLineSpace() {
         return Constants.notesViewBox.width / (this._state.verticalLineCount - 1);
