@@ -4,7 +4,8 @@
             <ElSelect
                 v-model="inputNote.type"
                 style="width: 100px;"
-                @update:model-value="updateModel('type')"
+                @change="createHistory()"
+                @input="updateModel('type')"
             >
                 <ElOption
                     :value="1"
@@ -29,75 +30,84 @@
         <MyInput
             ref="inputStartEndTime"
             v-model="inputNote.startEndTime"
-            @update:model-value="updateModel('startTime', 'endTime')"
+            @change="createHistory()"
+            @input="updateModel('startTime', 'endTime')"
         >
             <template #prepend>
                 时间
             </template>
         </MyInput>
         <MySwitch
-            v-model="model.isFake"
+            v-model="inputNote.isFake"
             :active-value="NoteFake.Fake"
             :inactive-value="NoteFake.Real"
-            @update:model-value="updateModel('isFake')"
+            @change="createHistory()"
+            @input="updateModel('isFake')"
         >
             假音符
         </MySwitch>
         <MySwitch
-            v-model="model.above"
+            v-model="inputNote.above"
             :active-value="NoteAbove.Below"
             :inactive-value="NoteAbove.Above"
-            @update:model-value="updateModel('above')"
+            @change="createHistory()"
+            @input="updateModel('above')"
         >
             反向音符
         </MySwitch>
         <MyInputNumber
-            v-model="model.positionX"
-            @update:model-value="updateModel('positionX')"
+            v-model="inputNote.positionX"
+            @change="createHistory()"
+            @input="updateModel('positionX')"
         >
             <template #prepend>
                 X坐标
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="model.speed"
-            @update:model-value="updateModel('speed')"
+            v-model="inputNote.speed"
+            @change="createHistory()"
+            @input="updateModel('speed')"
         >
             <template #prepend>
                 速度倍率
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="model.size"
+            v-model="inputNote.size"
             :min="0"
-            @update:model-value="updateModel('size')"
+            @change="createHistory()"
+            @input="updateModel('size')"
         >
             <template #prepend>
                 大小
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="model.alpha"
+            v-model="inputNote.alpha"
             :min="0"
             :max="255"
-            @update:model-value="updateModel('alpha')"
+            @change="createHistory()"
+            @input="updateModel('alpha')"
         >
             <template #prepend>
                 透明度
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="model.yOffset"
-            @update:model-value="updateModel('yOffset')"
+            v-model="inputNote.yOffset"
+            @change="createHistory()"
+            @input="updateModel('yOffset')"
         >
             <template #prepend>
                 纵向偏移
             </template>
         </MyInputNumber>
         <MyInputNumber
-            v-model="model.visibleTime"
+            v-model="inputNote.visibleTime"
             :min="0"
-            @update:model-value="updateModel('visibleTime')"
+            @change="createHistory()"
+            @input="updateModel('visibleTime')"
         >
             <template #prepend>
                 可见时间
@@ -117,6 +127,7 @@ import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySwitch from '../myElements/MySwitch.vue';
 import { ElButton } from 'element-plus';
 import globalEventEmitter from '@/eventEmitter';
+import store from '@/store';
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -127,6 +138,7 @@ const inputStartEndTime = useTemplateRef('inputStartEndTime');
 interface NoteExtends {
     startEndTime: string;
 }
+const historyManager = store.useManager("historyManager");
 const seperator = " ";
 const attributes = [
     'startTime',
@@ -162,11 +174,11 @@ const inputNote: INote & NoteExtends = reactive({
     type: model.value.type,
     get startEndTime() {
         // 如果开始时间和结束时间相同，返回这个相同的时间
-        if (model.value.startTime === model.value.endTime) {
-            return formatBeats(model.value.startTime);
+        if (this.startTime === this.endTime) {
+            return formatBeats(this.startTime);
         }
         // 否则返回开始时间和结束时间的组合
-        return formatBeats(model.value.startTime) + seperator + formatBeats(model.value.endTime);
+        return formatBeats(this.startTime) + seperator + formatBeats(this.endTime);
     },
     set startEndTime(value: string) {
         const [start, end] = value.split(seperator);
@@ -175,25 +187,59 @@ const inputNote: INote & NoteExtends = reactive({
         const startTime = validateBeats(parseBeats(start));
         // 如果只输入了一个时间，则将结束时间设置为与开始时间相同
         if (!end) {
-            model.value.startTime = startTime;
-            model.value.endTime = startTime;
+            this.startTime = startTime;
+            this.endTime = startTime;
             return;
         }
         const endTime = validateBeats(parseBeats(end));
-        model.value.startTime = startTime;
-        model.value.endTime = endTime;
+        this.startTime = startTime;
+        this.endTime = endTime;
     }
 });
+const oldValues = {
+    startTime: model.value.startTime,
+    endTime: model.value.endTime,
+    positionX: model.value.positionX,
+    speed: model.value.speed,
+    size: model.value.size,
+    alpha: model.value.alpha,
+    yOffset: model.value.yOffset,
+    visibleTime: model.value.visibleTime,
+    isFake: model.value.isFake,
+    above: model.value.above,
+    type: model.value.type,
+}
 function updateModel<K extends keyof INote>(...attrNames: K[]) {
+    // const oldValues = attrNames.map(attr => model.value[attr]);
+    // const newValues = attrNames.map(attr => inputNote[attr]);
+    // const description = `将音符${model.value.id}的属性${attrNames.join(', ')}${attrNames.length > 1 ? "分别" : ""}从${oldValues.join(', ')}修改为${newValues.join(', ')}`;
+    // historyManager.group(description);
     for (const attrName of attrNames) {
+        // historyManager.modifyNote(model.value.id, attrName, inputNote[attrName]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (model.value[attrName] as any) = inputNote[attrName];
+    }
+    // historyManager.ungroup();
+}
+function createHistory() {
+    // 遍历新值和旧值，找到不一样的属性
+    for (const attr of attributes) {
+        if (inputNote[attr] !== oldValues[attr]) {
+            historyManager.modifyNote(model.value.id, attr, inputNote[attr], oldValues[attr]);
+        }
+    }
+    // 把旧值更新，以免重复记录
+    for (const attr of attributes) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (oldValues[attr] as any) = inputNote[attr];
     }
 }
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);
 });
 onBeforeUnmount(() => {
+    // 假如用户没有让输入框失焦就直接退出了，检查一下有没有没记录上的历史记录
+    createHistory();
     globalEventEmitter.off("REVERSE", reverse);
 });
 function reverse() {

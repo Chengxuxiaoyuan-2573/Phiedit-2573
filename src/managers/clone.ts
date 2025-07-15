@@ -94,25 +94,33 @@ export default class CloneManager extends Manager {
         const chart = store.useChart();
         let beats: Beats = [0, 0, 1];
         let i = 0;
+        
+        historyManager.group("克隆");
         while (isLessThanBeats(beats, this.options.timeDuration)) {
             const num = this.options.targetJudgeLines[i];
             const judgeLine = chart.judgeLineList[num];
             for (const element of selectionManager.selectedElements) {
                 if (element instanceof Note) {
                     const newNote = historyManager.addNote(element.toObject(), stateManager.state.currentJudgeLineNumber);
-                    newNote.startTime = addBeats(newNote.startTime, beats);
-                    newNote.endTime = addBeats(newNote.endTime, beats);
+                    historyManager.modifyNote(newNote.id, "startTime", addBeats(newNote.startTime, beats));
+                    historyManager.modifyNote(newNote.id, "endTime", addBeats(newNote.endTime, beats));
+                    // newNote.startTime = addBeats(newNote.startTime, beats);
+                    // newNote.endTime = addBeats(newNote.endTime, beats);
                     judgeLine.notes.push(newNote);
                 }
                 else {
                     const newEvent = historyManager.addEvent(element.toObject(), element.type, element.eventLayerId, stateManager.state.currentJudgeLineNumber);
-                    newEvent.startTime = addBeats(newEvent.startTime, beats);
-                    newEvent.endTime = addBeats(newEvent.endTime, beats);
+                    historyManager.modifyEvent(newEvent.id, "startTime", addBeats(newEvent.startTime, beats));
+                    historyManager.modifyEvent(newEvent.id, "endTime", addBeats(newEvent.endTime, beats));
+                    // newEvent.startTime = addBeats(newEvent.startTime, beats);
+                    // newEvent.endTime = addBeats(newEvent.endTime, beats);
                 }
             }
             beats = addBeats(beats, this.options.timeDelta);
             i = (i + 1) % this.options.targetJudgeLines.length;
         }
+        historyManager.ungroup();
+
         // 不保留源元素
         selectionManager.deleteSelection();
     }

@@ -175,19 +175,25 @@
                     type="primary"
                     @click="globalEventEmitter.emit('SAVE')"
                 >
-                    保存
-                </ElButton>
-                <ElButton
-                    type="primary"
-                    @click="$router.push('/')"
-                >
-                    退出
+                    保存谱面
                 </ElButton>
                 <ElButton
                     type="primary"
                     @click="handleExport"
                 >
-                    导出
+                    导出谱面
+                </ElButton>
+                <ElButton
+                    type="primary"
+                    @click="confirm(() => $router.push('/'), '退出编辑')"
+                >
+                    退出编辑
+                </ElButton>
+                <ElButton
+                    type="danger"
+                    @click="confirm(handleDeleteChart, '删除谱面')"
+                >
+                    删除谱面
                 </ElButton>
                 <ul>
                     <li>按Q/W/E/R键：将当前放置的音符切换为Tap/Drag/Flick/Hold</li>
@@ -347,7 +353,7 @@ import {
     ElButtonGroup,
 } from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { clamp, round } from "lodash";
 
 import resourcePackageURL from "@/assets/DefaultResourcePackage.zip";
@@ -394,6 +400,8 @@ import ClipboardEditor from "@/editorComponents/ClipboardEditor.vue";
 import globalEventEmitter from "@/eventEmitter";
 import { RightPanelState } from "@/types";
 import store, { audioRef, canvasRef, chartPackageRef } from "@/store";
+import BoxesManager from "@/managers/boxes";
+import { confirm } from "@/tools/catchError";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -402,6 +410,7 @@ const loadEnd = inject("loadEnd", () => {
     throw new Error("loadEnd is not defined");
 });
 store.route = useRoute();
+const router = useRouter();
 
 loadStart();
 {
@@ -455,6 +464,7 @@ loadStart();
     store.setManager("paragraphRepeater", new ParagraphRepeater());
     store.setManager("exportManager", new ExportManager());
     store.setManager("eventAbillitiesManager", new EventAbillitiesManager());
+    store.setManager("boxesManager", new BoxesManager());
 
     onBeforeUnmount(() => {
         // 释放资源
@@ -493,6 +503,11 @@ async function handleExport() {
     const filePath = await window.electronAPI.showSaveDialog(chartName);
     if (!filePath) return;
     globalEventEmitter.emit("EXPORT", filePath);
+}
+
+async function handleDeleteChart() {
+    window.electronAPI.deleteChart(store.getChartId());
+    router.push("/");
 }
 
 async function getResourcePackage() {

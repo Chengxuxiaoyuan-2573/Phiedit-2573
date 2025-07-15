@@ -3,16 +3,26 @@
         <Teleport :to="props.titleTeleport">
             判定线编辑
         </Teleport>
-        <MyInputNumber
-            v-model="stateManager.state.currentJudgeLineNumber"
-            :min="0"
-            :max="chart.judgeLineList.length - 1"
-            :step="1"
-        >
-            <template #prepend>
-                当前线号
-            </template>
-        </MyInputNumber>
+        <ElButtonGroup>
+            <ElButton
+                :disabled="stateManager.state.currentJudgeLineNumber <= 0"
+                @click="globalEventEmitter.emit('PREVIOUS_JUDGE_LINE')"
+            >
+                -
+            </ElButton>
+            <ElButton 
+                style="flex: 1"
+                @click="console.log('没用的按钮')"
+            >
+                当前判定线号：{{ stateManager.state.currentJudgeLineNumber }}
+            </ElButton>
+            <ElButton
+                :disabled="stateManager.state.currentJudgeLineNumber >= stateManager.judgeLinesCount - 1"
+                @click="globalEventEmitter.emit('NEXT_JUDGE_LINE')"
+            >
+                +
+            </ElButton>
+        </ElButtonGroup>
         <MyInputNumber
             v-model="chart.judgeLineList[stateManager.state.currentJudgeLineNumber].father"
             :min="-1"
@@ -52,10 +62,12 @@
     </div>
 </template>
 <script setup lang="ts">
+import { ElButtonGroup, ElButton } from 'element-plus';
 import MyInputNumber from '../myElements/MyInputNumber.vue';
 import MySelect from '../myElements/MySelect.vue';
 import MySwitch from '../myElements/MySwitch.vue';
 import store from '@/store';
+import globalEventEmitter from '@/eventEmitter';
 const props = defineProps<{
     titleTeleport: string
 }>();

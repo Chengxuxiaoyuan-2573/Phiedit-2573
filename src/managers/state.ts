@@ -1,10 +1,9 @@
 import { NoteType } from "@/models/note";
-import { RightPanelState, SelectedElement } from "@/types";
+import { RightPanelState } from "@/types";
 import { Beats, secondsToBeats } from "@/models/beats";
 import { round, floor } from "lodash";
 import Constants from "../constants";
 import store from "@/store";
-import { BoxWithData } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { reactive } from "vue";
 import Manager from "./abstract";
@@ -61,52 +60,6 @@ export default class StateManager extends Manager {
             audio.pause();
         })
     }
-    calculateBoxes(): BoxWithData<SelectedElement>[] {
-        const settingsManager = store.useManager("settingsManager");
-        const boxes = [];
-        const canvas = store.useCanvas();
-        const resourcePackage = store.useResourcePackage();
-
-        const baseNoteSize = Constants.notesViewBox.width / canvas.width * settingsManager.noteSize;
-
-        for (const note of this.currentJudgeLine.notes) {
-            const noteX = note.positionX * (Constants.notesViewBox.width / canvas.width) + Constants.notesViewBox.left + Constants.notesViewBox.width / 2;
-            if (note.type == NoteType.Hold) {
-                const noteSkin = resourcePackage.getSkin(note.type, note.highlight);
-                const noteScale = baseNoteSize / resourcePackage.getSkin(note.type, false).body.width;
-                const noteWidth = noteSkin.body.width * note.size * noteScale;
-                const noteStartY = this.getAbsolutePositionYOfSeconds(note.cachedStartSeconds);
-                const noteEndY = this.getAbsolutePositionYOfSeconds(note.cachedEndSeconds);
-                const box = new BoxWithData(noteEndY + noteSkin.end.height * noteScale, noteStartY - noteSkin.head.height * noteScale, noteX - noteWidth / 2, noteX + noteWidth / 2, note);
-                boxes.push(box);
-            }
-            else {
-                const noteSkin = resourcePackage.getSkin(note.type, note.highlight);
-                const noteY = this.getAbsolutePositionYOfSeconds(note.cachedStartSeconds);
-                const noteScale = baseNoteSize / resourcePackage.getSkin(note.type, false).width;
-                const noteWidth = noteSkin.width * note.size * noteScale;
-                const box = new BoxWithData(noteY + noteSkin.height * noteScale / 2, noteY - noteSkin.height * noteScale / 2, noteX - noteWidth / 2, noteX + noteWidth / 2, note);
-                boxes.push(box);
-            }
-        }
-        const types = ["moveX", "moveY", "rotate", "alpha", "speed"] as const;
-        for (const [column, type] of Object.entries(types)) {
-            const attrName = `${type}Events` as const;
-            const events = this.currentEventLayer[attrName];
-            const eventX = Constants.eventsViewBox.width * (+column + 0.5) / 5 + Constants.eventsViewBox.left;
-            for (const event of events) {
-                const eventStartY = this.getRelativePositionYOfSeconds(event.cachedStartSeconds);
-                const eventEndY = this.getRelativePositionYOfSeconds(event.cachedEndSeconds);
-                boxes.push(new BoxWithData(
-                    this.absolute(eventEndY),
-                    this.absolute(eventStartY),
-                    eventX - Constants.eventWidth / 2,
-                    eventX + Constants.eventWidth / 2,
-                    event));
-            }
-        }
-        return boxes;
-    }
     get currentJudgeLine() {
         const chart = store.useChart();
         if( this._state.currentJudgeLineNumber < 0 || this._state.currentJudgeLineNumber >= this.judgeLinesCount) {
@@ -136,7 +89,7 @@ export default class StateManager extends Manager {
         const seconds = store.getSeconds();
         return this._state.pxPerSecond * seconds;
     }
-    private getAbsolutePositionYOfSeconds(sec: number) {
+    getAbsolutePositionYOfSeconds(sec: number) {
         return sec * this._state.pxPerSecond;
     }
     getRelativePositionYOfSeconds(sec: number) {

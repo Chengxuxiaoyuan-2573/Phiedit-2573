@@ -31,12 +31,16 @@ export default class MoveManager extends Manager {
     moveLeft() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
         const canvas = store.useCanvas();
+        historyManager.group("左移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
+                historyManager.modifyNote(element.id, "positionX", element.positionX - canvas.width / (stateManager.state.verticalLineCount - 1));
+                // element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
             }
         }
+        historyManager.ungroup();
     }
     /**
      * 右移
@@ -44,12 +48,16 @@ export default class MoveManager extends Manager {
     moveRight() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
         const canvas = store.useCanvas();
+        historyManager.group("右移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
+                historyManager.modifyNote(element.id, "positionX", element.positionX + canvas.width / (stateManager.state.verticalLineCount - 1));
+                // element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
             }
         }
+        historyManager.ungroup();
     }
     /**
      * 上移
@@ -57,10 +65,21 @@ export default class MoveManager extends Manager {
     moveUp() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
+        historyManager.group("上移");
         for (const element of selectionManager.selectedElements) {
-            element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
+            if (element instanceof Note) {
+                historyManager.modifyNote(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.modifyNote(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+            }
+            else {
+                historyManager.modifyEvent(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.modifyEvent(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+            }
+            // element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            // element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
         }
+        historyManager.ungroup();
     }
     /**
      * 下移
@@ -68,10 +87,21 @@ export default class MoveManager extends Manager {
     moveDown() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
+        historyManager.group("下移");
         for (const element of selectionManager.selectedElements) {
-            element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
+            if (element instanceof Note) {
+                historyManager.modifyNote(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.modifyNote(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+            }
+            else {
+                historyManager.modifyEvent(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.modifyEvent(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+            }
+            // element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            // element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
         }
+        historyManager.ungroup();
     }
 
     moveToJudgeLine(targetJudgeLineNumber: number) {
@@ -79,6 +109,7 @@ export default class MoveManager extends Manager {
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
         const elements = new Array<SelectedElement>();
+        historyManager.group(`移到${targetJudgeLineNumber}号判定线`);
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
                 const note = historyManager.addNote(element.toObject(), targetJudgeLineNumber);
@@ -89,6 +120,7 @@ export default class MoveManager extends Manager {
                 elements.push(event);
             }
         }
+        historyManager.ungroup();
         selectionManager.deleteSelection();
         stateManager.state.currentJudgeLineNumber = targetJudgeLineNumber;
         selectionManager.select(...elements);

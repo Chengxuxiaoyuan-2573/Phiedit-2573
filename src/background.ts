@@ -383,8 +383,7 @@ async function createWindow() {
             title: '打开谱面',
             properties: ['openFile'],
             filters: [
-                { name: 'RPE 格式谱面', extensions: ['pez'] },
-                { name: 'ZIP 文件', extensions: ['zip'] }
+                { name: '谱面文件', extensions: ['pez', 'zip'] }
             ]
         });
         if (result.canceled) {

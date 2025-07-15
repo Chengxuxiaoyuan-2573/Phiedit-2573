@@ -10,7 +10,8 @@
         <MyInput
             ref="inputStartEndTime"
             v-model="inputEvent.startEndTime"
-            @update:model-value="updateModel('startTime', 'endTime')"
+            @change="createHistory()"
+            @input="updateModel('startTime', 'endTime')"
         >
             <template #prepend>
                 时间
@@ -19,7 +20,8 @@
         <MyInput
             ref="inputStartEnd"
             v-model="inputEvent.startEnd"
-            @update:model-value="updateModel('start', 'end')"
+            @change="createHistory()"
+            @input="updateModel('start', 'end')"
         >
             <template #prepend>
                 数值
@@ -29,15 +31,17 @@
             v-model="inputEvent.bezier"
             :active-value="1"
             :inactive-value="0"
-            @update:model-value="updateModel('bezier')"
+            @change="createHistory()"
+            @input="updateModel('bezier')"
         >
             使用Bezier曲线
         </MySwitch>
         <span v-if="model.bezier"> 不支持Bezier曲线，请关闭Bezier曲线 </span>
         <template v-else>
-            <MySelectEasing 
-                v-model="inputEvent.easingType" 
-                @update:model-value="updateModel('easingType')"
+            <MySelectEasing
+                v-model="inputEvent.easingType"
+                @change="createHistory()"
+                @input="updateModel('easingType')"
             />
             <ElSlider
                 v-model="inputEvent.easingLeftRight"
@@ -45,7 +49,8 @@
                 :min="0"
                 :max="1"
                 :step="0.01"
-                @update:model-value="updateModel('easingLeft', 'easingRight')"
+                @change="createHistory()"
+                @input="updateModel('easingLeft', 'easingRight')"
             />
         </template>
         <ElButton @click="reverse">
@@ -66,6 +71,7 @@ import { addBeats, formatBeats, parseBeats, validateBeats } from "@/models/beats
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef } from "vue";
 import { Ref, watch } from "vue";
 import globalEventEmitter from "@/eventEmitter";
+import store from "@/store";
 const model = defineModel<NumberEvent>({
     required: true,
 }) as Ref<NumberEvent>;
@@ -90,6 +96,7 @@ const attributes = [
     "easingLeft",
     "easingRight"
 ] as const;
+const historyManager = store.useManager("historyManager");
 watch(model, () => {
     for (const attr of attributes) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,10 +115,11 @@ const inputEvent: IEvent<number> & EventExtends = reactive({
     easingType: model.value.easingType,
     easingLeft: model.value.easingLeft,
     easingRight: model.value.easingRight,
+    linkgroup: 0,
     get startEndTime() {
         // 如果开始时间和结束时间相同，返回这个相同的时间
-        if (model.value.startTime === model.value.endTime) {
-            return formatBeats(model.value.startTime);
+        if (this.startTime === this.endTime) {
+            return formatBeats(this.startTime);
         }
         // 否则返回开始时间和结束时间的组合
         return formatBeats(this.startTime) + seperator + formatBeats(this.endTime);
@@ -153,12 +161,40 @@ const inputEvent: IEvent<number> & EventExtends = reactive({
         this.easingRight = value[1];
     }
 });
-
+const oldValues = {
+    startTime: model.value.startTime,
+    endTime: model.value.endTime,
+    start: model.value.start,
+    end: model.value.end,
+    bezier: model.value.bezier,
+    easingType: model.value.easingType,
+    easingLeft: model.value.easingLeft,
+    easingRight: model.value.easingRight
+};
+function createHistory() {
+    // 遍历新值和旧值，找到不一样的属性
+    for (const attr of attributes) {
+        if (inputEvent[attr] !== oldValues[attr]) {
+            historyManager.modifyEvent(model.value.id, attr, inputEvent[attr], oldValues[attr]);
+        }
+    }
+    // 把旧值更新，以免重复记录
+    for (const attr of attributes) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (oldValues[attr] as any) = inputEvent[attr];
+    }
+}
 function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
+    // const oldValues = attrNames.map(attr => model.value[attr]);
+    // const newValues = attrNames.map(attr => inputEvent[attr]);
+    // const description = `将事件${model.value.id}的属性${attrNames.join(', ')}${attrNames.length > 1 ? "分别" : ""}从${oldValues.join(', ')}修改为${newValues.join(', ')}`;
+    // historyManager.group(description);
     for (const attrName of attrNames) {
+        // historyManager.modifyEvent(model.value.id, attrName, (inputEvent as any)[attrName]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (model.value[attrName] as any) = inputEvent[attrName];
     }
+    // historyManager.ungroup();
 }
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);

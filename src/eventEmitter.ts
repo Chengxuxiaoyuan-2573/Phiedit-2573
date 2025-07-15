@@ -48,6 +48,7 @@ interface GlobalEventMap {
     ENABLE: []
 
     SELECTION_UPDATE: []
+    HISTORY_UPDATE: []
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 const globalEventEmitter = new GlobalEventEmitter();

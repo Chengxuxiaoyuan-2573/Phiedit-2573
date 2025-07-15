@@ -1,4 +1,4 @@
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T) => void, operationName: string = '') {
     return function (...args: T) {
         try {
@@ -17,4 +17,12 @@ export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T
 }
 export function catchErrorByMessage(func: () => void, operationName: string = '') {
     createCatchErrorByMessage(func, operationName)();
+}
+export async function confirm(func: () => void, operationName: string = '') {
+    try {
+        await ElMessageBox.confirm(`确定要${operationName}吗？`);
+        catchErrorByMessage(func, operationName);
+    } catch {
+        ElMessage.info(`${operationName}已取消`);
+    }
 }

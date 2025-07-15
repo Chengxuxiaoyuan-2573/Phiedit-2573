@@ -54,6 +54,8 @@ export default class ClipboardManager extends Manager {
         const pasteTime = time ?? stateManager.attatchY(y);
         const delta = subBeats(pasteTime, minStartTime);
         const elements = new Array<SelectedElement>();
+
+        historyManager.group("粘贴");
         for (const element of this.clipboard) {
             if (element instanceof Note) {
                 const noteObject = element.toObject();
@@ -70,20 +72,26 @@ export default class ClipboardManager extends Manager {
                 elements.push(event);
             }
         }
+        historyManager.ungroup();
+
         selectionManager.unselectAll();
         selectionManager.select(...elements);
     }
     pasteMirror(time?: Beats) {
         const selectionManager = store.useManager("selectionManager");
+        const historyManager = store.useManager("historyManager");
         this.paste(time);
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                element.positionX = -element.positionX;
+                historyManager.modifyNote(element.id, "positionX", -element.positionX);
+                // element.positionX = -element.positionX;
             }
             else {
                 if (element.type == "moveX" || element.type == "moveY" || element.type == "rotate"){
-                    element.start = -element.start;
-                    element.end = -element.end;
+                    historyManager.modifyEvent(element.id, "start", -element.start);
+                    historyManager.modifyEvent(element.id, "end", -element.end);
+                    // element.start = -element.start;
+                    // element.end = -element.end;
                 }
             }
         }

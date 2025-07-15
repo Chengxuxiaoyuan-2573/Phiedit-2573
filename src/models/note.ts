@@ -23,6 +23,19 @@ export interface INote {
     yOffset: number
     visibleTime: number
 }
+export const noteAttributes = [
+    "above",
+    "alpha",
+    "startTime",
+    "endTime",
+    "type",
+    "isFake",
+    "positionX",
+    "size",
+    "speed",
+    "yOffset",
+    "visibleTime"
+] as const;
 interface NoteOptions {
     judgeLineNumber: number,
     BPMList: BPM[],

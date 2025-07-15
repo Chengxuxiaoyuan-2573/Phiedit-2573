@@ -1,5 +1,5 @@
 import { cubicBezierEase, easingFuncs, EasingType } from "./easing";
-import { Beats, getBeatsValue, beatsToSeconds, validateBeats, BPM } from "./beats"
+import { Beats, getBeatsValue, beatsToSeconds, validateBeats, BPM, addBeats } from "./beats"
 import { isArrayOfNumbers } from "../tools/typeCheck";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString } from "lodash";
@@ -25,6 +25,18 @@ interface EventOptions {
     id?: string;
 }
 export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text"] as const;
+export const eventAttributes = [
+    "bezier",
+    "bezierPoints",
+    "easingLeft",
+    "easingRight",
+    "easingType",
+    "start",
+    "end",
+    "startTime",
+    "endTime",
+    "linkgroup"
+] as const;
 export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     bezier: 0 | 1 = 0;
     bezierPoints: BezierPoints = [0, 0, 0, 0];
@@ -64,6 +76,9 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             const a = this.startTime, b = this.endTime;
             this.startTime = b;
             this.endTime = a;
+        }
+        else if(getBeatsValue(this.startTime) == getBeatsValue(this.endTime)) {
+            this.endTime = addBeats(this.endTime, [0, 0, 1]); // 确保endTime大于startTime
         }
     }
     get easingLeftRight() {

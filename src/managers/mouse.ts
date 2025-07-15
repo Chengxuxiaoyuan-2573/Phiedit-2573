@@ -8,7 +8,7 @@ import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/easing";
 import Manager from "./abstract";
 import store from "@/store";
-import { beatsToSeconds } from "@/models/beats";
+import { Beats, beatsToSeconds } from "@/models/beats";
 import { findLastEvent } from "@/models/event";
 export default class MouseManager extends Manager {
     /** 鼠标的x坐标 */
@@ -19,6 +19,9 @@ export default class MouseManager extends Manager {
     mouseMoveMode = MouseMoveMode.None
     /** 鼠标拖拽选择框的碰撞箱，使用绝对坐标 */
     selectionBox: Box | null = null;
+
+    private oldTime: Beats = [0, 0, 1];
+    private oldPositionX: number = 0;
     constructor() {
         super();
         globalEventEmitter.on("MOUSE_LEFT_CLICK", (x, y, options) => {
@@ -35,20 +38,40 @@ export default class MouseManager extends Manager {
         })
     }
     mouseUp(mutiple: boolean) {
-        const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
+        const boxesManager = store.useManager("boxesManager");
+        const historyManager = store.useManager("historyManager");
+        const firstElement = selectionManager.selectedElements[0];
 
-        if (this.mouseMoveMode == MouseMoveMode.AddHold) {
-            selectionManager.selectedElements[0].validateTime();
+        if (this.mouseMoveMode == MouseMoveMode.Drag || this.mouseMoveMode == MouseMoveMode.DragEnd) {
+            firstElement.validateTime();
+            if (this.mouseMoveMode == MouseMoveMode.Drag) {
+                if (firstElement instanceof Note) {
+                    historyManager.modifyNote(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
+                    historyManager.modifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
+                }
+                else {
+                    historyManager.modifyEvent(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
+                }
+            }
+            else {
+                if (firstElement instanceof Note) {
+                    historyManager.modifyNote(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
+                    historyManager.modifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
+                }
+                else {
+                    historyManager.modifyEvent(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
+                }
+            }
         }
         else if (this.mouseMoveMode == MouseMoveMode.Select) {
             if (!this.selectionBox) {
                 return;
             }
-            if(!mutiple){
+            if (!mutiple) {
                 selectionManager.unselectAll();
             }
-            for (const box of stateManager.calculateBoxes()) {
+            for (const box of boxesManager.calculateBoxes()) {
                 if (box.overlap(this.selectionBox) && !selectionManager.isSelected(box.data)) {
                     selectionManager.select(box.data);
                 }
@@ -60,26 +83,29 @@ export default class MouseManager extends Manager {
     mouseMove(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
-
+        const firstElement = selectionManager.selectedElements[0];
         switch (this.mouseMoveMode) {
-            case MouseMoveMode.AddHold:
-                selectionManager.selectedElements[0].endTime = stateManager.attatchY(y);
-                break;
 
             case MouseMoveMode.Drag: {
                 const beats = stateManager.attatchY(y);
-                selectionManager.selectedElements[0].startTime = beats;
-                if (selectionManager.selectedElements[0] instanceof Note) {
-                    selectionManager.selectedElements[0].positionX = stateManager.attatchX(x);
+                if (firstElement instanceof Note) {
+                    firstElement.startTime = beats;
+                    firstElement.positionX = stateManager.attatchX(x);
+                }
+                else {
+                    firstElement.startTime = beats;
                 }
                 break;
             }
 
             case MouseMoveMode.DragEnd: {
                 const beats = stateManager.attatchY(y);
-                selectionManager.selectedElements[0].endTime = beats;
-                if (selectionManager.selectedElements[0] instanceof Note) {
-                    selectionManager.selectedElements[0].positionX = stateManager.attatchX(x);
+                if (firstElement instanceof Note) {
+                    firstElement.endTime = beats;
+                    firstElement.positionX = stateManager.attatchX(x);
+                }
+                else {
+                    firstElement.endTime = beats;
                 }
                 break;
             }
@@ -99,7 +125,8 @@ export default class MouseManager extends Manager {
     }
     private getClickedBox(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
-        const boxes = stateManager.calculateBoxes();
+        const boxesManager = store.useManager("boxesManager");
+        const boxes = boxesManager.calculateBoxes();
         let minDistance = Infinity;
         let clickedBox: BoxWithData<SelectedElement> | null = null;
         for (const box of boxes) {
@@ -135,6 +162,10 @@ export default class MouseManager extends Manager {
             else {
                 // 如果是单选，就取消选择所有，只选择这个元素
                 if (selectionManager.selectedElements.includes(clickedObject)) {
+                    this.oldTime = clickedObject.startTime;
+                    if (clickedObject instanceof Note) {
+                        this.oldPositionX = clickedObject.positionX;
+                    }
                     this.mouseMoveMode = MouseMoveMode.Drag;
                 }
                 selectionManager.unselectAll();
@@ -156,6 +187,10 @@ export default class MouseManager extends Manager {
 
         const clickedObject = clickedBox ? clickedBox.data : null;
         if (clickedObject && selectionManager.isSelected(clickedObject)) {
+            this.oldTime = clickedObject.endTime;
+            if (clickedObject instanceof Note) {
+                this.oldPositionX = clickedObject.positionX;
+            }
             this.mouseMoveMode = MouseMoveMode.DragEnd;
         }
         else if (Constants.notesViewBox.touch(x, y)) {
@@ -176,8 +211,11 @@ export default class MouseManager extends Manager {
             }, stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
             selectionManager.select(addedNote);
-            if (stateManager.state.currentNoteType == NoteType.Hold)
-                this.mouseMoveMode = MouseMoveMode.AddHold;
+            if (stateManager.state.currentNoteType == NoteType.Hold) {
+                this.oldTime = addedNote.endTime;
+                this.oldPositionX = addedNote.positionX;
+                this.mouseMoveMode = MouseMoveMode.DragEnd;
+            }
         }
         else if (Constants.eventsViewBox.touch(x, y)) {
             const chart = store.useChart();
@@ -200,7 +238,8 @@ export default class MouseManager extends Manager {
             }, type, stateManager.state.currentEventLayerNumber.toString(), stateManager.state.currentJudgeLineNumber);
             selectionManager.unselectAll();
             selectionManager.select(addedEvent);
-            this.mouseMoveMode = MouseMoveMode.AddHold;
+            this.oldTime = addedEvent.endTime;
+            this.mouseMoveMode = MouseMoveMode.DragEnd;
         }
     }
 }

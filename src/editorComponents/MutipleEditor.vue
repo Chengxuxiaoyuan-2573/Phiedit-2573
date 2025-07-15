@@ -264,6 +264,7 @@ const props = defineProps<{
 const chart = store.useChart();
 const selectionManager = store.useManager("selectionManager");
 const cloneManager = store.useManager("cloneManager");
+const historyManager = store.useManager("historyManager");
 
 const numOfSelectedElements = computed(() => {
     return selectionManager.selectedElements.length
@@ -316,92 +317,108 @@ async function clone() {
  */
 function run() {
     function modifyNoteWithNumber(note: Note, attr: NoteNumberAttrs, value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        let newValue: number;
         switch (mode) {
             case "to":
-                note[attr] = value;
+                newValue = value;
                 break;
             case "by":
-                note[attr] += value;
+                newValue = note[attr] + value;
                 break;
             case "times":
-                note[attr] *= value;
+                newValue = note[attr] * value;
                 break;
             case "invert":
-                note[attr] = -note[attr];
+                newValue = -note[attr];
                 break;
             case "random":
                 switch (attr) {
                     case "positionX":
-                        note[attr] = Math.random() * 1350 - 675;
+                        newValue = Math.random() * 1350 - 675;
                         break;
                     case "alpha":
-                        note[attr] = Math.random() * 255;
+                        newValue = Math.random() * 255;
                         break;
                     case "size":
-                        note[attr] = Math.random() * 6.75;
+                        newValue = Math.random() * 6.75;
                         break;
                     case "speed":
-                        note[attr] = Math.random() + 0.5;
+                        newValue = Math.random() + 0.5;
                         break;
                     case "yOffset":
-                        note[attr] = Math.random() * 500 - 250;
+                        newValue = Math.random() * 500 - 250;
                         break;
                     case "visibleTime":
-                        note[attr] = Math.random() * 10;
+                        newValue = Math.random() * 10;
                         break;
+                    default:
+                        newValue = note[attr];
                 }
+                break;
+            default:
+                newValue = note[attr];
         }
+        historyManager.modifyNote(note.id, attr, newValue);
     }
+
     function modifyEventWithNumber(event: NumberEvent, attr: EventNumberAttrs | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
         if (attr == "both") {
             modifyEventWithNumber(event, "start", value, mode);
             modifyEventWithNumber(event, "end", value, mode);
             return;
         }
+        let newValue: number;
         switch (mode) {
             case "to":
-                event[attr] = value;
+                newValue = value;
                 break;
             case "by":
-                event[attr] += value;
+                newValue = event[attr] + value;
                 break;
             case "times":
-                event[attr] *= value;
+                newValue = event[attr] * value;
                 break;
             case "invert":
-                event[attr] = -event[attr];
+                newValue = -event[attr];
                 break;
             case "random":
-
                 switch (event.type) {
                     case "moveX":
-                        event[attr] = Math.random() * 1350 - 675;
+                        newValue = Math.random() * 1350 - 675;
                         break;
                     case "moveY":
-                        event[attr] = Math.random() * 900 - 450;
+                        newValue = Math.random() * 900 - 450;
                         break;
                     case "rotate":
-                        event[attr] = Math.random() * 360 - 180;
+                        newValue = Math.random() * 360 - 180;
                         break;
                     case "alpha":
-                        event[attr] = Math.random() * 255;
+                        newValue = Math.random() * 255;
                         break;
                     case "speed":
-                        event[attr] = Math.random() * 100;
+                        newValue = Math.random() * 100;
                         break;
                     case "scaleX":
-                        event[attr] = Math.random() * 10;
+                        newValue = Math.random() * 10;
                         break;
                     case "scaleY":
-                        event[attr] = Math.random() * 10;
+                        newValue = Math.random() * 10;
                         break;
                     case "paint":
-                        event[attr] = Math.random() * 100;
+                        newValue = Math.random() * 100;
                         break;
+                    default:
+                        newValue = event[attr];
                 }
                 break;
+            default:
+                newValue = event[attr];
         }
+        historyManager.modifyEvent(event.id, attr, newValue);
     }
+
+    historyManager.group("批量编辑");
+
     if (type.value == "note") {
         const notes = selectionManager.selectedElements.filter(element => element instanceof Note) as Note[];
         const length = notes.length;
@@ -409,13 +426,15 @@ function run() {
             throw new Error(`当前没有选中音符`)
         }
         notes.forEach((note, i) => {
-            const value = isDynamic.value ? paramStart.value + easingFuncs[paramEasing.value](i / (length - 1)) * (paramEnd.value - paramStart.value) : param.value;
+            const value = isDynamic.value
+                ? paramStart.value + easingFuncs[paramEasing.value](length === 1 ? 0 : i / (length - 1)) * (paramEnd.value - paramStart.value)
+                : param.value;
             const attrName = attributeNote.value;
             if (attrName === 'isFake') {
-                note.isFake = paramBoolean.value ? 1 : 0;
+                historyManager.modifyNote(note.id, "isFake", paramBoolean.value ? 1 : 0);
             }
             else if (attrName === 'above') {
-                note.above = paramBoolean.value ? NoteAbove.Above : NoteAbove.Below;
+                historyManager.modifyNote(note.id, "above", paramBoolean.value ? NoteAbove.Above : NoteAbove.Below);
             }
             else {
                 modifyNoteWithNumber(note, attrName, value, mode.value);
@@ -429,16 +448,20 @@ function run() {
             throw new Error(`当前没有选中${eventType.value}事件`)
         }
         events.forEach((event, i) => {
-            const value = isDynamic.value ? paramStart.value + easingFuncs[paramEasing.value](i / (length - 1)) * (paramEnd.value - paramStart.value) : param.value;
+            const value = isDynamic.value
+                ? paramStart.value + easingFuncs[paramEasing.value](length === 1 ? 0 : i / (length - 1)) * (paramEnd.value - paramStart.value)
+                : param.value;
             const attrName = attributeEvent.value;
             if (attrName === 'easingType') {
-                event[attrName] = paramEasing.value;
+                historyManager.modifyEvent(event.id, "easingType", paramEasing.value);
             }
             else {
                 modifyEventWithNumber(event, attrName, value, mode.value);
             }
         })
     }
+
+    historyManager.ungroup();
 }
 </script>
 <style scoped>

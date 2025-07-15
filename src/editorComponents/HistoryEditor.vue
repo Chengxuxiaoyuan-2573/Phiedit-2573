@@ -6,15 +6,19 @@
         <Teleport :to="props.titleTeleport">
             历史记录
         </Teleport>
+        <em>
+            已记录{{ historyManager.getSize() }}条历史记录
+            （显示最近的10条）
+        </em>
         <ElButton
             type="primary"
-            @click="globalEventEmitter.emit('UNDO'), update()"
+            @click="globalEventEmitter.emit('UNDO')"
         >
             撤销
         </ElButton>
         <ElButton
             type="primary"
-            @click="globalEventEmitter.emit('REDO'), update()"
+            @click="globalEventEmitter.emit('REDO')"
         >
             重做
         </ElButton>
@@ -29,13 +33,19 @@
 <script setup lang="ts">
 import { ElButton, ElTable, ElTableColumn } from "element-plus";
 import globalEventEmitter from "@/eventEmitter";
-import { ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import store from "@/store";
 const props = defineProps<{
     titleTeleport: string
 }>();
 const u = ref(false);
 const historyManager = store.useManager("historyManager");
+onMounted(() => {
+    globalEventEmitter.on("HISTORY_UPDATE", update);
+});
+onBeforeUnmount(() => {
+    globalEventEmitter.off("HISTORY_UPDATE", update);
+});
 function update() {
     u.value = !u.value;
 }

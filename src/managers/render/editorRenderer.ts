@@ -417,10 +417,11 @@ export default class EditorRenderer extends Manager {
     private renderBoxes() {
         const canvas = store.useCanvas();
         const stateManager = store.useManager("stateManager");
+        const boxesManager = store.useManager("boxesManager");
         if (!canvas) return;
         const ctx = canvasUtils.getContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
-        for (const box of stateManager.calculateBoxes()) {
+        for (const box of boxesManager.calculateBoxes()) {
             const top = stateManager.relative(box.bottom);
             drawRect(box.left, top, box.width, box.height, "rgba(255,255,0,0.4)", true);
         }

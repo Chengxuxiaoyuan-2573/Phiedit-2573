@@ -1,6 +1,7 @@
 import globalEventEmitter from "@/eventEmitter";
 import { addBeats, Beats, getBeatsValue, subBeats } from "@/models/beats";
 import store from "@/store";
+import { createCatchErrorByMessage } from "@/tools/catchError";
 export enum FlipOptions {
     None,
     Horizontal,
@@ -13,14 +14,15 @@ export default class ParagraphRepeater {
     targetTime: Beats = [0, 0, 1];
     flip: FlipOptions = FlipOptions.None;
     constructor() {
-        globalEventEmitter.on("REPEAT_PARAGRAPH", () => {
+        globalEventEmitter.on("REPEAT_PARAGRAPH", createCatchErrorByMessage(() => {
             this.copy();
-        })
+        }, "复制段落"));
     }
     copy() {
         const historyManager = store.useManager("historyManager");
         const beats = subBeats(this.targetTime, this.startTime);
         const chart = store.useChart();
+        historyManager.group("复制段落");
         for (const judgeLine of chart.judgeLineList) {
             for (const eventLayer of judgeLine.eventLayers) {
                 for (const type of ["moveX", "moveY", "rotate", "alpha", "speed"]) {
@@ -73,5 +75,6 @@ export default class ParagraphRepeater {
                 historyManager.addNote(noteObject, judgeLine.id);
             }
         }
+        historyManager.ungroup();
     }
 }

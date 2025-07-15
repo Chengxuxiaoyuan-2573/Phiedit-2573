@@ -4,6 +4,6 @@ export enum RightPanelState {
     Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History
 }
 export enum MouseMoveMode {
-    None, AddHold, Drag, DragEnd, Select
+    None, Drag, DragEnd, Select
 }
 export type SelectedElement = Note | NumberEvent;

@@ -1,8 +1,6 @@
 <template>
     <ElInput
         v-model="inputString"
-        @click="clickHandler"
-        @blur="blurHandler"
         @input="inputStringHandler"
         @keydown.stop
     >
@@ -79,8 +77,8 @@ function inputStringHandler() {
         isInternalUpdate = true;
     }
 }
+/*
 let clickCount = 0;
-
 function clickHandler() {
     if (clickCount === 0) {
         inputString.value = "";
@@ -95,6 +93,7 @@ function blurHandler() {
     inputString.value = model.value.toString();
     clickCount = 0;
 }
+*/
 </script>
 <style scoped>
 .el-input-number {
