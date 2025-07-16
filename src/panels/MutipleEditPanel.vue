@@ -1,5 +1,5 @@
 <template>
-    <div class="mutiple-editor">
+    <div class="mutiple-panel">
         <Teleport :to="props.titleTeleport">
             批量音符/事件编辑
         </Teleport>
@@ -465,7 +465,7 @@ function run() {
 }
 </script>
 <style scoped>
-.mutiple-editor {
+.mutiple-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

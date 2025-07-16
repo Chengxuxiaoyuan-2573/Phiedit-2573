@@ -1,5 +1,5 @@
 <template>
-    <div class="settings-editor">
+    <div class="settings-panel">
         <Teleport :to="props.titleTeleport">
             设置
         </Teleport>
@@ -98,7 +98,7 @@ const resourcePackage = store.useResourcePackage();
 const settingsManager = store.useManager("settingsManager");
 </script>
 <style scoped>
-.settings-editor {
+.settings-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

@@ -1,7 +1,7 @@
 <template>
     <div
         v-if="model == model"
-        class="number-event-editor"
+        class="number-event-panel"
     >
         <Teleport :to="props.titleTeleport">
             {{ model.type }}事件编辑
@@ -213,7 +213,7 @@ function swap() {
 }
 </script>
 <style scoped>
-.number-event-editor {
+.number-event-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

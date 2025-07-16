@@ -1,4 +1,5 @@
 import { Beats } from "./models/beats";
+import { EasingType } from "./models/easing";
 import type { NoteType } from "./models/note";
 import EventEmitter from "./tools/eventEmitter";
 type PositionX = number;
@@ -29,7 +30,7 @@ interface GlobalEventMap {
     NEXT_JUDGE_LINE: []
     PREVIOUS_JUDGE_LINE: []
     CHANGE_JUDGE_LINE: [number]
-    CHANGE_TYPE: [keyof typeof NoteType]
+    CHANGE_TYPE: [NoteType]
     PREVIEW: []
     STOP_PREVIEW: []
     MOVE_TO_JUDGE_LINE: [number]
@@ -46,6 +47,7 @@ interface GlobalEventMap {
     SWAP: []
     DISABLE: []
     ENABLE: []
+    FILL_NOTES: [NoteType, EasingType, number]
 
     SELECTION_UPDATE: []
     HISTORY_UPDATE: []

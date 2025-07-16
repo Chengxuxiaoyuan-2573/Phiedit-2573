@@ -47,7 +47,7 @@ export default class StateManager extends Manager {
             }
         })
         globalEventEmitter.on("CHANGE_TYPE", (type) => {
-            this.state.currentNoteType = NoteType[type];
+            this.state.currentNoteType = type;
         })
         globalEventEmitter.on("PREVIEW", () => {
             const audio = store.useAudio();

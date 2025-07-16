@@ -119,7 +119,7 @@ export class JudgeLine implements IJudgeLine {
     }]
     zOrder: number = 0
     attachUI?: "pause" | "combonumber" | "combo" | "score" | "bar" | "name" | "level"
-    readonly id: number
+    id: number
     private noteNumber = 0;
     getAllEvents() {
         const events: BaseEvent[] = [];

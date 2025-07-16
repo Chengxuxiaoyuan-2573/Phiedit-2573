@@ -20,6 +20,7 @@ import ParagraphRepeater from "./managers/paragraphRepeater";
 import ExportManager from "./managers/export";
 import EventAbillitiesManager from "./managers/eventAbillities";
 import BoxesManager from "./managers/boxes";
+import NoteFiller from "./managers/noteFiller";
 
 /** 数据集中管理的对象 */
 class Store {
@@ -45,6 +46,7 @@ class Store {
         exportManager: ExportManager | null
         eventAbillitiesManager: EventAbillitiesManager | null
         boxesManager: BoxesManager | null
+        noteFiller: NoteFiller | null
     } = {
             chartRenderer: null,
             editorRenderer: null,
@@ -60,7 +62,8 @@ class Store {
             paragraphRepeater: null,
             exportManager: null,
             eventAbillitiesManager: null,
-            boxesManager: null
+            boxesManager: null,
+            noteFiller: null,
         }
     constructor() {
         this.chartPackageRef = ref(null);

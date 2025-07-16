@@ -115,3 +115,15 @@ export function cubicBezierEase(p1x: number, p1y: number, p2x: number, p2y: numb
             return y;
     };
 }
+
+export function getEasingValue(easingType: EasingType, startT: number, endT: number, start: number, end: number, t: number): number {
+    if (easingType === EasingType.Linear) {
+        return start + (end - start) * ((t - startT) / (endT - startT));
+    }
+    const easingFunc = easingFuncs[easingType];
+    if (!easingFunc) {
+        throw new Error(`未知的缓动类型: ${easingType}`);
+    }
+    const normalizedT = (t - startT) / (endT - startT);
+    return start + (end - start) * easingFunc(normalizedT);
+}

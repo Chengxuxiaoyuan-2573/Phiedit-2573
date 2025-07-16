@@ -1,5 +1,5 @@
 <template>
-    <div class="chartmeta-editor">
+    <div class="chartmeta-panel">
         <Teleport :to="props.titleTeleport">
             谱面基本信息
         </Teleport>
@@ -45,7 +45,7 @@ const props = defineProps<{
 const chart = store.useChart();
 </script>
 <style scoped>
-.chartmeta-editor {
+.chartmeta-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

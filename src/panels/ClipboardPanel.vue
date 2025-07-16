@@ -1,5 +1,5 @@
 <template>
-    <div class="clipboard-editor">
+    <div class="clipboard-panel">
         <ElButton @click="globalEventEmitter.emit('CUT')">
             剪切
         </ElButton>
@@ -90,7 +90,7 @@ const paragraphRepeater = store.useManager("paragraphRepeater");
 const time = ref<Beats>([0, 0, 1]);
 </script>
 <style scoped>
-.clipboard-editor {
+.clipboard-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

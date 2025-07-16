@@ -6,18 +6,13 @@
     >
         <ElInput
             v-model="display"
-            a="1"
-            b="2"
-            c="3"
-            d="4"
-            e="5"
             class="display"
         />
         <div class="buttons">
             <ElButton
                 v-for="button of buttons"
                 :key="isString(button) ? button : button[1]"
-                type="primary"
+                :type="button == '=' ? 'success' : 'primary'"
                 @click="isString(button) ?
                     button in operations ? operations[button]() : append(button) :
                     button[1] in operations ? operations[button[1]]() : append(button[1])"
@@ -29,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { calculateExpression } from '@/tools/algorithm';
+import { ExpressionCalculator } from '@/tools/algorithm';
 import { createCatchErrorByMessage } from '@/tools/catchError';
 import { ElButton, ElInput } from 'element-plus';
 import { isString } from 'lodash';
@@ -37,12 +32,47 @@ import { ref } from 'vue';
 
 const display = ref('');
 const buttons: (string | [string, string])[] = [
-    'C', '(', ')', ['←', 'backspace'], '^',
-    '7', '8', '9', ['÷', '/'], ['sin', 'sin('],
-    '4', '5', '6', ['×', '*'], ['cos', 'cos('],
-    '1', '2', '3', '-', ['tan', 'tan('],
-    '0', '.', ['√', 'sqrt('], '+', '=',
+    'C', '(', ')', ['←', 'backspace'], ['√', 'sqrt('],
+    '+', '-', ['×', '*'], ['÷', '/'], '^',
+    '7', '8', '9', ['sin', 'sin('], ['arcsin', 'arcsin('],
+    '4', '5', '6', ['cos', 'cos('], ['arccos', 'arccos('],
+    '1', '2', '3', ['tan', 'tan('], ['arctan', 'arctan('],
+    ' ', '0', '.', ['mod', '%'], '=',
 ] as const;
+const expresstionCalculator = new ExpressionCalculator(
+    {
+        Infinity: Infinity,
+        NaN: NaN,
+        pi: Math.PI,
+        e: Math.E,
+    },
+    {
+        sin(deg) {
+            return Math.sin(deg * Math.PI / 180);
+        },
+        cos(deg) {
+            return Math.cos(deg * Math.PI / 180);
+        },
+        tan(deg) {
+            return Math.tan(deg * Math.PI / 180);
+        },
+        arcsin(x) {
+            return Math.asin(x) * 180 / Math.PI;
+        },
+        arccos(x) {
+            return Math.acos(x) * 180 / Math.PI;
+        },
+        arctan(x) {
+            return Math.atan(x) * 180 / Math.PI;
+        },
+        sqrt(x) {
+            if (x < 0) {
+                throw new Error('负数不能开平方');
+            }
+            return Math.sqrt(x);
+        },
+    }
+);
 function backspace() {
     display.value = display.value.slice(0, -1);
 }
@@ -53,25 +83,7 @@ function append(value: string) {
     display.value += value;
 }
 const calculate = createCatchErrorByMessage(() => {
-    const result = calculateExpression(display.value, {
-        Infinity: Infinity,
-        NaN: NaN,
-        pi: Math.PI,
-        e: Math.E,
-    }, {
-        sin(deg) {
-            return Math.sin(deg * Math.PI / 180);
-        },
-        cos(deg) {
-            return Math.cos(deg * Math.PI / 180);
-        },
-        tan(deg) {
-            return Math.tan(deg * Math.PI / 180);
-        },
-        sqrt(x) {
-            return Math.sqrt(x);
-        },
-    });
+    const result = expresstionCalculator.calculate(display.value);
     display.value = String(result);
 }, "计算");
 const operations: Record<string, () => void> = {

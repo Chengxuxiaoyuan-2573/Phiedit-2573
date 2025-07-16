@@ -1,5 +1,5 @@
 <template>
-    <div class="note-editor">
+    <div class="note-panel">
         <Teleport :to="props.titleTeleport">
             <ElSelect
                 v-model="inputNote.type"
@@ -247,7 +247,7 @@ function reverse() {
 }
 </script>
 <style scoped>
-.note-editor {
+.note-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

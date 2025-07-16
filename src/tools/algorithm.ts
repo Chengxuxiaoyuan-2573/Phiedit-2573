@@ -47,174 +47,166 @@ class Identifier extends AstNode {
         this.name = name;
     }
 }
-export function calculateExpression(expr: string, context: Record<string, number>, functions: Record<string, (...args: number[]) => number>) {
-    // 词法分析：拆分运算符、变量、数字、括号
-    const tokens = tokenize(expr);
-    // 语法分析：生成抽象语法树 (AST)
-    const ast = parse(tokens);
-    // 递归求值AST
-    return evaluate(ast, context, functions);
-}
-// 工具函数：分解表达式为词法单元
-function tokenize(expr: string) {
-    const tokens: string[] = [];
-    let index = 0;
+export class ExpressionCalculator {
+    private context: Record<string, number>;
+    private functions: Record<string, (...args: number[]) => number>;
 
-    while (index < expr.length) {
-        const char = expr[index];
-
-        if (/\s/.test(char)) { // 跳过空格
-            index++;
-            continue;
-        }
-
-        // 匹配数字（包括科学计数法）
-        const numMatch = expr.slice(index).match(/^-?\d+(\.\d+)?([eE][-+]?\d+)?/);
-        if (numMatch) {
-            tokens.push(numMatch[0]);
-            index += numMatch[0].length;
-            continue;
-        }
-
-        // 匹配变量名或函数名
-        const idMatch = expr.slice(index).match(/^[a-zA-Z_$][\w$]*/);
-        if (idMatch) {
-            tokens.push(idMatch[0]);
-            index += idMatch[0].length;
-            continue;
-        }
-
-        if (/^[\^()+\-*/]$/.test(char)) { // 运算符或括号
-            tokens.push(char);
-            index++;
-            continue;
-        }
-
-
-        throw new Error(`无法解析的符号: ${char}`);
+    constructor(
+        context: Record<string, number> = {},
+        functions: Record<string, (...args: number[]) => number> = {}
+    ) {
+        this.context = context;
+        this.functions = functions;
     }
 
-    console.log(tokens);
-    return tokens;
-}
-// 语法分析：生成AST（递归下降解析）
-function parse(tokens: string[]) {
-    let index = 0;
-    /** 解析加法和减法表达式 */
-    function parse1(): AstNode {
-        let left = parse2();
-        while (index < tokens.length && /^[+-]$/.test(tokens[index])) {
-            const op = tokens[index++];
-            const right = parse2();
-            left = new BinaryExpression(op, left, right);
-        }
-        return left;
+    calculate(expr: string): number {
+        const tokens = this.tokenize(expr);
+        const ast = this.parse(tokens);
+        return this.evaluate(ast);
     }
 
-    /** 解析乘法和除法表达式 */
-    function parse2(): AstNode {
-        let left = parse3();
-        while (index < tokens.length && /^[*/]$/.test(tokens[index])) {
-            const op = tokens[index++];
-            const right = parse3();
-            left = new BinaryExpression(op, left, right);
-        }
-        return left;
-    }
+    private tokenize(expr: string): string[] {
+        const numberRegexStart = /^\d+(\.\d+)?([eE][-+]?\d+)?/;
+        const variableRegexStart = /^[a-zA-Z_$][\w$]*/;
+        const tokens: string[] = [];
+        let index = 0;
 
-    /** 解析幂运算表达式 */
-    function parse3(): AstNode {
-        let left = parse4();
-        while (index < tokens.length && /^\^$/.test(tokens[index])) {
-            const op = tokens[index++];
-            const right = parse3();
-            left = new BinaryExpression(op, left, right);
-        }
-        return left;
-    }
-    /** 解析括号内的表达式、数字和变量 */
-    function parse4(): AstNode {
-        if (tokens[index] === '(') {
-            index++;
-            const expr = parse1();
-            if (tokens[index++] !== ')') throw new Error('括号不匹配');
-            return expr;
-        }
-        if (/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(tokens[index])) { // 数字
-            return new Literal(Number(tokens[index++]));
-        }
-        if (/^[a-zA-Z_$][\w$]*$/.test(tokens[index])) { // 变量或函数
-            const id = tokens[index++];
-            if (tokens[index] === '(') { // 函数调用
+        while (index < expr.length) {
+            const char = expr[index];
+            if (/\s/.test(char)) {
                 index++;
-                const args = [];
-                while (tokens[index] !== ')') {
-                    args.push(parse1());
-                    if (index < tokens.length && tokens[index] === ',') {
-                        index++;
-                    } 
-                    // 如果索引超出范围或者下一个字符不是逗号或者右括号，则抛出错误
-                    if (index >= tokens.length || tokens[index] !== ')' && tokens[index] !== ',') {
-                        throw new Error(`括号不匹配`);
-                    }
-                }
-                index++;
-                return new CallExpression(id, args);
+                continue;
             }
-            return new Identifier(id); // 变量
+
+            // Match numbers
+            const numMatch = expr.slice(index).match(numberRegexStart);
+            if (numMatch) {
+                tokens.push(numMatch[0]);
+                index += numMatch[0].length;
+                continue;
+            }
+
+            // Match identifiers
+            const idMatch = expr.slice(index).match(variableRegexStart);
+            if (idMatch) {
+                tokens.push(idMatch[0]);
+                index += idMatch[0].length;
+                continue;
+            }
+
+            // Match operators
+            if (/^[\^()+\-*/]$/.test(char)) {
+                tokens.push(char);
+                index++;
+                continue;
+            }
+
+            throw new Error(`无法解析的符号: ${char}`);
         }
-        if (/^[+-]$/.test(tokens[index])) {
-            return new UnaryExpression(tokens[index++], parse4());
-        }
-        throw new Error(`无法解析的符号: ${tokens[index]}`);
+        return tokens;
     }
 
-    return parse1();
-}
+    private parse(tokens: string[]): AstNode {
+        const numberRegex = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
+        const variableRegex = /^[a-zA-Z_$][\w$]*$/;
+        let index = 0;
 
-// AST求值
-function evaluate(node: AstNode, variables: Record<string, number>, functions: Record<string, (...args: number[]) => number>): number {
-    if (node instanceof Literal) {
-        return node.value;
-    }
-    else if (node instanceof Identifier) {
-        if (variables[node.name] === undefined) {
-            throw new Error(`变量 ${node.name} 未定义`);
+        const parse1 = (): AstNode => {
+            let left = parse2();
+            while (index < tokens.length && /^[+-]$/.test(tokens[index])) {
+                const op = tokens[index++];
+                const right = parse2();
+                left = new BinaryExpression(op, left, right);
+            }
+            return left;
+        };
+
+        const parse2 = (): AstNode => {
+            let left = parse3();
+            while (index < tokens.length && /^[*/]$/.test(tokens[index])) {
+                const op = tokens[index++];
+                const right = parse3();
+                left = new BinaryExpression(op, left, right);
+            }
+            return left;
+        };
+
+        const parse3 = (): AstNode => {
+            let left = parse4();
+            while (index < tokens.length && /^\^$/.test(tokens[index])) {
+                const op = tokens[index++];
+                const right = parse3();
+                left = new BinaryExpression(op, left, right);
+            }
+            return left;
+        };
+
+        const parse4 = (): AstNode => {
+            if (tokens[index] === '(') {
+                index++;
+                const expr = parse1();
+                if (index >= tokens.length || tokens[index] !== ')') throw new Error('括号不匹配');
+                index++;
+                return expr;
+            }
+            if (numberRegex.test(tokens[index])) {
+                return new Literal(Number(tokens[index++]));
+            }
+            if (variableRegex.test(tokens[index])) {
+                const id = tokens[index++];
+                if (tokens[index] === '(') {
+                    index++;
+                    const args = [];
+                    while (tokens[index] !== ')') {
+                        args.push(parse1());
+                        if (index < tokens.length && tokens[index] === ',') index++;
+                    }
+                    index++;
+                    return new CallExpression(id, args);
+                }
+                return new Identifier(id);
+            }
+            if (/^[+-]$/.test(tokens[index])) {
+                return new UnaryExpression(tokens[index++], parse4());
+            }
+            throw new Error(`无法解析的符号: ${tokens[index]}`);
+        };
+        const result = parse1();
+        if (index < tokens.length) {
+            throw new Error(`无法解析: ${tokens[index]}`);
         }
-        if (typeof variables[node.name] !== 'number') {
-            throw new Error(`变量 ${node.name} 不是数字`);
-        }
-        return variables[node.name];
+        return result;
     }
-    else if (node instanceof BinaryExpression) {
-        const left = evaluate(node.left, variables, functions);
-        const right = evaluate(node.right, variables, functions);
-        switch (node.op) {
-            case '+': return left + right;
-            case '-': return left - right;
-            case '*': return left * right;
-            case '/': return left / right;
-            case '^': return left ** right;
-            default: throw new Error(`未知运算符: ${node.op}`);
+
+    private evaluate(node: AstNode): number {
+        if (node instanceof Literal) return node.value;
+        if (node instanceof Identifier) {
+            const value = this.context[node.name];
+            if (value === undefined) throw new Error(`变量 ${node.name} 未定义`);
+            if (typeof value !== 'number') throw new Error(`变量 ${node.name} 不是数字`);
+            return value;
         }
-    }
-    else if (node instanceof CallExpression) {
-        const func = functions[node.callee];
-        if (typeof func !== 'function') {
-            throw new Error(`${node.callee} 不是函数`);
+        if (node instanceof BinaryExpression) {
+            const left = this.evaluate(node.left);
+            const right = this.evaluate(node.right);
+            switch (node.op) {
+                case '+': return left + right;
+                case '-': return left - right;
+                case '*': return left * right;
+                case '/': return left / right;
+                case '^': return left ** right;
+                default: throw new Error(`未知运算符: ${node.op}`);
+            }
         }
-        const args = node.arguments.map(arg => evaluate(arg, variables, functions));
-        return func(...args);
-    }
-    else if (node instanceof UnaryExpression) {
-        const argument = evaluate(node.argument, variables, functions);
-        switch (node.op) {
-            case '+': return +argument;
-            case '-': return -argument;
-            default: throw new Error(`未知运算符: ${node.op}`);
+        if (node instanceof CallExpression) {
+            const func = this.functions[node.callee];
+            if (typeof func !== 'function') throw new Error(`${node.callee} 不是函数`);
+            return func(...node.arguments.map(arg => this.evaluate(arg)));
         }
-    }
-    else {
+        if (node instanceof UnaryExpression) {
+            const arg = this.evaluate(node.argument);
+            return node.op === '-' ? -arg : +arg;
+        }
         throw new Error(`未知节点类型: ${node.type}`);
     }
 }

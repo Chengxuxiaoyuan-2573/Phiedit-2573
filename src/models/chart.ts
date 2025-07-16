@@ -69,6 +69,23 @@ export class Chart implements IChart {
             event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
         }
     }
+    deleteJudgeLine(judgeLineNumber: number) {
+        if (judgeLineNumber < 0 || judgeLineNumber >= this.judgeLineList.length) {
+            throw new Error(`第${judgeLineNumber}号判定线不存在`);
+        }
+        this.judgeLineList.splice(judgeLineNumber, 1);
+        this.judgeLineList.forEach((judgeLine, index) => {
+            judgeLine.id = index;
+            // 如果有以这条线为父线的判定线，则将其父线清空
+            if (judgeLine.father == judgeLineNumber) judgeLine.father = -1;
+            // 如果有以后面的判定线为父线的判定线，则将其父线减一
+            // 因为删除了当前判定线，所以后面的判定线的线号会减一
+            else if (judgeLine.father > judgeLineNumber) judgeLine.father--;
+
+        });
+        this.highlightNotes();
+        this.calculateSeconds();
+    }
     constructor(chart: unknown) {
         this.BPMList = reactive([]);
         this.judgeLineGroup = [];

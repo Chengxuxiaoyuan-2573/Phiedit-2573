@@ -1,7 +1,7 @@
 <template>
     <div
         v-if="u || !u"
-        class="history-editor"
+        class="history-panel"
     >
         <Teleport :to="props.titleTeleport">
             历史记录
@@ -89,7 +89,7 @@ function rowClassName(options: {
 }
 </script>
 <style scoped>
-.history-editor {
+.history-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;

@@ -128,23 +128,6 @@
                 />
                 <p>COMBO: {{ combo }}</p>
                 <p>SCORE: {{ score }}</p>
-                <ElButtonGroup>
-                    <ElButton
-                        v-for="i in stateManager.eventLayersCount"
-                        :key="i - 1 + (u ? 0 : 0)"
-                        type="primary"
-                        :plain="i - 1 != stateManager.state.currentEventLayerNumber"
-                        @click="stateManager.state.currentEventLayerNumber = i - 1"
-                    >
-                        {{ i - 1 }}
-                    </ElButton>
-                    <ElButton
-                        type="success"
-                        @click="stateManager.currentJudgeLine.addEventLayer(), update()"
-                    >
-                        +
-                    </ElButton>
-                </ElButtonGroup>
                 <MyInputNumber
                     v-model="stateManager.state.horizonalLineCount"
                     :min="1"
@@ -212,16 +195,16 @@
                     @back="selectionManager.unselectAll()"
                 />
                 <ElScrollbar @wheel.stop>
-                    <MutipleEditor
+                    <MutiplePanel
                         v-if="selectionManager.selectedElements.length > 1"
                         title-teleport=".title-left"
                     />
-                    <NoteEditor
+                    <NotePanel
                         v-else-if="selectionManager.selectedElements[0] instanceof Note"
                         v-model="selectionManager.selectedElements[0]"
                         title-teleport=".title-left"
                     />
-                    <NumberEventEditor
+                    <NumberEventPanel
                         v-else-if="selectionManager.selectedElements[0] instanceof NumberEvent"
                         v-model="selectionManager.selectedElements[0]"
                         title-teleport=".title-left"
@@ -280,7 +263,22 @@
                         >
                             剪贴板管理
                         </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.Calculator"
+                        >
+                            计算器
+                        </ElButton>
+                        <ElButton
+                            type="primary"
+                            @click="stateManager.state.right = RightPanelState.NoteFill"
+                        >
+                            曲线填充音符
+                        </ElButton>
                     </MyGridContainer>
+                    <h3>
+                        判定线
+                    </h3>
                     <MyGridContainer
                         :columns="5"
                         :gap="5"
@@ -301,35 +299,62 @@
                             +
                         </ElButton>
                     </MyGridContainer>
-                    <MyCalculator />
+                    <h3>
+                        事件层级
+                    </h3>
+                    <MyGridContainer :columns="5">
+                        <ElButton
+                            v-for="i in stateManager.eventLayersCount"
+                            :key="i - 1 + (u ? 0 : 0)"
+                            type="primary"
+                            :plain="i - 1 != stateManager.state.currentEventLayerNumber"
+                            @click="stateManager.state.currentEventLayerNumber = i - 1"
+                        >
+                            {{ i - 1 }}
+                        </ElButton>
+                        <ElButton
+                            type="success"
+                            @click="stateManager.currentJudgeLine.addEventLayer(), update()"
+                        >
+                            +
+                        </ElButton>
+                    </MyGridContainer>
                 </div>
                 <template v-else>
                     <MyBackHeader
                         class="title-right"
                         @back="stateManager.state.right = RightPanelState.Default"
                     />
-                    <BPMListEditor
+                    <BPMListPanel
                         v-if="stateManager.state.right == RightPanelState.BPMList"
                         title-teleport=".title-right"
                     />
-                    <ChartMetaEditor
+                    <ChartMetaPanel
                         v-else-if="stateManager.state.right == RightPanelState.Meta"
                         title-teleport=".title-right"
                     />
-                    <JudgeLineEditor
+                    <JudgeLinePanel
                         v-else-if="stateManager.state.right == RightPanelState.JudgeLine"
                         title-teleport=".title-right"
                     />
-                    <SettingsEditor
+                    <SettingsPanel
                         v-else-if="stateManager.state.right == RightPanelState.Settings"
                         title-teleport=".title-right"
                     />
-                    <HistoryEditor
+                    <HistoryPanel
                         v-else-if="stateManager.state.right == RightPanelState.History"
                         title-teleport=".title-right"
                     />
-                    <ClipboardEditor
+                    <ClipboardPanel
                         v-else-if="stateManager.state.right == RightPanelState.Clipboard"
+                        title-teleport=".title-right"
+                    />
+                    <CalculatorPanel
+                        v-else-if="stateManager.state.right == RightPanelState.Calculator"
+                        title-teleport=".title-right"
+                    />
+                    <NoteFillPanel
+                        v-else-if="stateManager.state.right == RightPanelState.NoteFill"
                         title-teleport=".title-right"
                     />
                 </template>
@@ -350,7 +375,6 @@ import {
     ElMessageBox,
     ElRow,
     ElSlider,
-    ElButtonGroup,
 } from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -370,7 +394,6 @@ import MySelect from "@/myElements/MySelect.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyBackHeader from "@/myElements/MyBackHeader.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import MyCalculator from "@/myElements/MyCalculator.vue";
 
 import ChartRenderer from "@/managers/render/chartRenderer";
 import SaveManager from "@/managers/save";
@@ -387,21 +410,25 @@ import SettingsManager from "@/managers/settings";
 import ParagraphRepeater from "@/managers/paragraphRepeater";
 import EventAbillitiesManager from "@/managers/eventAbillities";
 
-import BPMListEditor from "@/editorComponents/BPMListEditor.vue";
-import ChartMetaEditor from "@/editorComponents/ChartMetaEditor.vue";
-import JudgeLineEditor from "@/editorComponents/JudgeLineEditor.vue";
-import NoteEditor from "@/editorComponents/NoteEditor.vue";
-import NumberEventEditor from "@/editorComponents/NumberEventEditor.vue";
-import MutipleEditor from "@/editorComponents/MutipleEditor.vue";
-import SettingsEditor from "@/editorComponents/SettingsEditor.vue";
-import HistoryEditor from "@/editorComponents/HistoryEditor.vue";
-import ClipboardEditor from "@/editorComponents/ClipboardEditor.vue";
+import BPMListPanel from "@/panels/BPMListPanel.vue";
+import ChartMetaPanel from "@/panels/ChartMetaPanel.vue";
+import JudgeLinePanel from "@/panels/JudgeLinePanel.vue";
+import NotePanel from "@/panels/NoteEditPanel.vue";
+import NumberEventPanel from "@/panels/NumberEventEditPanel.vue";
+import MutiplePanel from "@/panels/MutipleEditPanel.vue";
+import SettingsPanel from "@/panels/SettingsPanel.vue";
+import HistoryPanel from "@/panels/HistoryPanel.vue";
+import ClipboardPanel from "@/panels/ClipboardPanel.vue";
+
 
 import globalEventEmitter from "@/eventEmitter";
 import { RightPanelState } from "@/types";
 import store, { audioRef, canvasRef, chartPackageRef } from "@/store";
 import BoxesManager from "@/managers/boxes";
 import { confirm } from "@/tools/catchError";
+import CalculatorPanel from "@/panels/CalculatorPanel.vue";
+import NoteFiller from "@/managers/noteFiller";
+import NoteFillPanel from "@/panels/NoteFillPanel.vue";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -465,6 +492,7 @@ loadStart();
     store.setManager("exportManager", new ExportManager());
     store.setManager("eventAbillitiesManager", new EventAbillitiesManager());
     store.setManager("boxesManager", new BoxesManager());
+    store.setManager("noteFiller", new NoteFiller());
 
     onBeforeUnmount(() => {
         // 释放资源
@@ -567,16 +595,16 @@ async function windowOnKeyDown(e: KeyboardEvent) {
             MediaUtils.togglePlay(audio);
             return;
         case "Q":
-            globalEventEmitter.emit("CHANGE_TYPE", "Tap");
+            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Tap);
             return;
         case "W":
-            globalEventEmitter.emit("CHANGE_TYPE", "Drag");
+            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Drag);
             return;
         case "E":
-            globalEventEmitter.emit("CHANGE_TYPE", "Flick");
+            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Flick);
             return;
         case "R":
-            globalEventEmitter.emit("CHANGE_TYPE", "Hold");
+            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Hold);
             return;
         case "T": {
             globalEventEmitter.emit("PREVIEW");

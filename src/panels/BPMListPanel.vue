@@ -2,7 +2,7 @@
     <!-- 这里变量u的作用是触发vue的响应式系统，使得当u的值发生变化时，会重新渲染组件 -->
     <div
         v-if="u || !u"
-        class="bpmlist-editor"
+        class="bpmlist-panel"
     >
         <Teleport :to="props.titleTeleport">
             BPM编辑
@@ -85,7 +85,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <style scoped>
-.bpmlist-editor {
+.bpmlist-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
