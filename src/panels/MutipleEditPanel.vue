@@ -65,6 +65,18 @@
                 </ElButton>
             </template>
         </MyDialog>
+        <ElButton
+            v-if="numOfEvents > 0"
+            @click="globalEventEmitter.emit('DISABLE')"
+        >
+            禁用选中的{{ numOfEvents }}个事件（Ctrl+D）
+        </ElButton>
+        <ElButton
+            v-if="numOfEvents > 0"
+            @click="globalEventEmitter.emit('ENABLE')"
+        >
+            启用选中的{{ numOfEvents }}个事件（Ctrl+E）
+        </ElButton>
         <h1>编辑对象</h1>
         <ElSelect v-model="type">
             <ElOption
@@ -265,6 +277,7 @@ const chart = store.useChart();
 const selectionManager = store.useManager("selectionManager");
 const cloneManager = store.useManager("cloneManager");
 const historyManager = store.useManager("historyManager");
+const mouseManager = store.useManager("mouseManager");
 
 const numOfSelectedElements = computed(() => {
     return selectionManager.selectedElements.length
@@ -358,7 +371,8 @@ function run() {
             default:
                 newValue = note[attr];
         }
-        historyManager.modifyNote(note.id, attr, newValue);
+        historyManager.recordModifyNote(note.id, attr, newValue, note[attr]);
+        note[attr] = newValue;
     }
 
     function modifyEventWithNumber(event: NumberEvent, attr: EventNumberAttrs | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
@@ -414,8 +428,10 @@ function run() {
             default:
                 newValue = event[attr];
         }
-        historyManager.modifyEvent(event.id, attr, newValue);
+        historyManager.recordModifyEvent(event.id, attr, newValue, event[attr]);
+        event[attr] = newValue;
     }
+    mouseManager.checkMouseUp();
 
     historyManager.group("批量编辑");
 
@@ -431,10 +447,12 @@ function run() {
                 : param.value;
             const attrName = attributeNote.value;
             if (attrName === 'isFake') {
-                historyManager.modifyNote(note.id, "isFake", paramBoolean.value ? 1 : 0);
+                historyManager.recordModifyNote(note.id, "isFake", paramBoolean.value ? 1 : 0, note.isFake);
+                note.isFake = paramBoolean.value ? 1 : 0;
             }
             else if (attrName === 'above') {
-                historyManager.modifyNote(note.id, "above", paramBoolean.value ? NoteAbove.Above : NoteAbove.Below);
+                historyManager.recordModifyNote(note.id, "above", paramBoolean.value ? NoteAbove.Above : NoteAbove.Below, note.above);
+                note.above = paramBoolean.value ? NoteAbove.Above : NoteAbove.Below;
             }
             else {
                 modifyNoteWithNumber(note, attrName, value, mode.value);
@@ -453,7 +471,8 @@ function run() {
                 : param.value;
             const attrName = attributeEvent.value;
             if (attrName === 'easingType') {
-                historyManager.modifyEvent(event.id, "easingType", paramEasing.value);
+                historyManager.recordModifyEvent(event.id, "easingType", paramEasing.value, event.easingType);
+                event.easingType = paramEasing.value;
             }
             else {
                 modifyEventWithNumber(event, attrName, value, mode.value);

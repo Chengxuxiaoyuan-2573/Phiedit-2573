@@ -20,6 +20,8 @@ export default class ParagraphRepeater {
     }
     copy() {
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         const beats = subBeats(this.targetTime, this.startTime);
         const chart = store.useChart();
         historyManager.group("复制段落");
@@ -56,7 +58,8 @@ export default class ParagraphRepeater {
                             eventObject.start = 180 + eventObject.start;
                             eventObject.end = 180 + eventObject.end;
                         }
-                        historyManager.addEvent(eventObject, type, event.eventLayerId, event.judgeLineNumber);
+                        const newEvent = store.addEvent(eventObject, type, event.eventLayerId, event.judgeLineNumber);
+                        historyManager.recordAddEvent(newEvent.id);
                     }
                 }
             }
@@ -69,10 +72,11 @@ export default class ParagraphRepeater {
                 const noteObject = note.toObject();
                 noteObject.startTime = addBeats(noteObject.startTime, beats);
                 noteObject.endTime = addBeats(noteObject.endTime, beats);
-                if(this.flip == FlipOptions.Horizontal || this.flip == FlipOptions.Vertical){
+                if (this.flip == FlipOptions.Horizontal || this.flip == FlipOptions.Vertical) {
                     noteObject.positionX = -noteObject.positionX;
                 }
-                historyManager.addNote(noteObject, judgeLine.id);
+                const newNote = store.addNote(noteObject, judgeLine.id);
+                historyManager.recordAddNote(newNote.id);
             }
         }
         historyManager.ungroup();

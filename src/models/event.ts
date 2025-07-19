@@ -15,6 +15,7 @@ export interface IEvent<T> {
     startTime: Beats;
     endTime: Beats;
     linkgroup: number;
+    isDisabled: boolean;
 }
 interface EventOptions {
     judgeLineNumber: number;
@@ -54,6 +55,7 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
     readonly id: string
     judgeLineNumber: number;
     type: string;
+    /** 事件层级号，普通事件的层级号是数字（比如"0"，但仍然是字符串类型），特殊事件的层级号是字符"X" */
     eventLayerId: string;
     isDisabled: boolean = false;
     linkgroup = 0;
@@ -77,7 +79,7 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             this.startTime = b;
             this.endTime = a;
         }
-        else if(getBeatsValue(this.startTime) == getBeatsValue(this.endTime)) {
+        else if (getBeatsValue(this.startTime) == getBeatsValue(this.endTime)) {
             this.endTime = addBeats(this.endTime, [0, 0, 1]); // 确保endTime大于startTime
         }
     }
@@ -107,7 +109,8 @@ export abstract class BaseEvent<T = unknown> implements IEvent<T> {
             end: this.end,
             startTime: [...this.startTime],
             endTime: [...this.endTime],
-            linkgroup: this.linkgroup
+            linkgroup: this.linkgroup,
+            isDisabled: this.isDisabled,
         }
     }
     constructor(event: unknown, options: EventOptions) {
@@ -235,7 +238,8 @@ export function interpolateColorEventValue(event: ColorEvent | null, seconds: nu
             endTime,
             cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
             cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
-            linkgroup: 0
+            linkgroup: 0,
+            isDisabled: false,
         };
         return interpolateNumberEventValue(e, seconds);
     }
@@ -273,7 +277,8 @@ export function interpolateTextEventValue(event: TextEvent | null, seconds: numb
                 end: lengthEnd,
                 cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
                 cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
-                linkgroup: 0
+                linkgroup: 0,
+                isDisabled: false,
             };
             const length = Math.round(interpolateNumberEventValue(e, seconds));
             return start.length > end.length ? start.slice(0, length) : end.slice(0, length);

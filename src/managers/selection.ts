@@ -48,12 +48,16 @@ export default class SelectionManager extends Manager {
 
     deleteSelection() {
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         for (const element of this.selectedElements) {
             if (element instanceof Note) {
-                historyManager.removeNote(element.id);
+                store.removeNote(element.id);
+                historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
             }
             else {
-                historyManager.removeEvent(element.id);
+                store.removeEvent(element.id);
+                historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
             }
         }
         this.selectedElements.splice(0);

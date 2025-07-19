@@ -1,5 +1,5 @@
-import { Beats } from "./models/beats";
-import { EasingType } from "./models/easing";
+import type { Beats } from "./models/beats";
+import type { EasingType } from "./models/easing";
 import type { NoteType } from "./models/note";
 import EventEmitter from "./tools/eventEmitter";
 type PositionX = number;

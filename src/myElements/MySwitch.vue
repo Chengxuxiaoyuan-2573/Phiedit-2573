@@ -26,6 +26,9 @@ const props = withDefaults(defineProps<{
 const model = defineModel<A>({
     required: true
 });
+const emit = defineEmits<{
+    change: [A]
+}>();
 watch(model, () => {
     inputData.value = model.value;
 },{
@@ -33,6 +36,7 @@ watch(model, () => {
 })
 function changeHandler() {
     model.value = inputData.value;
+    emit("change", model.value);
 }
 </script>
 <style scoped>

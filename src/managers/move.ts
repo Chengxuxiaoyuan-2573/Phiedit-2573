@@ -32,12 +32,14 @@ export default class MoveManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         const canvas = store.useCanvas();
         historyManager.group("左移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                historyManager.modifyNote(element.id, "positionX", element.positionX - canvas.width / (stateManager.state.verticalLineCount - 1));
-                // element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
+                historyManager.recordModifyNote(element.id, "positionX", element.positionX - canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
+                element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
             }
         }
         historyManager.ungroup();
@@ -49,12 +51,14 @@ export default class MoveManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         const canvas = store.useCanvas();
         historyManager.group("右移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                historyManager.modifyNote(element.id, "positionX", element.positionX + canvas.width / (stateManager.state.verticalLineCount - 1));
-                // element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
+                historyManager.recordModifyNote(element.id, "positionX", element.positionX + canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
+                element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
             }
         }
         historyManager.ungroup();
@@ -66,18 +70,20 @@ export default class MoveManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         historyManager.group("上移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                historyManager.modifyNote(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
-                historyManager.modifyNote(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.recordModifyNote(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
+                historyManager.recordModifyNote(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
             else {
-                historyManager.modifyEvent(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
-                historyManager.modifyEvent(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.recordModifyEvent(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
+                historyManager.recordModifyEvent(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
-            // element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            // element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
+            element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
         }
         historyManager.ungroup();
     }
@@ -88,18 +94,20 @@ export default class MoveManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         historyManager.group("下移");
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                historyManager.modifyNote(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
-                historyManager.modifyNote(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.recordModifyNote(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
+                historyManager.recordModifyNote(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
             else {
-                historyManager.modifyEvent(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]));
-                historyManager.modifyEvent(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]));
+                historyManager.recordModifyEvent(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
+                historyManager.recordModifyEvent(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
-            // element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            // element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
+            element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
         }
         historyManager.ungroup();
     }
@@ -112,12 +120,14 @@ export default class MoveManager extends Manager {
         historyManager.group(`移到${targetJudgeLineNumber}号判定线`);
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                const note = historyManager.addNote(element.toObject(), targetJudgeLineNumber);
+                const note = store.addNote(element.toObject(), targetJudgeLineNumber);
                 elements.push(note);
+                historyManager.recordAddNote(element.id);
             }
             else if (element instanceof NumberEvent) {
-                const event = historyManager.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber)
+                const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
                 elements.push(event);
+                historyManager.recordAddEvent(element.id);
             }
         }
         historyManager.ungroup();

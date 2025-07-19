@@ -91,29 +91,27 @@ export default class CloneManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
-        const chart = store.useChart();
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         let beats: Beats = [0, 0, 1];
         let i = 0;
         
         historyManager.group("克隆");
         while (isLessThanBeats(beats, this.options.timeDuration)) {
-            const num = this.options.targetJudgeLines[i];
-            const judgeLine = chart.judgeLineList[num];
             for (const element of selectionManager.selectedElements) {
                 if (element instanceof Note) {
-                    const newNote = historyManager.addNote(element.toObject(), stateManager.state.currentJudgeLineNumber);
-                    historyManager.modifyNote(newNote.id, "startTime", addBeats(newNote.startTime, beats));
-                    historyManager.modifyNote(newNote.id, "endTime", addBeats(newNote.endTime, beats));
-                    // newNote.startTime = addBeats(newNote.startTime, beats);
-                    // newNote.endTime = addBeats(newNote.endTime, beats);
-                    judgeLine.notes.push(newNote);
+                    const noteObject = element.toObject();
+                    noteObject.startTime = addBeats(noteObject.startTime, beats);
+                    noteObject.endTime = addBeats(noteObject.endTime, beats);
+                    const newNote = store.addNote(noteObject, stateManager.state.currentJudgeLineNumber);
+                    historyManager.recordAddNote(newNote.id);
                 }
                 else {
-                    const newEvent = historyManager.addEvent(element.toObject(), element.type, element.eventLayerId, stateManager.state.currentJudgeLineNumber);
-                    historyManager.modifyEvent(newEvent.id, "startTime", addBeats(newEvent.startTime, beats));
-                    historyManager.modifyEvent(newEvent.id, "endTime", addBeats(newEvent.endTime, beats));
-                    // newEvent.startTime = addBeats(newEvent.startTime, beats);
-                    // newEvent.endTime = addBeats(newEvent.endTime, beats);
+                    const eventObject = element.toObject();
+                    eventObject.startTime = addBeats(eventObject.startTime, beats);
+                    eventObject.endTime = addBeats(eventObject.endTime, beats);
+                    const newEvent = store.addEvent(eventObject, element.type, element.eventLayerId, element.judgeLineNumber);
+                    historyManager.recordAddEvent(newEvent.id);
                 }
             }
             beats = addBeats(beats, this.options.timeDelta);

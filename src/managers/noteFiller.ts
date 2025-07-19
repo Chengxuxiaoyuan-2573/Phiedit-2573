@@ -18,7 +18,7 @@ export default class NoteFiller extends Manager {
         if (selectedNotes.length === 0) return null;
         // 取时间较小的音符作为起始音符
         return selectedNotes.reduce((prev, curr) => {
-            return prev.startTime < curr.startTime ? prev : curr;
+            return getBeatsValue(prev.startTime) < getBeatsValue(curr.startTime) ? prev : curr;
         });
     }
     get endNote() {
@@ -27,23 +27,31 @@ export default class NoteFiller extends Manager {
         if (selectedNotes.length === 0) return null;
         // 取时间较大的音符作为结束音符
         return selectedNotes.reduce((prev, curr) => {
-            return prev.startTime > curr.startTime ? prev : curr;
+            return getBeatsValue(prev.startTime) > getBeatsValue(curr.startTime) ? prev : curr;
         });
     }
     fill(type: NoteType, easingType: EasingType, density: number) {
         const stateManager = store.useManager("stateManager");
         const historyManager = store.useManager("historyManager");
+        const selectionManager = store.useManager("selectionManager");
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
+        const notes = selectionManager.selectedElements.filter(element => element instanceof Note).length;
+        if(notes != 2){
+            throw new Error(`请选择两个音符，当前选中了${notes}个音符`);
+        }
         const chart = store.useChart();
         const startNote = this.startNote;
         const endNote = this.endNote;
         if (!startNote || !endNote) {
             throw new Error("请先选择起始和结束音符"); 
         }
-        if (startNote.startTime >= endNote.startTime) {
-            throw new Error("起始音符必须在结束音符之前");
-        }
         const startTime = startNote.startTime;
         const endTime = endNote.startTime;
+        if (getBeatsValue(startTime) > getBeatsValue(endTime)) {
+            throw new Error("起始音符必须在结束音符之前");
+        }
+        console.log(startTime, endTime);
         const startSeconds = beatsToSeconds(chart.BPMList, startTime);
         const endSeconds = beatsToSeconds(chart.BPMList, endTime);
         const step: Beats = [0, 1, density];
@@ -63,7 +71,8 @@ export default class NoteFiller extends Manager {
                 yOffset: 0,
                 visibleTime: 999999
             }
-            historyManager.addNote(noteObject, stateManager._state.currentJudgeLineNumber);
+            const note = store.addNote(noteObject, stateManager._state.currentJudgeLineNumber);
+            historyManager.recordAddNote(note.id);
         }
         historyManager.ungroup();
     }

@@ -178,16 +178,6 @@
                 >
                     删除谱面
                 </ElButton>
-                <ul>
-                    <li>按Q/W/E/R键：将当前放置的音符切换为Tap/Drag/Flick/Hold</li>
-                    <li>按T键：预览谱面（松开T键回到原位置）</li>
-                    <li>按U键：预览谱面（松开U键不回到原位置）</li>
-                    <li>按I键：预览谱面（需要再次按下I键停止预览）</li>
-                    <li>按鼠标左键：选择音符事件/拖动音符事件的头部</li>
-                    <li>按鼠标右键：放置音符事件/拖动音符事件的尾部</li>
-                    <li>滚动鼠标滚轮：时间前后移动</li>
-                    <li>按Ctrl+鼠标滚轮：缩放</li>
-                </ul>
             </div>
             <template v-else>
                 <MyBackHeader
@@ -195,16 +185,16 @@
                     @back="selectionManager.unselectAll()"
                 />
                 <ElScrollbar @wheel.stop>
-                    <MutiplePanel
+                    <MutipleEditPanel
                         v-if="selectionManager.selectedElements.length > 1"
                         title-teleport=".title-left"
                     />
-                    <NotePanel
+                    <NoteEditPanel
                         v-else-if="selectionManager.selectedElements[0] instanceof Note"
                         v-model="selectionManager.selectedElements[0]"
                         title-teleport=".title-left"
                     />
-                    <NumberEventPanel
+                    <NumberEventEditPanel
                         v-else-if="selectionManager.selectedElements[0] instanceof NumberEvent"
                         v-model="selectionManager.selectedElements[0]"
                         title-teleport=".title-left"
@@ -302,7 +292,10 @@
                     <h3>
                         事件层级
                     </h3>
-                    <MyGridContainer :columns="5">
+                    <MyGridContainer
+                        :columns="5"
+                        :gap="5"
+                    >
                         <ElButton
                             v-for="i in stateManager.eventLayersCount"
                             :key="i - 1 + (u ? 0 : 0)"
@@ -360,6 +353,14 @@
                 </template>
             </ElScrollbar>
         </ElAside>
+        <ElFooter id="footer">
+            <div class="footer-left">
+                Phiedit 2573 Made By <a href="javascript:alert('https://space.bilibili.com/522248560')">@程序小袁_2573</a>
+            </div>
+            <div class="footer-right">
+                {{ tip }}
+            </div>
+        </ElFooter>
     </ElContainer>
 </template>
 
@@ -375,6 +376,7 @@ import {
     ElMessageBox,
     ElRow,
     ElSlider,
+    ElFooter,
 } from "element-plus";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -413,9 +415,9 @@ import EventAbillitiesManager from "@/managers/eventAbillities";
 import BPMListPanel from "@/panels/BPMListPanel.vue";
 import ChartMetaPanel from "@/panels/ChartMetaPanel.vue";
 import JudgeLinePanel from "@/panels/JudgeLinePanel.vue";
-import NotePanel from "@/panels/NoteEditPanel.vue";
-import NumberEventPanel from "@/panels/NumberEventEditPanel.vue";
-import MutiplePanel from "@/panels/MutipleEditPanel.vue";
+import NoteEditPanel from "@/panels/NoteEditPanel.vue";
+import NumberEventEditPanel from "@/panels/NumberEventEditPanel.vue";
+import MutipleEditPanel from "@/panels/MutipleEditPanel.vue";
 import SettingsPanel from "@/panels/SettingsPanel.vue";
 import HistoryPanel from "@/panels/HistoryPanel.vue";
 import ClipboardPanel from "@/panels/ClipboardPanel.vue";
@@ -429,6 +431,7 @@ import { confirm } from "@/tools/catchError";
 import CalculatorPanel from "@/panels/CalculatorPanel.vue";
 import NoteFiller from "@/managers/noteFiller";
 import NoteFillPanel from "@/panels/NoteFillPanel.vue";
+import Constants from "@/constants";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -517,6 +520,7 @@ const combo = ref(0);
 const score = ref(0);
 const u = ref(false);
 const audioIsPlaying = ref(false);
+const tip = ref(Constants.tips[Math.floor(Math.random() * Constants.tips.length)]);
 
 let windowIsFocused = true;
 let cachedRect: DOMRect;
@@ -835,6 +839,9 @@ onMounted(() => {
             requestAnimationFrame(renderLoop);
         }
     };
+    const tipInterval = setInterval(() => {
+        tip.value = Constants.tips[Math.floor(Math.random() * Constants.tips.length)];
+    }, 10000);
     renderLoop();
     onBeforeUnmount(() => {
         audio.pause();
@@ -868,6 +875,7 @@ onMounted(() => {
 
         isRendering = false;
         globalEventEmitter.destroy();
+        clearInterval(tipInterval);
     });
 });
 </script>
@@ -887,19 +895,13 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     display: grid;
-    grid-template-columns: 1fr 3fr 1fr;
-    grid-template-rows: 80px auto;
+    grid-template-columns: auto auto auto;
+    grid-template-rows: 80px auto 30px;
     grid-template-areas:
         "header header header"
-        "left main right";
+        "left main right"
+        "footer footer footer";
 }
-
-/*
-.el-container>* {
-    width: 100%;
-    height: 100%;
-}
-*/
 
 #header {
     grid-area: header;
@@ -957,5 +959,17 @@ onMounted(() => {
 .el-button-group {
     display: flex;
     flex-wrap: nowrap;
+}
+
+#footer {
+    grid-area: footer;
+}
+
+.footer-left {
+    float: left;
+}
+
+.footer-right {
+    float: right;
 }
 </style>

@@ -40,8 +40,7 @@
         <template v-else>
             <MySelectEasing
                 v-model="inputEvent.easingType"
-                @change="createHistory()"
-                @input="updateModel('easingType')"
+                @change="updateModel('easingType'), createHistory()"
             />
             <ElSlider
                 v-model="inputEvent.easingLeftRight"
@@ -97,6 +96,7 @@ const attributes = [
     "easingRight"
 ] as const;
 const historyManager = store.useManager("historyManager");
+// const mouseManager = store.useManager("mouseManager");
 watch(model, () => {
     for (const attr of attributes) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,11 +171,13 @@ const oldValues = {
     easingLeft: model.value.easingLeft,
     easingRight: model.value.easingRight
 };
+/** 检查属性是否被修改过，并记录到历史记录中 */
 function createHistory() {
     // 遍历新值和旧值，找到不一样的属性
     for (const attr of attributes) {
         if (inputEvent[attr] !== oldValues[attr]) {
-            historyManager.modifyEvent(model.value.id, attr, inputEvent[attr], oldValues[attr]);
+            // mouseManager.checkMouseUp();
+            historyManager.recordModifyEvent(model.value.id, attr, inputEvent[attr], oldValues[attr]);
         }
     }
     // 把旧值更新，以免重复记录
@@ -201,6 +203,13 @@ onMounted(() => {
     globalEventEmitter.on("SWAP", swap);
 });
 onBeforeUnmount(() => {
+    try {
+        createHistory();
+    }
+    catch (e) {
+        console.error(e);
+        console.log("事件已被删除，无法记录历史记录")
+    }
     globalEventEmitter.off("REVERSE", reverse);
     globalEventEmitter.off("SWAP", swap);
 });

@@ -2,6 +2,7 @@
     <ElInput
         v-model="inputString"
         @input="inputStringHandler"
+        @change="emit('change', model)"
         @keydown.stop
     >
         <template
@@ -51,6 +52,10 @@ let isInternalUpdate = false;
 const model = defineModel<number>({
     required: true,
 });
+const emit = defineEmits<{
+    input: [number],
+    change: [number]
+}>();
 watch(model, () => {
     if (!isInternalUpdate) {
         inputString.value = model.value.toString();
@@ -76,6 +81,7 @@ function inputStringHandler() {
         }
         isInternalUpdate = true;
     }
+    emit("input", model.value);
 }
 /*
 let clickCount = 0;

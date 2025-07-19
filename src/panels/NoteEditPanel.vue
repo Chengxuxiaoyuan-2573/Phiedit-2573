@@ -41,8 +41,7 @@
             v-model="inputNote.isFake"
             :active-value="NoteFake.Fake"
             :inactive-value="NoteFake.Real"
-            @change="createHistory()"
-            @input="updateModel('isFake')"
+            @change="updateModel('isFake'), createHistory()"
         >
             假音符
         </MySwitch>
@@ -50,8 +49,7 @@
             v-model="inputNote.above"
             :active-value="NoteAbove.Below"
             :inactive-value="NoteAbove.Above"
-            @change="createHistory()"
-            @input="updateModel('above')"
+            @change="updateModel('above'), createHistory()"
         >
             反向音符
         </MySwitch>
@@ -139,6 +137,7 @@ interface NoteExtends {
     startEndTime: string;
 }
 const historyManager = store.useManager("historyManager");
+// const mouseManager = store.useManager("mouseManager");
 const seperator = " ";
 const attributes = [
     'startTime',
@@ -225,7 +224,8 @@ function createHistory() {
     // 遍历新值和旧值，找到不一样的属性
     for (const attr of attributes) {
         if (inputNote[attr] !== oldValues[attr]) {
-            historyManager.modifyNote(model.value.id, attr, inputNote[attr], oldValues[attr]);
+            // mouseManager.checkMouseUp();
+            historyManager.recordModifyNote(model.value.id, attr, inputNote[attr], oldValues[attr]);
         }
     }
     // 把旧值更新，以免重复记录
@@ -239,7 +239,13 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
     // 假如用户没有让输入框失焦就直接退出了，检查一下有没有没记录上的历史记录
-    createHistory();
+    try {
+        createHistory();
+    }
+    catch (e) {
+        console.error(e);
+        console.log("音符已被删除，无法记录历史记录")
+    }
     globalEventEmitter.off("REVERSE", reverse);
 });
 function reverse() {

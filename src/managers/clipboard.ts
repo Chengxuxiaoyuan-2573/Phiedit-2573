@@ -27,6 +27,8 @@ export default class ClipboardManager extends Manager {
      * 剪切选中的元素
      */
     cut() {
+        const mouseManager = store.useManager("mouseManager");
+        mouseManager.checkMouseUp();
         const selectionManager = store.useManager("selectionManager");
         this.copy();
         selectionManager.deleteSelection();
@@ -47,6 +49,7 @@ export default class ClipboardManager extends Manager {
         const selectionManager = store.useManager("selectionManager");
         const mouseManager = store.useManager("mouseManager");
         const historyManager = store.useManager("historyManager");
+        mouseManager.checkMouseUp();
         const y = mouseManager.mouseY;
         const minStartTime = this.clipboard.reduce<Beats>((min, element) => {
             return getBeatsValue(min) < getBeatsValue(element.startTime) ? min : element.startTime;
@@ -61,14 +64,16 @@ export default class ClipboardManager extends Manager {
                 const noteObject = element.toObject();
                 noteObject.startTime = addBeats(noteObject.startTime, delta);
                 noteObject.endTime = addBeats(noteObject.endTime, delta);
-                const note = historyManager.addNote(noteObject, stateManager.state.currentJudgeLineNumber);
+                const note = store.addNote(noteObject, stateManager.state.currentJudgeLineNumber);
+                historyManager.recordAddNote(note.id);
                 elements.push(note);
             }
             else {
                 const eventObject = element.toObject();
                 eventObject.startTime = addBeats(eventObject.startTime, delta);
                 eventObject.endTime = addBeats(eventObject.endTime, delta);
-                const event = historyManager.addEvent(eventObject, element.type, element.eventLayerId, stateManager.state.currentJudgeLineNumber)
+                const event = store.addEvent(eventObject, element.type, element.eventLayerId, stateManager.state.currentJudgeLineNumber)
+                historyManager.recordAddEvent(event.id);
                 elements.push(event);
             }
         }
@@ -83,15 +88,15 @@ export default class ClipboardManager extends Manager {
         this.paste(time);
         for (const element of selectionManager.selectedElements) {
             if (element instanceof Note) {
-                historyManager.modifyNote(element.id, "positionX", -element.positionX);
-                // element.positionX = -element.positionX;
+                historyManager.recordModifyNote(element.id, "positionX", -element.positionX, element.positionX);
+                element.positionX = -element.positionX;
             }
             else {
                 if (element.type == "moveX" || element.type == "moveY" || element.type == "rotate"){
-                    historyManager.modifyEvent(element.id, "start", -element.start);
-                    historyManager.modifyEvent(element.id, "end", -element.end);
-                    // element.start = -element.start;
-                    // element.end = -element.end;
+                    historyManager.recordModifyEvent(element.id, "start", -element.start, element.start);
+                    historyManager.recordModifyEvent(element.id, "end", -element.end, element.end);
+                    element.start = -element.start;
+                    element.end = -element.end;
                 }
             }
         }

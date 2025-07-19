@@ -1,6 +1,6 @@
 <template>
     <h1 class="top-title">
-        欢迎来到Phiedit 2573！
+        欢迎使用Phiedit 2573谱面编辑器！
     </h1>
     <MyGridContainer :columns="2">
         <MyDialog open-text="添加谱面">

@@ -7,9 +7,9 @@ import Manager from "./abstract";
 
 export default class HistoryManager extends Manager {
     /** 撤销栈，最先被执行的操作在最前面 */
-    undoStack: Command[] = [];
+    undoStack: Record[] = [];
     /** 重做栈，最先被撤销的操作在最前面 */
-    redoStack: Command[] = [];
+    redoStack: Record[] = [];
     constructor() {
         super();
         globalEventEmitter.on("UNDO", createCatchErrorByMessage(() => {
@@ -20,11 +20,11 @@ export default class HistoryManager extends Manager {
         }, "重做"))
     }
     getSize() {
-        function _getSize(stack: Command[]) {
+        function _getSize(stack: Record[]) {
             let sum = 0;
-            for (const command of stack) {
-                if (command instanceof CommandGroup) {
-                    sum += _getSize(command.commands);
+            for (const record of stack) {
+                if (record instanceof RecordGroup) {
+                    sum += _getSize(record.records);
                 }
                 else {
                     sum++;
@@ -38,47 +38,39 @@ export default class HistoryManager extends Manager {
         this.redoStack = [];
         globalEventEmitter.emit("HISTORY_UPDATE");
     }
-    private addCommand<C extends Command>(command: C) {
-        const lastCommand = this.undoStack[this.undoStack.length - 1];
-        if (this.grouped && lastCommand instanceof CommandGroup) {
-            lastCommand.commands.push(command);
+    private addRecord<C extends Record>(record: C) {
+        const lastRecord = this.undoStack[this.undoStack.length - 1];
+        if (this.grouped && lastRecord instanceof RecordGroup) {
+            lastRecord.records.push(record);
         }
         else {
-            this.undoStack.push(command);
+            this.undoStack.push(record);
         }
         globalEventEmitter.emit("HISTORY_UPDATE");
     }
-    addNote(noteObject: INote, judgeLineNumber: number) {
-        const command = new AddNoteCommand(noteObject, judgeLineNumber);
-        const note = command.execute();
-        this.addCommand(command);
-        return note;
+    recordAddNote(id: string) {
+        const record = new AddNoteRecord(id);
+        this.addRecord(record);
     }
-    modifyNote<T extends typeof noteAttributes[number]>(id: string, attribute: T, newValue: INote[T], oldValue?: INote[T]) {
-        const command = new ModifyNoteCommand(id, attribute, newValue, oldValue);
-        command.execute();
-        this.addCommand(command);
+    recordModifyNote<T extends typeof noteAttributes[number]>(id: string, attribute: T, newValue: INote[T], oldValue?: INote[T]) {
+        const record = new ModifyNoteRecord(id, attribute, newValue, oldValue);
+        this.addRecord(record);
     }
-    removeNote(id: string) {
-        const command = new RemoveNoteCommand(id);
-        command.execute();
-        this.addCommand(command);
+    recordRemoveNote(noteObject: INote, judgeLineNumber: number, id: string) {
+        const record = new RemoveNoteRecord(noteObject, judgeLineNumber, id);
+        this.addRecord(record);
     }
-    addEvent(eventObject: IEvent<unknown>, eventType: string, eventLayerId: string, judgeLineNumber: number) {
-        const command = new AddEventCommand(eventObject, eventType, eventLayerId, judgeLineNumber);
-        const event = command.execute();
-        this.addCommand(command);
-        return event;
+    recordAddEvent(id: string) {
+        const record = new AddEventRecord(id);
+        this.addRecord(record);
     }
-    modifyEvent<T extends typeof eventAttributes[number]>(id: string, attribute: T, newValue: IEvent<unknown>[T], oldValue?: IEvent<unknown>[T]) {
-        const command = new ModifyEventCommand(id, attribute, newValue, oldValue);
-        command.execute();
-        this.addCommand(command);
+    recordModifyEvent<T extends typeof eventAttributes[number]>(id: string, attribute: T, newValue: IEvent<unknown>[T], oldValue?: IEvent<unknown>[T]) {
+        const record = new ModifyEventRecord(id, attribute, newValue, oldValue);
+        this.addRecord(record);
     }
-    removeEvent(id: string) {
-        const command = new RemoveEventCommand(id);
-        command.execute();
-        this.addCommand(command);
+    recordRemoveEvent(eventObject: IEvent<unknown>, eventType: string, eventLayerId: string, judgeLineNumber: number, id: string) {
+        const record = new RemoveEventRecord(eventObject, eventType, eventLayerId, judgeLineNumber, id);
+        this.addRecord(record);
     }
     /** 新增的命令是否加入到组中 */
     grouped = false;
@@ -87,7 +79,7 @@ export default class HistoryManager extends Manager {
             throw new Error("已经处于分组状态，无法再次分组");
         }
         this.grouped = true;
-        this.undoStack.push(new CommandGroup([], name));
+        this.undoStack.push(new RecordGroup([], name));
     }
     ungroup() {
         if (!this.grouped) {
@@ -96,10 +88,10 @@ export default class HistoryManager extends Manager {
         this.grouped = false;
     }
     undo() {
-        const command = this.undoStack.pop();
-        if (command) {
-            command.undo();
-            this.redoStack.push(command);
+        const record = this.undoStack.pop();
+        if (record) {
+            record.undo();
+            this.redoStack.push(record);
             globalEventEmitter.emit("HISTORY_UPDATE");
         }
         else {
@@ -107,10 +99,10 @@ export default class HistoryManager extends Manager {
         }
     }
     redo() {
-        const command = this.redoStack.pop();
-        if (command) {
-            command.execute();
-            this.undoStack.push(command);
+        const record = this.redoStack.pop();
+        if (record) {
+            record.redo();
+            this.undoStack.push(record);
             globalEventEmitter.emit("HISTORY_UPDATE");
         }
         else {
@@ -118,14 +110,14 @@ export default class HistoryManager extends Manager {
         }
     }
 }
-abstract class Command {
-    protected isExecuted = false;
-    execute() {
+abstract class Record {
+    protected isExecuted = true;
+    redo() {
         if (!this.isExecuted) {
             this.isExecuted = true;
         }
         else {
-            throw new Error(`${this.constructor.name}: Command already executed`);
+            throw new Error(`${this.constructor.name}: Record already redod`);
         }
     }
     undo() {
@@ -133,18 +125,22 @@ abstract class Command {
             this.isExecuted = false;
         }
         else {
-            throw new Error(`${this.constructor.name}: Command not executed`);
+            throw new Error(`${this.constructor.name}: Record not redod`);
         }
     }
     abstract getDescription(): string;
 }
-class AddNoteCommand extends Command {
-    private id: string | undefined = undefined;
-    constructor(private noteObject: INote, private judgeLineNumber: number) {
+class AddNoteRecord extends Record {
+    private noteObject: INote | undefined = undefined;
+    private judgeLineNumber: number | undefined = undefined;
+    constructor(private id: string) {
         super();
     }
-    execute() {
-        super.execute();
+    redo() {
+        super.redo();
+        if (this.noteObject === undefined || this.judgeLineNumber === undefined) {
+            throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
+        }
         const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
         this.id = note.id;
         return note;
@@ -152,15 +148,19 @@ class AddNoteCommand extends Command {
     undo() {
         super.undo();
         if (this.id == undefined) {
-            throw new Error(`${this.constructor.name}: id is undefined`);
+            throw new Error("AddNoteRecord: id is undefined");
         }
+        const note = store.getNoteById(this.id);
+        if (!note) throw new Error(`Note ${this.id} not found`);
+        this.noteObject = note.toObject();
+        this.judgeLineNumber = note.judgeLineNumber;
         store.removeNote(this.id);
     }
     getDescription() {
         return `添加音符 ${this.id}`
     }
 }
-class ModifyNoteCommand<T extends typeof noteAttributes[number]> extends Command {
+class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends Record {
     constructor(private id: string,
         private attribute: T,
         private newValue: INote[T],
@@ -170,8 +170,8 @@ class ModifyNoteCommand<T extends typeof noteAttributes[number]> extends Command
         if (!note) throw new Error(`Note ${id} not found`);
         this.oldValue = oldValue ?? note[attribute];
     }
-    execute() {
-        super.execute();
+    redo() {
+        super.redo();
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,14 +188,15 @@ class ModifyNoteCommand<T extends typeof noteAttributes[number]> extends Command
         return `将音符${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
-class RemoveNoteCommand extends Command {
-    private noteObject: INote | undefined = undefined;
-    private judgeLineNumber: number | undefined = undefined;
-    constructor(private id: string) {
+class RemoveNoteRecord extends Record {
+    constructor(private noteObject: INote, private judgeLineNumber: number, private id: string) {
         super();
     }
-    execute() {
-        super.execute();
+    redo() {
+        super.redo();
+        if (this.id == undefined) {
+            throw new Error("RemoveNoteRecord: id is undefined");
+        }
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         this.noteObject = note.toObject();
@@ -204,8 +205,8 @@ class RemoveNoteCommand extends Command {
     }
     undo() {
         super.undo();
-        if (this.noteObject == undefined || this.judgeLineNumber == undefined) {
-            throw new Error(`${this.constructor.name}: noteObject or judgeLineNumber is undefined`);
+        if (this.noteObject === undefined || this.judgeLineNumber === undefined) {
+            throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
         }
         const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
         this.id = note.id;
@@ -215,29 +216,41 @@ class RemoveNoteCommand extends Command {
         return `删除音符 ${this.id}`
     }
 }
-class AddEventCommand extends Command {
-    private id: string | undefined = undefined;
-    constructor(private eventObject: IEvent<unknown>, private eventType: string, private eventLayerId: string, private judgeLineNumber: number) {
+class AddEventRecord extends Record {
+    private eventObject: IEvent<unknown> | undefined = undefined;
+    private judgeLineNumber: number | undefined = undefined;
+    private eventLayerId: string | undefined = undefined;
+    private eventType: string | undefined = undefined;
+    constructor(private id: string) {
         super();
     }
-    execute() {
-        super.execute();
+    redo() {
+        super.redo();
+        if (this.eventObject == undefined || this.judgeLineNumber == undefined || this.eventLayerId == undefined || this.eventType == undefined) {
+            throw new Error("AddEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined")
+        }
         const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
         this.id = event.id;
         return event;
     }
     undo() {
         super.undo();
-        if (this.id == undefined) {
-            throw new Error(`${this.constructor.name}: id is undefined`);
+        if (this.id === undefined) {
+            throw new Error("AddEventRecord: id is undefined")
         }
+        const event = store.getEventById(this.id);
+        if (!event) throw new Error(`Event ${this.id} not found`);
+        this.eventObject = event.toObject();
+        this.judgeLineNumber = event.judgeLineNumber;
+        this.eventLayerId = event.eventLayerId;
+        this.eventType = event.type;
         store.removeEvent(this.id);
     }
     getDescription() {
         return `添加事件 ${this.id}`
     }
 }
-class ModifyEventCommand<T extends typeof eventAttributes[number]> extends Command {
+class ModifyEventRecord<T extends typeof eventAttributes[number]> extends Record {
     constructor(private id: string,
         private attribute: T,
         private newValue: IEvent<unknown>[T],
@@ -247,8 +260,8 @@ class ModifyEventCommand<T extends typeof eventAttributes[number]> extends Comma
         if (!event) throw new Error(`Event ${id} 不存在`);
         this.oldValue = oldValue ?? event[attribute];
     }
-    execute(): void {
-        super.execute();
+    redo(): void {
+        super.redo();
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} 不存在`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -265,16 +278,15 @@ class ModifyEventCommand<T extends typeof eventAttributes[number]> extends Comma
         return `将事件${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
-class RemoveEventCommand extends Command {
-    private eventObject: IEvent<unknown> | undefined = undefined;
-    private judgeLineNumber: number | undefined = undefined;
-    private eventLayerId: string | undefined = undefined;
-    private eventType: string | undefined = undefined;
-    constructor(private id: string) {
+class RemoveEventRecord extends Record {
+    constructor(private eventObject: IEvent<unknown>, private eventType: string, private eventLayerId: string, private judgeLineNumber: number, private id: string) {
         super();
     }
-    execute() {
-        super.execute();
+    redo() {
+        super.redo();
+        if (this.id === undefined) {
+            throw new Error("RemoveEventRecord: id is undefined")
+        }
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} not found`);
         this.eventObject = event.toObject();
@@ -286,32 +298,34 @@ class RemoveEventCommand extends Command {
     undo() {
         super.undo();
         if (this.eventObject == undefined || this.judgeLineNumber == undefined || this.eventLayerId == undefined || this.eventType == undefined) {
-            throw new Error(`${this.constructor.name}: eventObject or judgeLineNumber or eventLayerId or eventType is undefined`);
+            throw new Error("RemoveEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined")
         }
-        store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
+        const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
+        this.id = event.id;
+        return event;
     }
     getDescription() {
         return `删除事件 ${this.id}`
     }
 }
-class CommandGroup extends Command {
-    constructor(readonly commands: Command[], private readonly name: string) {
+class RecordGroup extends Record {
+    constructor(readonly records: Record[], private readonly name: string) {
         super();
         this.isExecuted = true;
     }
-    execute() {
-        super.execute();
-        for (const command of this.commands) {
-            command.execute();
+    redo() {
+        super.redo();
+        for (const record of this.records) {
+            record.redo();
         }
     }
     undo() {
         super.undo();
-        for (const command of this.commands.toReversed()) {
-            command.undo();
+        for (const record of this.records.toReversed()) {
+            record.undo();
         }
     }
     getDescription() {
-        return `${this.name}（包含${this.commands.length}个操作）`;
+        return `${this.name}（包含${this.records.length}个操作）`;
     }
 }

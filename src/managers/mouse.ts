@@ -8,13 +8,15 @@ import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/easing";
 import Manager from "./abstract";
 import store from "@/store";
-import { Beats, beatsToSeconds } from "@/models/beats";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
 import { findLastEvent } from "@/models/event";
 export default class MouseManager extends Manager {
     /** 鼠标的x坐标 */
     mouseX = 0
     /** 鼠标的y坐标 */
     mouseY = 0
+    /** 鼠标是否被按下 */
+    mousePressed = false
     /** 鼠标移动时做的行为 */
     mouseMoveMode = MouseMoveMode.None
     /** 鼠标拖拽选择框的碰撞箱，使用绝对坐标 */
@@ -22,6 +24,8 @@ export default class MouseManager extends Manager {
 
     private oldTime: Beats = [0, 0, 1];
     private oldPositionX: number = 0;
+    // 已被添加还没有被记录的元素
+    private addedElement: SelectedElement | null = null;
     constructor() {
         super();
         globalEventEmitter.on("MOUSE_LEFT_CLICK", (x, y, options) => {
@@ -37,30 +41,57 @@ export default class MouseManager extends Manager {
             this.mouseUp(options.ctrl);
         })
     }
+    /**
+     * 确保鼠标已经松开了，在其他管理器中调用
+     * 为了防止鼠标还未松开时进行其他操作，而导致的一些历史记录的bug
+     */
+    checkMouseUp() {
+        this.mouseUp(false);
+    }
     mouseUp(mutiple: boolean) {
+        if (!this.mousePressed) {
+            return;
+        }
         const selectionManager = store.useManager("selectionManager");
         const boxesManager = store.useManager("boxesManager");
         const historyManager = store.useManager("historyManager");
+        const stateManager = store.useManager("stateManager");
         const firstElement = selectionManager.selectedElements[0];
 
-        if (this.mouseMoveMode == MouseMoveMode.Drag || this.mouseMoveMode == MouseMoveMode.DragEnd) {
-            firstElement.validateTime();
-            if (this.mouseMoveMode == MouseMoveMode.Drag) {
-                if (firstElement instanceof Note) {
-                    historyManager.modifyNote(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
-                    historyManager.modifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
-                }
-                else {
-                    historyManager.modifyEvent(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
-                }
+        if (this.addedElement) {
+            if (getBeatsValue(this.addedElement.startTime) == getBeatsValue(this.addedElement.endTime)) {
+                this.addedElement.endTime = addBeats(this.addedElement.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            }
+            this.addedElement.validateTime();
+            if (this.addedElement instanceof Note) {
+                historyManager.recordAddNote(this.addedElement.id);
             }
             else {
-                if (firstElement instanceof Note) {
-                    historyManager.modifyNote(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
-                    historyManager.modifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
+                historyManager.recordAddEvent(this.addedElement.id);
+            }
+            this.addedElement = null;
+        }
+        else if (this.mouseMoveMode == MouseMoveMode.Drag || this.mouseMoveMode == MouseMoveMode.DragEnd) {
+            firstElement.validateTime();
+            // Skip modification recording for newly added elements
+            if (this.addedElement === null) {
+                if (this.mouseMoveMode == MouseMoveMode.Drag) {
+                    if (firstElement instanceof Note) {
+                        historyManager.recordModifyNote(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
+                        historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
+                    }
+                    else {
+                        historyManager.recordModifyEvent(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
+                    }
                 }
                 else {
-                    historyManager.modifyEvent(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
+                    if (firstElement instanceof Note) {
+                        historyManager.recordModifyNote(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
+                        historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
+                    }
+                    else {
+                        historyManager.recordModifyEvent(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
+                    }
                 }
             }
         }
@@ -79,6 +110,7 @@ export default class MouseManager extends Manager {
             this.selectionBox = null;
         }
         this.mouseMoveMode = MouseMoveMode.None;
+        this.mousePressed = false;
     }
     mouseMove(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
@@ -177,16 +209,18 @@ export default class MouseManager extends Manager {
             this.mouseMoveMode = MouseMoveMode.Select;
             this.selectionBox = new Box(stateManager.absolute(y), stateManager.absolute(y), x, x);
         }
+        this.mousePressed = true;
     }
     mouseRight(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
-        const historyManager = store.useManager("historyManager");
         const selectionManager = store.useManager("selectionManager");
 
         const clickedBox = this.getClickedBox(x, y);
 
         const clickedObject = clickedBox ? clickedBox.data : null;
-        if (clickedObject && selectionManager.isSelected(clickedObject)) {
+        if (clickedObject && (selectionManager.isSelected(clickedObject) || true)) {
+            selectionManager.unselectAll();
+            selectionManager.select(clickedObject);
             this.oldTime = clickedObject.endTime;
             if (clickedObject instanceof Note) {
                 this.oldPositionX = clickedObject.positionX;
@@ -196,7 +230,7 @@ export default class MouseManager extends Manager {
         else if (Constants.notesViewBox.touch(x, y)) {
             const time = stateManager.attatchY(y);
             const positionX = stateManager.attatchX(x);
-            const addedNote = historyManager.addNote({
+            const addedNote = store.addNote({
                 startTime: [...time],
                 endTime: [...time],
                 positionX,
@@ -209,6 +243,7 @@ export default class MouseManager extends Manager {
                 isFake: NoteFake.Real,
                 above: NoteAbove.Above
             }, stateManager.state.currentJudgeLineNumber);
+            this.addedElement = addedNote; // Mark as unrecorded
             selectionManager.unselectAll();
             selectionManager.select(addedNote);
             if (stateManager.state.currentNoteType == NoteType.Hold) {
@@ -224,7 +259,7 @@ export default class MouseManager extends Manager {
             const type = (["moveX", "moveY", "rotate", "alpha", "speed"] as const)[track];
             const timeSeconds = beatsToSeconds(chart.BPMList, time);
             const lastEvent = findLastEvent(stateManager.currentEventLayer[`${type}Events`], timeSeconds);
-            const addedEvent = historyManager.addEvent({
+            const addedEvent = store.addEvent({
                 startTime: [...time],
                 endTime: [...time],
                 start: lastEvent?.end ?? 0,
@@ -234,12 +269,15 @@ export default class MouseManager extends Manager {
                 easingLeft: 0,
                 easingRight: 0,
                 easingType: lastEvent?.easingType ?? EasingType.Linear,
-                linkgroup: 0
+                linkgroup: 0,
+                isDisabled: false,
             }, type, stateManager.state.currentEventLayerNumber.toString(), stateManager.state.currentJudgeLineNumber);
+            this.addedElement = addedEvent; // Mark as unrecorded
             selectionManager.unselectAll();
             selectionManager.select(addedEvent);
             this.oldTime = addedEvent.endTime;
             this.mouseMoveMode = MouseMoveMode.DragEnd;
         }
+        this.mousePressed = true;
     }
 }

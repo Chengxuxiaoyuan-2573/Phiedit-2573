@@ -12,7 +12,7 @@
                 填充密度
             </template>
         </MyInputNumber>
-        <ElButton @click="globalEventEmitter.emit('FILL_NOTES', type, easingType, density)">
+        <ElButton @click="catchErrorByMessage(() => globalEventEmitter.emit('FILL_NOTES', type, easingType, density))">
             填充
         </ElButton>
     </div>
@@ -25,6 +25,7 @@ import MyInputNumber from '@/myElements/MyInputNumber.vue';
 import MySelectEasing from '@/myElements/MySelectEasing.vue';
 import MySelectNoteType from '@/myElements/MySelectNoteType.vue';
 import store from '@/store';
+import { catchErrorByMessage } from '@/tools/catchError';
 import { ElButton } from 'element-plus';
 import { ref } from 'vue';
 const props = defineProps<{

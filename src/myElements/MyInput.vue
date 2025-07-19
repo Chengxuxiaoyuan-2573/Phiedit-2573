@@ -20,6 +20,7 @@ const data = {
     <ElInput
         v-model="inputData"
         @input="inputHandler"
+        @change="emit('change', model)"
         @keydown.stop
     >
         <template
@@ -55,7 +56,8 @@ import { isEmpty } from "lodash";
 import { ref, watch, useSlots } from "vue";
 const inputData = ref('');
 const emit = defineEmits<{
-    input: [string]
+    input: [string],
+    change: [string]
 }>();
 const slots: ReturnType<typeof useSlots> = useSlots();
 const model = defineModel<string>({
