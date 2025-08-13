@@ -1,0 +1,1 @@
+code . && npm run electron:serve

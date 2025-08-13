@@ -1,0 +1,142 @@
+{
+    "name": "phiedit2573",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Phiedit 2573 是一款基于 Vue-Electron 框架开发的 Phigros 谱面编辑器，编程语言为 Javascript，使用了 npm 包管理器，界面采用 Element Plus 组件库。",
+    "author": {
+        "name": "程序小袁_2573"
+    },
+    "scripts": {
+        "serve": "vue-cli-service serve",
+        "build": "vue-cli-service build",
+        "lint": "vue-cli-service lint",
+        "dist": "electron-builder --clean && electron-builder",
+        "electron:build": "vue-cli-service electron:build",
+        "electron:serve": "vue-cli-service electron:serve",
+        "postinstall": "electron-builder install-app-deps && patch-package",
+        "postuninstall": "electron-builder install-app-deps"
+    },
+    "main": "dist_electron/bundled/background.js",
+    "dependencies": {
+        "@floating-ui/dom": "^1.7.0",
+        "@popperjs/core": "^2.11.8",
+        "@vue/shared": "^3.5.13",
+        "@vueuse/core": "^13.1.0",
+        "core-js": "^3.42.0",
+        "element-plus": "^2.9.9",
+        "js-yaml": "^4.1.0",
+        "jszip": "^3.10.1",
+        "lodash": "^4.17.21",
+        "mathjs": "^14.2.0",
+        "path": "^0.12.7",
+        "vue": "^3.2.13",
+        "vue-router": "^4.5.1"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.12.16",
+        "@babel/eslint-parser": "^7.12.16",
+        "@babel/plugin-proposal-async-generator-functions": "^7.20.7",
+        "@babel/plugin-syntax-top-level-await": "^7.14.5",
+        "@babel/preset-env": "^7.26.0",
+        "@babel/preset-typescript": "^7.26.0",
+        "@types/electron-devtools-installer": "^2.2.0",
+        "@types/js-yaml": "^4.0.9",
+        "@typescript-eslint/eslint-plugin": "^8.8.0",
+        "@typescript-eslint/parser": "^8.8.0",
+        "@typescript-eslint/typescript-estree": "^8.20.0",
+        "@vue/cli-plugin-babel": "~5.0.0",
+        "@vue/cli-plugin-eslint": "~5.0.0",
+        "@vue/cli-plugin-typescript": "~5.0.0",
+        "@vue/cli-plugin-vuex": "~5.0.0",
+        "@vue/cli-service": "~5.0.0",
+        "@vue/eslint-config-typescript": "^13.0.0",
+        "babel-loader": "^9.2.1",
+        "electron": "^37.2.0",
+        "electron-devtools-installer": "^3.1.0",
+        "eslint": "^8.57.1",
+        "eslint-plugin-vue": "^9.28.0",
+        "file-loader": "^6.2.0",
+        "html-loader": "^5.1.0",
+        "markdown-loader": "^8.0.0",
+        "patch-package": "^8.0.0",
+        "raw-loader": "^4.0.2",
+        "terser-webpack-plugin": "^5.3.10",
+        "ts-loader": "^8.4.0",
+        "typescript": "^5.6.2",
+        "vue-cli-plugin-electron-builder": "^2.1.1"
+    },
+    "babel": {
+        "presets": [
+            "@vue/cli-plugin-babel/preset",
+            [
+                "@babel/preset-env",
+                {
+                    "targets": {
+                        "browsers": [
+                            "last 2 versions",
+                            "ie >= 11"
+                        ],
+                        "node": "current"
+                    },
+                    "useBuiltIns": "usage",
+                    "corejs": 3
+                }
+            ],
+            "@babel/preset-typescript"
+        ],
+        "plugins": [
+            [
+                "@babel/plugin-proposal-async-generator-functions"
+            ],
+            [
+                "@babel/plugin-syntax-top-level-await"
+            ]
+        ]
+    },
+    "eslintConfig": {
+        "root": true,
+        "env": {
+            "node": true,
+            "es2021": true
+        },
+        "extends": [
+            "eslint:recommended",
+            "plugin:vue/vue3-recommended",
+            "plugin:@typescript-eslint/recommended"
+        ],
+        "parser": "vue-eslint-parser",
+        "parserOptions": {
+            "parser": "@typescript-eslint/parser",
+            "ecmaVersion": 2020,
+            "sourceType": "module"
+        },
+        "plugins": [
+            "vue",
+            "@typescript-eslint"
+        ],
+        "rules": {
+            "vue/html-indent": [
+                "error",
+                4
+            ]
+        },
+        "overrides": [
+            {
+                "files": [
+                    "*.vue"
+                ],
+                "parser": "vue-eslint-parser"
+            }
+        ]
+    },
+    "browserslist": [
+        "> 1%",
+        "last 2 versions",
+        "not dead",
+        "not ie 11"
+    ],
+    "repository": {
+        "url": "https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573"
+    },
+    "license": "MIT"
+}
