@@ -116,7 +116,9 @@
             ref="selectEasing"
             v-model="inputEvent.easingType"
             @change="updateModel('easingType'), createHistory()"
-        />
+        >
+            缓动类型
+        </MySelectEasing>
         <MySwitch
             ref="switchDisabled"
             v-model="inputEvent.isDisabled"

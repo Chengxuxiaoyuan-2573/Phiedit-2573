@@ -16,6 +16,7 @@ export enum EasingType {
     OutElastic, InElastic, OutBounce, InBounce, IOBounce, IOElastic
 }
 /* eslint-disable no-magic-numbers */
+/* 这段代码就像 magic 一样神奇，怎么可能没有 magic numbers */
 export const easingFuncs: Record<EasingType, (t: number) => number> = {
     [EasingType.Linear]: (t: number) => t,
     [EasingType.OutSine]: (t: number) => Math.sin(t * Math.PI / 2),
@@ -48,6 +49,56 @@ export const easingFuncs: Record<EasingType, (t: number) => number> = {
     [EasingType.IOElastic]: (t: number) => t < .5 ? 2 ** (20 * t - 11) * Math.sin((160 * t + 1) * Math.PI / 18) : 1 - 2 ** (9 - 20 * t) * Math.sin((160 * t + 1) * Math.PI / 18)
 } as const;
 /* eslint-enable no-magic-numbers */
+
+/**
+ * 使用辛普森法则对一个函数进行积分
+ * @param f 被积分的函数
+ * @param a 积分下限
+ * @param b 积分上限
+ * @param n 积分精度
+ * @returns 积分结果
+ */
+function integrateWithSimpson(f: (x: number) => number, a: number, b: number, n = 100): number {
+    if (n % 2 !== 0) n++;
+    const h = (b - a) / n;
+    let sum = f(a) + f(b);
+
+    for (let i = 1; i < n; i++) {
+        const x = a + i * h;
+        sum += f(x) * (i % 2 === 0 ? 2 : 4);
+    }
+
+    return sum * h / 3;
+}
+
+/**
+ * 计算物体从时刻 t0 到时刻 t 的位移
+ * @param easingType - 缓动函数类型（如 EasingType.OutSine）
+ * @param t0 - 开始时间
+ * @param t1 - 结束时间
+ * @param v0 - 初始速度
+ * @param v1 - 末速度
+ * @param t - 当前时间
+ */
+export function calculateDisplacement(
+    easingFunc: (t: number) => number,
+    t0: number,
+    t1: number,
+    v0: number,
+    v1: number,
+    t: number
+): number {
+    const mappedT = (t - t0) / (t1 - t0);
+    if (mappedT < 0 || mappedT > 1) {
+        throw new Error("Invalid time");
+    }
+
+    // 计算 ∫₀^mappedT easingFunc(s) ds
+    const integral = integrateWithSimpson(easingFunc, 0, mappedT);
+
+    // 代入位移公式
+    return v0 * (t - t0) + (v1 - v0) * (t1 - t0) * integral;
+}
 
 export function isEasingType(type: unknown): type is EasingType {
     if (!isNumber(type)) {
@@ -143,10 +194,10 @@ export function createBezierCurve(points: BezierPoints) {
 
 /**
  * 创建一个基于三次贝塞尔曲线的缓动函数。
- * 
+ *
  * 该函数接受四个控制点坐标（p1x, p1y, p2x, p2y），生成一个根据给定 x 值计算对应 y 值的函数，
  * 用于实现自定义的动画缓动效果。曲线起点为 (0, 0)，终点为 (1, 1)。
- * 
+ *
  * @param points - 包含四个数字的数组，分别表示两个控制点的坐标 [p1x, p1y, p2x, p2y]
  * @returns 返回一个函数，该函数接收一个介于 0 到 1 之间的数值 x，并返回对应的 y 值
  */
@@ -166,9 +217,9 @@ export function cubicBezierEase(points: BezierPoints) {
 
 /**
  * 根据参数 t 计算三次贝塞尔曲线上某一点的坐标值。
- * 
+ *
  * 使用三次贝塞尔曲线的标准公式进行计算。
- * 
+ *
  * @param t - 曲线参数，范围在 [0, 1] 之间
  * @param p0 - 起点坐标值
  * @param p1 - 第一个控制点坐标值
@@ -186,9 +237,9 @@ function calculateBezierPoint(t: number, p0: number, p1: number, p2: number, p3:
 
 /**
  * 在给定 X 坐标的情况下，通过二分查找法求出对应的参数 t。
- * 
+ *
  * 此方法通过不断缩小区间来逼近目标 X 值所对应的参数 t。
- * 
+ *
  * @param x - 目标 X 坐标值
  * @param x0 - 起点 X 坐标
  * @param x1 - 第一个控制点 X 坐标
@@ -225,9 +276,9 @@ function findTForX(x: number, x0: number, x1: number, x2: number, x3: number, ep
 
 /**
  * 根据给定的 X 值，在三次贝塞尔曲线上计算对应的 Y 值。
- * 
+ *
  * 首先通过 findTForX 找到与 X 对应的参数 t，然后使用该参数计算 Y 值。
- * 
+ *
  * @param x - 输入的 X 值，范围应在 [0, 1]
  * @param p0 - 起点坐标 {x, y}
  * @param p1 - 第一个控制点坐标 {x, y}

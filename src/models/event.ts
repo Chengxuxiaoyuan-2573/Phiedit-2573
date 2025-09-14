@@ -2,10 +2,13 @@ import { BEZIER_POINTS_LENGTH, BezierPoints, cubicBezierEase, easingFuncs, Easin
 import { Beats, getBeatsValue, beatsToSeconds, makeSureBeatsValid, BPM, addBeats, isGreaterThanBeats, isLessThanBeats, isLessThanOrEqualBeats, isGreaterThanOrEqualBeats } from "./beats";
 import { isArrayOfNumbers } from "../tools/typeTools";
 import { RGBcolor } from "../tools/color";
-import { isObject, isNumber, isString, isInteger } from "lodash";
+import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
 import { checkAndSort } from "@/tools/algorithm";
 import ChartError from "./error";
 import { Note } from "./note";
+import { ITimeSegment } from "./timeSegment";
+import { IObjectizable } from "./objectizable";
+import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
 export type NoteOrEvent = Note | NumberEvent | ColorEvent | TextEvent;
 export interface IEvent<T> {
     bezier: 0 | 1;
@@ -17,8 +20,12 @@ export interface IEvent<T> {
     end: T;
     startTime: Beats;
     endTime: Beats;
+
+    /** 暂时无用且不可编辑，RPE中代表事件的绑定组 */
     linkgroup?: number;
-    isDisabled: boolean;
+
+    /** 事件是否被禁用 */
+    isDisabled?: boolean;
 }
 interface EventOptions {
     judgeLineNumber: number;
@@ -48,7 +55,7 @@ export const eventAttributes = [
     "endTime",
     "linkgroup"
 ] as const;
-export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
+export abstract class EventLike<T = unknown> implements IEvent<T> {
     bezier: Bezier = Bezier.Off;
     bezierPoints: BezierPoints = [0, 0, 1, 1];
     easingLeft: number = 0;
@@ -58,19 +65,8 @@ export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
     abstract end: T;
     _startTime: Beats = [0, 0, 1];
     _endTime: Beats = [0, 0, 1];
-    cachedStartSeconds: number;
-    cachedEndSeconds: number;
-    readonly BPMList: BPM[];
-
-    /** 事件的唯一标识符，比如"0-1-moveX-2" 表示第0号判定线上第1层的2号moveX事件 */
-    readonly id: string;
-    judgeLineNumber: number;
-    type: string;
-
-    /** 事件层级号，普通事件的层级号是数字（比如"0"，但仍然是字符串类型），特殊事件的层级号是字符"X" */
-    eventLayerId: string;
-    isDisabled: boolean = false;
     linkgroup = 0;
+    isDisabled: boolean = false;
     get startTime() {
         return this._startTime;
     }
@@ -85,10 +81,43 @@ export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
         this._endTime = makeSureBeatsValid(beats);
         this.calculateSeconds();
     }
+
+    /** 缓存的开始时间，以秒为单位 */
+    abstract cachedStartSeconds: number;
+
+    /** 缓存的结束时间，以秒为单位 */
+    abstract cachedEndSeconds: number;
+
+    /** BPM列表，引用chart.BPMList，方便计算秒数用 */
+    abstract readonly BPMList: BPM[];
+
+    calculateSeconds() {
+        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this.startTime);
+        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this.endTime);
+    }
+}
+export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements IObjectizable, ITimeSegment {
+    cachedStartSeconds: number;
+    cachedEndSeconds: number;
+
+    readonly BPMList: BPM[];
+
+    /** 事件的唯一标识符，比如"0-1-moveX-2" 表示第0号判定线上第1层的2号moveX事件 */
+    readonly id: string;
+
+    /** 事件所在的判定线编号 */
+    judgeLineNumber: number;
+
+    /** 事件类型 */
+    type: string;
+
+    /** 事件层级号，普通事件的层级号是数字（比如"0"，但仍然是字符串类型），特殊事件的层级号是字符"X" */
+    eventLayerId: string;
+
     readonly errors: ChartError[] = [];
 
     /** 确保endTime大于startTime */
-    makeTimeValid() {
+    makeSureTimeValid() {
         if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
             const a = this.startTime, b = this.endTime;
             this.startTime = b;
@@ -134,6 +163,7 @@ export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
             isLessThanBeats(element.startTime, this.endTime) && isGreaterThanBeats(element.endTime, this.startTime);
     }
     constructor(event: unknown, options: EventOptions) {
+        super();
         this.judgeLineNumber = options.judgeLineNumber;
         this.eventLayerId = options.eventLayerId;
         this.type = options.type;
@@ -246,7 +276,7 @@ export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
             // startTime
             if ("startTime" in event) {
                 if (isArrayOfNumbers(event.startTime, 3)) {
-                    this._startTime = [...event.startTime];
+                    this._startTime = makeSureBeatsValid(event.startTime);
                 }
                 else {
                     this.errors.push(new ChartError(
@@ -269,7 +299,7 @@ export abstract class AbstractEvent<T = unknown> implements IEvent<T> {
             // endTime
             if ("endTime" in event) {
                 if (isArrayOfNumbers(event.endTime, 3)) {
-                    this._endTime = [...event.endTime];
+                    this._endTime = makeSureBeatsValid(event.endTime);
                 }
                 else {
                     this.errors.push(new ChartError(
@@ -543,9 +573,301 @@ export class TextEvent extends AbstractEvent<string> {
         }
     }
 }
-type S = {
-    cachedStartSeconds: number,
-    cachedEndSeconds: number,
+
+interface ShaderEventOptions {
+    BPMList: BPM[];
+    shader: ShaderName;
+    varName: string;
+    eventNumber: number;
+}
+
+/** ShaderVariableEvent 只是结构与事件相像，但并没有真正的判定线编号、所属事件层级、事件 id 等属性，也不能被历史记录，所以继承 EventLike 而不是 AbstractEvent */
+export class ShaderVariableEvent extends EventLike<ShaderNumberType> {
+    start: ShaderNumberType = 0;
+    end: ShaderNumberType = 0;
+    readonly errors: ChartError[] = [];
+    BPMList: BPM[];
+    shader: string;
+    varName: string;
+    eventNumber: number;
+    cachedStartSeconds: number;
+    cachedEndSeconds: number;
+    toObject(): IEvent<ShaderNumberType> {
+        return {
+            start: this.start,
+            end: this.end,
+            bezier: this.bezier,
+            bezierPoints: this.bezierPoints,
+            startTime: [...this.startTime],
+            endTime: [...this.endTime],
+            easingType: this.easingType,
+            easingLeft: this.easingLeft,
+            easingRight: this.easingRight,
+        };
+    }
+    _startTime: Beats = [0, 0, 1];
+    _endTime: Beats = [0, 0, 1];
+    get startTime() {
+        return this._startTime;
+    }
+    set startTime(beats: Beats) {
+        this._startTime = makeSureBeatsValid(beats);
+        this.calculateSeconds();
+    }
+    get endTime() {
+        return this._endTime;
+    }
+    set endTime(beats: Beats) {
+        this._endTime = makeSureBeatsValid(beats);
+        this.calculateSeconds();
+    }
+    constructor(event: unknown, options: ShaderEventOptions) {
+        super();
+        this.BPMList = options.BPMList;
+        this.shader = options.shader;
+        this.varName = options.varName;
+        this.eventNumber = options.eventNumber;
+        if (isObject(event)) {
+            // bezier
+            if ("bezier" in event) {
+                if (isBezier(event.bezier)) {
+                    this.bezier = event.bezier;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被替换为数字 0。`,
+                        "ChartReadError.TypeError",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 bezier 属性。将会被设为数字 0。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                ));
+            }
+
+            // bezierPoints
+            if ("bezierPoints" in event) {
+                if (isArrayOfNumbers(event.bezierPoints, BEZIER_POINTS_LENGTH)) {
+                    this.bezierPoints = [...event.bezierPoints];
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被替换为默认值 [0, 0, 0, 0]。`,
+                        "ChartReadError.TypeError",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                ));
+            }
+
+            // easingLeft and easingRight
+            if ("easingLeft" in event && "easingRight" in event) {
+                if (isNumber(event.easingLeft) && isNumber(event.easingRight)) {
+                    if (event.easingLeft >= 0 && event.easingRight <= 1 && event.easingLeft < event.easingRight) {
+                        this.easingLeft = event.easingLeft;
+                        this.easingRight = event.easingRight;
+                    }
+                    else {
+                        this.errors.push(new ChartError(
+                            `shader变量事件：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
+                            "ChartReadError.OutOfRange",
+                            "error",
+                        ));
+                    }
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
+                        "ChartReadError.TypeError",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                ));
+            }
+
+            // easingType
+            if ("easingType" in event) {
+                if (isEasingType(event.easingType)) {
+                    this.easingType = event.easingType;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被替换为默认值 1（线性缓动）。`,
+                        "ChartReadError.TypeError",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+
+                ));
+            }
+
+            // startTime
+            if ("startTime" in event) {
+                if (isArrayOfNumbers(event.startTime, 3)) {
+                    this._startTime = makeSureBeatsValid(event.startTime);
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 startTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被替换为默认值 [0, 0, 1]。`,
+                        "ChartReadError.TypeError",
+                        "error",
+
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+
+                ));
+            }
+
+            // endTime
+            if ("endTime" in event) {
+                if (isArrayOfNumbers(event.endTime, 3)) {
+                    this._endTime = makeSureBeatsValid(event.endTime);
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 endTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被替换为 startTime 的值。`,
+                        "ChartReadError.TypeError",
+                        "error",
+
+                    ));
+                    this._endTime = [...this._startTime];
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 endTime 属性。将会被设为 startTime 的值。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+
+                ));
+                this._endTime = [...this._startTime];
+            }
+
+            if ("start" in event) {
+                if (isNumberOrVector(event.start)) {
+                    this.start = event.start;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 start 值必须是数字或矢量，但读取到了 ${event.start}。将会被设为 0。`,
+                        "ChartReadError.MissingProperty",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 start 值。将会被设为 0。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                ));
+            }
+
+            if ("end" in event) {
+                if (isNumberOrVector(event.end)) {
+                    this.end = event.end;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 end 值必须是数字或矢量，但读取到了 ${event.end}。将会被设为 0。`,
+                        "ChartReadError.MissingProperty",
+                        "error",
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 end 值。将会被设为 0。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                ));
+            }
+
+            // linkgroup
+            if ("linkgroup" in event) {
+                if (isNumber(event.linkgroup) && Number.isInteger(event.linkgroup)) {
+                    this.linkgroup = event.linkgroup;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被替换为数字 0。`,
+                        "ChartReadError.TypeError",
+                        "error",
+
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `shader变量事件：事件缺少 linkgroup 属性。将会被设为数字 0。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+
+                ));
+            }
+
+            // isDisabled
+            if ("isDisabled" in event) {
+                if (typeof event.isDisabled === "boolean") {
+                    this.isDisabled = event.isDisabled;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `shader变量事件：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被替换为 false。`,
+                        "ChartReadError.TypeError",
+                        "error",
+
+                    ));
+                }
+            }
+            else {
+                // this.errors.push(new ChartError(
+                //     `shader变量事件：事件缺少 isDisabled 属性。将会被设为 false。`,
+                //     "ChartReadError.MissingProperty",
+                //     "error",
+                // ));
+            }
+        }
+        else {
+            this.errors.push(new ChartError(
+                `shader变量事件：事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
+                "ChartReadError.TypeError",
+                "error",
+            ));
+        }
+
+        this.BPMList = options.BPMList;
+        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this.startTime);
+        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this.endTime);
+    }
 }
 export function getEasingFunctionOfNumberEvent(event: IEvent<number>) {
     return event.bezier ?
@@ -562,12 +884,15 @@ export function getEasingFunctionOfNumberEvent(event: IEvent<number>) {
             return (func(time * deltaX + left) - start) / deltaY;
         };
 }
-export function interpolateNumberEventValue(event: IEvent<number> & S, seconds: number) {
-    const startSeconds = event?.cachedStartSeconds;
-    const endSeconds = event?.cachedEndSeconds;
+export function interpolateNumberEventValue(event: IEvent<number> & ITimeSegment, seconds: number) {
+    const startSeconds = event.cachedStartSeconds;
+    const endSeconds = event.cachedEndSeconds;
     const { start, end } = event;
     if (endSeconds <= seconds) {
         return end;
+    }
+    else if (startSeconds >= seconds) {
+        return start;
     }
     else {
         const dx = endSeconds - startSeconds;
@@ -579,7 +904,8 @@ export function interpolateNumberEventValue(event: IEvent<number> & S, seconds: 
         return start + easingFactor * dy;
     }
 }
-export function interpolateColorEventValue(event: ColorEvent, seconds: number): RGBcolor {
+export function interpolateColorEventValue(event: IEvent<RGBcolor> & ITimeSegment, seconds: number): RGBcolor {
+    const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;
     const { bezier, bezierPoints, start, end, easingType, easingLeft, easingRight, startTime, endTime } = event;
     const _interpolate = (part: 0 | 1 | 2) => {
@@ -593,8 +919,8 @@ export function interpolateColorEventValue(event: ColorEvent, seconds: number): 
             easingRight,
             startTime,
             endTime,
-            cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
-            cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
+            cachedStartSeconds: event.cachedStartSeconds,
+            cachedEndSeconds: event.cachedEndSeconds,
             linkgroup: 0,
             isDisabled: false,
         };
@@ -602,6 +928,9 @@ export function interpolateColorEventValue(event: ColorEvent, seconds: number): 
     };
     if (endSeconds <= seconds) {
         return end;
+    }
+    else if (startSeconds >= seconds) {
+        return start;
     }
     else {
         return [
@@ -611,11 +940,15 @@ export function interpolateColorEventValue(event: ColorEvent, seconds: number): 
         ];
     }
 }
-export function interpolateTextEventValue(event: TextEvent, seconds: number) {
+export function interpolateTextEventValue(event: IEvent<string> & ITimeSegment, seconds: number) {
+    const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;
     const { bezier, bezierPoints, start, end, easingType, easingLeft, easingRight, startTime, endTime } = event;
     if (endSeconds <= seconds) {
         return end.replace("%P%", "");
+    }
+    else if (startSeconds >= seconds) {
+        return start.replace("%P%", "");
     }
     else {
         if (start.startsWith(end) || end.startsWith(start)) {
@@ -631,8 +964,8 @@ export function interpolateTextEventValue(event: TextEvent, seconds: number) {
                 bezierPoints: [...bezierPoints] as BezierPoints,
                 start: lengthStart,
                 end: lengthEnd,
-                cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
-                cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
+                cachedStartSeconds: event.cachedStartSeconds,
+                cachedEndSeconds: event.cachedEndSeconds,
                 linkgroup: 0,
                 isDisabled: false,
             };
@@ -652,8 +985,8 @@ export function interpolateTextEventValue(event: TextEvent, seconds: number) {
                 bezierPoints: [...bezierPoints] as BezierPoints,
                 start: startNumber,
                 end: endNumber,
-                cachedStartSeconds: beatsToSeconds(event.BPMList, event.startTime),
-                cachedEndSeconds: beatsToSeconds(event.BPMList, event.endTime),
+                cachedStartSeconds: event.cachedStartSeconds,
+                cachedEndSeconds: event.cachedEndSeconds,
                 linkgroup: 0,
                 isDisabled: false,
             };
@@ -663,25 +996,77 @@ export function interpolateTextEventValue(event: TextEvent, seconds: number) {
         return start;
     }
 }
+export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberType> & ITimeSegment, seconds: number) {
+    const startSeconds = event.cachedStartSeconds;
+    const endSeconds = event.cachedEndSeconds;
+    const { start, end, startTime, endTime, bezier, bezierPoints, easingType, easingLeft, easingRight } = event;
+    if (endSeconds <= seconds) {
+        return end;
+    }
+    else if (startSeconds >= seconds) {
+        return start;
+    }
+    else {
+        if (isArray(start) && isArray(end)) {
+            return zip(start, end).map(([startNum, endNum]) => {
+                return interpolateNumberEventValue({
+                    startTime,
+                    endTime,
+                    easingType,
+                    easingLeft,
+                    easingRight,
+                    bezier,
+                    bezierPoints: [...bezierPoints],
+                    start: startNum!,
+                    end: endNum!,
+                    cachedStartSeconds: startSeconds,
+                    cachedEndSeconds: endSeconds,
+                }, seconds);
+            }) as Exclude<ShaderNumberType, number>;
+        }
+        else if (isNumber(start) && isNumber(end)) {
+            const dx = endSeconds - startSeconds;
+            const dy = end - start;
+            const sx = seconds - startSeconds;
+            const easingFunction = getEasingFunctionOfNumberEvent({
+                startTime,
+                endTime,
+                easingType,
+                easingLeft,
+                easingRight,
+                bezier,
+                bezierPoints: [...bezierPoints],
+                start,
+                end,
+            });
+
+            const easingFactor = easingFunction(sx / dx);
+            return start + easingFactor * dy;
+        }
+        else {
+            throw new Error(`无法处理的起始和结束值：${start} 和 ${end}`);
+        }
+    }
+}
 
 /**
  * 找到开始时间不大于seconds的最大的事件。若不存在，返回null。
  */
-export function findLastEvent<T extends AbstractEvent>(events: T[], seconds: number): T | null {
+export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): T | null {
     // // Filter valid events and sort by cachedStartSeconds
-    // const validEvents = events.filter(event => 
-    //     !event.isDisabled && 
-    //     typeof event.cachedStartSeconds === 'number' && 
+    // const validEvents = events.filter(event =>
+    //     !event.isDisabled &&
+    //     typeof event.cachedStartSeconds === 'number' &&
     //     event.cachedStartSeconds <= seconds
     // );
+    // Sort by cachedStartSeconds in ascending order
+    checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
+
     const validEvents = events.filter(event => !event.isDisabled);
 
     if (validEvents.length === 0) {
         return null;
     }
-
-    // Sort by cachedStartSeconds in ascending order
-    checkAndSort(validEvents, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
 
     // Binary search for the last event with start time <= seconds
     let left = 0;

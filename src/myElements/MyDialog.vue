@@ -23,10 +23,12 @@
             />
         </template>
         <template #default>
-            <slot
-                name="default"
-                :close="close"
-            />
+            <div class="dialog-content">
+                <slot
+                    name="default"
+                    :close="close"
+                />
+            </div>
         </template>
         <template #footer>
             <slot
@@ -54,8 +56,14 @@ function close() {
     isShow.value = false;
 }
 </script>
-<style scoped> 
+<style scoped>
 .el-dialog {
-    --el-dialog-min-width: 300px; 
+    --el-dialog-min-width: 300px;
+}
+
+.dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 </style>

@@ -46,14 +46,14 @@ export default class AutoplayManager extends Manager {
                 if (!note.isFake) {
                     if (seconds >= endSeconds) {
                         combo++;
-                    }
-                    switch (note.getJudgement()) {
-                        case "perfect":
-                            perfect++;
-                            break;
-                        case "good":
-                            good++;
-                            break;
+                        switch (note.getJudgement()) {
+                            case "perfect":
+                                perfect++;
+                                break;
+                            case "good":
+                                good++;
+                                break;
+                        }
                     }
                     realNotes++;
                 }

@@ -261,3 +261,171 @@ export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
         arr.sort(compare);
     }
 }
+export function isEqualDeep(obj1: unknown, obj2: unknown, ignoreArrayOrders = false) {
+    // Check if types are different
+    if (typeof obj1 !== typeof obj2) {
+        return false;
+    }
+
+    // For non-object types, use strict equality
+    if (obj1 === null || obj2 === null || typeof obj1 !== "object" || typeof obj2 !== "object") {
+        return obj1 === obj2;
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+        if (obj1.length !== obj2.length) {
+            return false;
+        }
+
+        if (ignoreArrayOrders) {
+            // For ignoring order, we need to check if every element in obj1
+            // exists in obj2, and vice versa
+            const obj2Copy = [...obj2];
+            for (const item of obj1) {
+                const index = obj2Copy.findIndex((obj2Item) => isEqualDeep(item, obj2Item, ignoreArrayOrders));
+                if (index === -1) {
+                    return false;
+                }
+                obj2Copy.splice(index, 1);
+            }
+            return true;
+        }
+        else {
+            // Compare elements in order
+            for (let i = 0; i < obj1.length; i++) {
+                if (!isEqualDeep(obj1[i], obj2[i], ignoreArrayOrders)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    // If one is array and other is not
+    if (Array.isArray(obj1) || Array.isArray(obj2)) {
+        return false;
+    }
+
+    // Handle objects
+    const obj1AsRecord = obj1 as Record<string, unknown>;
+    const obj2AsRecord = obj2 as Record<string, unknown>;
+
+    const keys1 = Object.keys(obj1AsRecord);
+    const keys2 = Object.keys(obj2AsRecord);
+
+    if (keys1.length !== keys2.length) {
+        return false;
+    }
+
+    for (const key of keys1) {
+        if (!(key in obj2AsRecord)) {
+            return false;
+        }
+        if (!isEqualDeep(obj1AsRecord[key], obj2AsRecord[key], ignoreArrayOrders)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+export function syncToAsync<A extends unknown[], R>(func: (...args: A) => R) {
+    return function (...args: A) {
+        return new Promise<R>((resolve, reject) => {
+            try {
+                resolve(func(...args));
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    };
+}
+
+/** 让操作对象像操作数组一样 */
+export class ArrayedObject<K extends string | number | symbol, V> {
+    object: Record<K, V>;
+
+    /** 返回原始对象 */
+    toObject(): Record<K, V> {
+        return this.object;
+    }
+    constructor(object: Record<K, V>) {
+        this.object = { ...object };
+    }
+    map<M>(mapFunc: (key: K, value: V) => M): ArrayedObject<K, M> {
+        return ArrayedObject.fromEntries(this.entries().map(([key, value]) => [key, mapFunc(key, value)]));
+    }
+    filter(filterFunc: (key: K, value: V) => boolean): ArrayedObject<K, V> {
+        return ArrayedObject.fromEntries(this.entries().filter(([key, value]) => filterFunc(key, value)));
+    }
+    every(filterFunc: (key: K, value: V) => boolean) {
+        return Object.entries(this.object).every(([key, value]) => filterFunc(key as K, value as V));
+    }
+    some(filterFunc: (key: K, value: V) => boolean) {
+        return Object.entries(this.object).some(([key, value]) => filterFunc(key as K, value as V));
+    }
+    keys(): K[] {
+        return Object.keys(this.object) as K[];
+    }
+    values(): V[] {
+        return Object.values(this.object) as V[];
+    }
+    entries(): [K, V][] {
+        return Object.entries(this.object) as [K, V][];
+    }
+    find(predicate: (key: K, value: V) => boolean): V | undefined {
+        for (const [key, value] of this.entries()) {
+            if (predicate(key, value)) {
+                return value;
+            }
+        }
+        return undefined;
+    }
+    forEach(callback: (key: K, value: V, index: number) => void): void {
+        let index = 0;
+        for (const [key, value] of this.entries()) {
+            callback(key, value, index++);
+        }
+    }
+    reduce<M>(callback: (accumulator: M, key: K, value: V) => M, initialValue: M): M {
+        let accumulator = initialValue;
+        for (const [key, value] of this.entries()) {
+            accumulator = callback(accumulator, key, value);
+        }
+        return accumulator;
+    }
+    has(key: K): boolean {
+        return key in this.object;
+    }
+    get(key: K): V | undefined {
+        return this.object[key];
+    }
+    set(key: K, value: V) {
+        this.object[key] = value;
+    }
+
+    /** 调试用，链式调用中穿插断点查看对象 */
+    log() {
+        // 为了防止浏览器 console.log 的特性，需要先复制 this.object 再打印
+        console.log({ ...this.object });
+        return this;
+    }
+
+    /** 把值中的所有 Promise 解析为值，并返回一个新的 Promise，链式调用完后需要 await 一下 */
+    async waitPromises(): Promise<ArrayedObject<K, Awaited<V>>> {
+        const entries: [K, Awaited<V>][] = [];
+        for (const [key, value] of this.entries()) {
+            entries.push([key, await value]);
+        }
+        return new ArrayedObject(fromEntries(entries));
+    }
+    static fromEntries<K extends string | number | symbol, V>(entries: [K, V][]): ArrayedObject<K, V> {
+        return new ArrayedObject(fromEntries(entries));
+    }
+}
+
+/** 与 Object.fromEntries 相同，只是做了一下类型标注 */
+export function fromEntries<K extends string | number | symbol, V>(entries: [K, V][]): Record<K, V> {
+    return Object.fromEntries(entries) as Record<K, V>;
+}

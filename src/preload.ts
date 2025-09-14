@@ -1,10 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { defaultSettings } from "./managers/settings";
+import { ChartReadResult } from "./models/chartPackage";
 
 const electronAPI: ElectronAPI = {
     loadChart: (chartPackagePath: string) => ipcRenderer.invoke("load-chart", chartPackagePath),
     addChart: (musicPath: string, backgroundPath: string, name: string) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
-    saveChart: (chartId: string, chartContent: string) => ipcRenderer.invoke("save-chart", chartId, chartContent),
+    saveChart: (chartId: string, chartContent: string, extraContent: string) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
     deleteChart: (chartId: string) => ipcRenderer.invoke("delete-chart", chartId),
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
     readChart: (chartId: string) => ipcRenderer.invoke("read-chart", chartId),
@@ -27,19 +28,15 @@ const electronAPI: ElectronAPI = {
     addTextures: (chartId: string, texturePaths: string[]) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
     openChartFolder: (path: string) => ipcRenderer.invoke("open-chart-folder", path),
     renameChartId: (chartId: string, newChartId: string) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
+    readShader: (shaderName: string) => ipcRenderer.invoke("read-shader", shaderName),
+    openExternalLink: (url: string) => ipcRenderer.invoke("open-external-link", url),
 };
 
 interface ElectronAPI {
     loadChart: (chartPackagePath: string) => Promise<string>;
-    readChart: (chartId: string) => Promise<{
-        musicData: ArrayBuffer,
-        backgroundData: ArrayBuffer,
-        chartContent: string,
-        texturePaths: string[],
-        textureDatas: ArrayBuffer[],
-    }>,
+    readChart: (chartId: string) => Promise<ChartReadResult>,
     addChart: (musicPath: string, backgroundPath: string, name: string) => Promise<string>,
-    saveChart: (chartId: string, chartContent: string) => Promise<void>,
+    saveChart: (chartId: string, chartContent: string, extraContent: string) => Promise<void>,
     deleteChart: (chartId: string) => Promise<void>,
     readChartList: () => Promise<string[]>,
     exportChart: (chartId: string, targetPath: string) => Promise<void>,
@@ -69,7 +66,9 @@ interface ElectronAPI {
     writeSettings: (settings: typeof defaultSettings) => Promise<void>,
     addTextures: (chartId: string, texturePaths: string[]) => Promise<Record<string, ArrayBuffer>>,
     openChartFolder: (chartId: string) => Promise<void>,
-    renameChartId: (chartId: string, newChartId: string) => Promise<void>
+    renameChartId: (chartId: string, newChartId: string) => Promise<void>,
+    readShader: (shaderName: string) => Promise<{ vsh: string, fsh: string }>,
+    openExternalLink: (url: string) => Promise<void>
 }
 
 // 扩展 Window 接口以包含 electronAPI

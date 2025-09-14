@@ -2,28 +2,39 @@ import { isNumber, isObject } from "lodash";
 import MathUtils, { MIN_TO_SEC } from "../tools/mathUtils";
 import { isArrayOfNumbers } from "@/tools/typeTools";
 import ChartError from "./error";
+import { IObjectizable } from "./objectizable";
 export interface IBPM {
     bpm: number
     startTime: Beats
 }
 const DEFAULT_BPM = 120;
-export class BPM implements IBPM {
+export class BPM implements IBPM, IObjectizable {
     bpm: number = DEFAULT_BPM;
     _startTime: Beats = [0, 0, 1];
     readonly errors: ChartError[] = [];
+
+    /**
+     * 为了兼容一些其他的格式，可能需要添加一些别名
+     * BPM.startTime 的别名为：time
+     */
     get startTime() {
         return this._startTime;
     }
     set startTime(beats: Beats) {
-        if (beats[2] === 0) beats[2] = 1;
-        this._startTime = beats;
+        this._startTime = makeSureBeatsValid(beats);
+    }
+    get time() {
+        return this.startTime;
+    }
+    set time(beats: Beats) {
+        this.startTime = beats;
     }
     get startString() {
         const beats = formatBeats(this.startTime);
         return beats;
     }
     set startString(str: string) {
-        const beats = makeSureBeatsValid(parseBeats(str));
+        const beats = parseBeats(str);
         this.startTime = beats;
     }
     toObject(): IBPM {
@@ -74,7 +85,7 @@ export class BPM implements IBPM {
 }
 
 /**
- * 第一个数字代表整数部分  
+ * 第一个数字代表整数部分
  * 第二、三个数字代表小数部分
  * 数值为第一个数字 + 第二个数字 / 第三个数字
  */

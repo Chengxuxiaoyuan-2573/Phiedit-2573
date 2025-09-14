@@ -134,9 +134,18 @@
                 在音符前放置负数速度事件，观察音符是否隐藏。<br>
             </MyQuestionMark>
         </MySwitch>
+
         <MyButton
+            v-if="judgeLine.isUseful"
             type="danger"
             @click="confirm(handleDeleteJudgeLine, '确定删除当前判定线？（该操作不可逆）', '删除判定线'), update()"
+        >
+            删除当前判定线
+        </MyButton>
+        <MyButton
+            v-else
+            type="warning"
+            @click="handleDeleteJudgeLine(), update()"
         >
             删除当前判定线
         </MyButton>

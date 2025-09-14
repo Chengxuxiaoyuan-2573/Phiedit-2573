@@ -5,9 +5,8 @@ import EditableImage from "../tools/editableImage";
 import jsyaml from "js-yaml";
 import { parseRGBAfromNumber, RGBAcolor } from "../tools/color";
 import { NoteType } from "./note";
-import { isObject, isNumber, isBoolean } from "lodash";
+import { isObject, isNumber, isBoolean, mean } from "lodash";
 import MediaUtils from "../tools/mediaUtils";
-import MathUtils from "@/tools/mathUtils";
 type Image = HTMLImageElement | HTMLCanvasElement;
 interface IResourcePackage {
     tap: HTMLImageElement;
@@ -131,7 +130,7 @@ export class ResourcePackage implements IResourcePackage {
                 return this.tap;
             }
         }
-        else
+        else {
             if (highlight) {
                 return {
                     head: this.holdHLHead,
@@ -146,6 +145,7 @@ export class ResourcePackage implements IResourcePackage {
                     end: this.holdEnd
                 };
             }
+        }
     }
     playSound(noteType: NoteType, volume = 1) {
         switch (noteType) {
@@ -183,13 +183,17 @@ export class ResourcePackage implements IResourcePackage {
         this.goodHitFxFrames = resourcePackage.goodHitFxFrames;
         this.config = resourcePackage.config;
     }
-    static load(file: Blob, progressHandler?: (progress: string) => void, p = 2) {
+    static load(arrayBuffer: ArrayBuffer, progressHandler?: (e: ResPakLoadProgress) => void) {
         return new Promise<ResourcePackage>((resolve) => {
+            const blob = MediaUtils.arrayBufferToBlob(arrayBuffer);
             const reader = new FileReaderExtends();
             resolve(
-                reader.readAsync(file, "arraybuffer", function (e: ProgressEvent) {
+                reader.readAsync(blob, "arraybuffer", function (e: ProgressEvent) {
                     if (progressHandler) {
-                        progressHandler("读取文件: " + MathUtils.formatData(e.loaded) + " / " + MathUtils.formatData(file.size) + " ( " + (e.loaded / file.size * 100).toFixed(p) + "% )");
+                        progressHandler({
+                            progress: e.loaded / e.total * 100,
+                            description: "读取资源包内容"
+                        });
                     }
                 }).then(async result => {
                     const zip = await JSZip.loadAsync(result);
@@ -275,20 +279,10 @@ export class ResourcePackage implements IResourcePackage {
                     };
                     const _showProgress = () => {
                         if (progressHandler) {
-                            progressHandler(
-                                "Tap音效已加载" + progress.tapSound.toFixed(p) +
-                                "%\nDrag音效已加载" + progress.flickSound.toFixed(p) +
-                                "%\nFlick音效已加载" + progress.tapSound.toFixed(p) +
-                                "%\n打击特效已加载" + progress.hitFx.toFixed(p) +
-                                "%\nTap皮肤已加载" + progress.tap.toFixed(p) +
-                                "%\nDrag皮肤已加载" + progress.drag.toFixed(p) +
-                                "%\nFlick皮肤已加载" + progress.flick.toFixed(p) +
-                                "%\nHold皮肤已加载" + progress.hold.toFixed(p) +
-                                "%\nTap双押皮肤已加载" + progress.tapHL.toFixed(p) +
-                                "%\nDrag双押皮肤已加载" + progress.dragHL.toFixed(p) +
-                                "%\nFlick双押皮肤已加载" + progress.flickHL.toFixed(p) +
-                                "%\nHold双押皮肤已加载" + progress.holdHL.toFixed(p) + "%"
-                            );
+                            progressHandler({
+                                description: "读取资源包中的文件",
+                                progress: mean(Object.values(progress))
+                            });
                         }
                     };
                     const tapSoundPromise = tapSoundFile.async("arraybuffer", meta => {
@@ -398,4 +392,12 @@ export class ResourcePackage implements IResourcePackage {
             );
         });
     }
+}
+interface ResPakLoadProgress {
+
+    /** 加载描述 */
+    description: string;
+
+    /** 加载进度 */
+    progress: number;
 }

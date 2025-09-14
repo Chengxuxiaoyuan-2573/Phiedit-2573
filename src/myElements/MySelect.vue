@@ -1,6 +1,9 @@
 <template>
     <div class="my-select">
-        <p class="my-select-label">
+        <p
+            v-if="$slots.default && $slots.default().length > 0"
+            class="my-select-label"
+        >
             <slot />
         </p>
         <ElSelect
@@ -11,6 +14,7 @@
             :filter-method="filterMethod"
             :class="props.class"
             :multiple="props.multiple"
+            placeholder="暂无可用的选项"
             @change="onChange"
             @keydown.stop="onKeyDown"
         >
@@ -120,7 +124,9 @@ function filterMethod(value: string) {
             }
         }
     }
-    inputData.value = getValue(filteredOptions.value[0]);
+    if (filteredOptions.value.length > 0) {
+        inputData.value = getValue(filteredOptions.value[0]);
+    }
     onChange();
 }
 function onKeyDown(e: KeyboardEvent) {

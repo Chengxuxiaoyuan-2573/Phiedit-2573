@@ -1,10 +1,15 @@
 import { ElMessage, ElMessageBox } from "element-plus";
-export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T) => Promise<void> | void, operationName: string, hintWhenSucceeded = true) {
+export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T) => Promise<unknown> | unknown, operationName: string, hintWhenSucceeded = true) {
     return async function (...args: T) {
         try {
-            await func(...args);
+            const result = await func(...args);
             if (hintWhenSucceeded) {
-                ElMessage.success(`${operationName}成功`);
+                if (result !== undefined && result !== null) {
+                    ElMessage.success(`${operationName}成功：${result}`);
+                }
+                else {
+                    ElMessage.success(`${operationName}成功`);
+                }
             }
         }
         catch (err) {

@@ -16,7 +16,8 @@
             <template #prepend>
                 粘贴时间
                 <MyQuestionMark>
-                    把剪切板里的内容粘贴到指定时间处。该时间会与剪切板中时间最早的元素对齐。
+                    把剪切板里的内容粘贴到指定时间处。剪切板中时间最早的元素会与该时间对齐。<br>
+                    如果你使用快捷键 Ctrl+V 粘贴，则剪切板中时间最早的元素会与鼠标位置对齐。<br>
                 </MyQuestionMark>
             </template>
         </MyInputBeats>

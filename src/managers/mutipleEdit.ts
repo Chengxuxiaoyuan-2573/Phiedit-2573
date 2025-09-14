@@ -8,13 +8,14 @@ import { RGBcolor, invert } from "@/tools/color";
 import Manager from "./abstract";
 import { NoteNumberAttrs } from "./state";
 import globalEventEmitter from "@/eventEmitter";
+import { createCatchErrorByMessage } from "@/tools/catchError";
 
 export default class MutipleEditManager extends Manager {
     constructor() {
         super();
-        globalEventEmitter.on("MUTIPLE_EDIT", () => {
+        globalEventEmitter.on("MUTIPLE_EDIT", createCatchErrorByMessage(() => {
             this.mutipleEdit();
-        });
+        }, "批量编辑"));
     }
     mutipleEdit() {
         const selectionManager = store.useManager("selectionManager");

@@ -135,9 +135,9 @@ export default class EditableImage {
         const ctx = canvasUtils.getContext(this.canvas);
         const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         for (let i = 0; i < imageData.data.length; i += RGBA_LENGTH) {
-            imageData.data[i] = (imageData.data[i] * color[0] / 0xff);
-            imageData.data[i + 1] = (imageData.data[i + 1] * color[1] / 0xff);
-            imageData.data[i + 2] = (imageData.data[i + 2] * color[2] / 0xff);
+            imageData.data[i] = imageData.data[i] * color[0] / 0xff;
+            imageData.data[i + 1] = imageData.data[i + 1] * color[1] / 0xff;
+            imageData.data[i + 2] = imageData.data[i + 2] * color[2] / 0xff;
         }
         ctx.putImageData(imageData, 0, 0);
         return this;

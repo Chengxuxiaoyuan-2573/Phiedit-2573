@@ -7,10 +7,10 @@ import { createCatchErrorByMessage } from "@/tools/catchError";
 export default class EventAbillitiesManager extends Manager {
     constructor() {
         super();
-        globalEventEmitter.on("DISABLE", createCatchErrorByMessage(()=>{
+        globalEventEmitter.on("DISABLE", createCatchErrorByMessage(() => {
             this.disable();
         }, "禁用事件"));
-        globalEventEmitter.on("ENABLE", createCatchErrorByMessage(()=>{
+        globalEventEmitter.on("ENABLE", createCatchErrorByMessage(() => {
             this.enable();
         }, "启用事件"));
     }

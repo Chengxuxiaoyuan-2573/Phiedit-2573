@@ -110,7 +110,7 @@ function bindLine() {
 function updateArrayLength() {
     stateManager.cache.fastBind.judgeLinesIsSelected = new Array(stateManager.judgeLinesCount).fill(false);
 }
-onMounted(() => { 
+onMounted(() => {
     updateArrayLength();
 });
 </script>

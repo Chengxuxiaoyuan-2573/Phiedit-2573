@@ -6,6 +6,8 @@ import { Note } from "./note";
 import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
 import ChartError from "./error";
+import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
+import { IObjectizable } from "./objectizable";
 
 export interface IChart {
 
@@ -21,7 +23,7 @@ export interface IChart {
     /** 判定线列表 */
     judgeLineList: IJudgeLine[]
 }
-export class Chart implements IChart {
+export class Chart implements IChart, IObjectizable {
     readonly BPMList: BPM[];
     readonly META: ChartMeta;
     readonly judgeLineGroup: string[];
@@ -150,6 +152,17 @@ export class Chart implements IChart {
                 for (let i = 0; i < chart; i++) {
                     this.addNewJudgeLine();
                 }
+                this.errors.push(new ChartError(
+                    `谱面文件必须是一个对象，但读取到了数字${chart}。将会创建一个包含${this.judgeLineList.length}条判定线的谱面。`,
+                    "ChartReadError.TypeError",
+                    "info"
+                ));
+            }
+            else if (chart === SYMBOL_CHART_JSON_ERROR) {
+                this.errors.push(new ChartError(
+                    `谱面文件不存在或不能被 JSON 解析。请确保文件存在且格式正确。`,
+                    "ChartReadError.FormatError"
+                ));
             }
             else {
                 this.errors.push(new ChartError(
@@ -167,6 +180,10 @@ export class Chart implements IChart {
             BPMList: this.BPMList,
             judgeLineNumber
         });
+        for (const eventLayer of judgeLine.eventLayers) {
+            eventLayer.speedEvents[0].start = 10;
+            eventLayer.speedEvents[0].end = 10;
+        }
         this.judgeLineList.push(judgeLine);
         return judgeLine;
     }

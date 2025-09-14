@@ -215,8 +215,6 @@
                     >
                         {{ i - 1 }}
                     </MyButton>
-                    <!-- <ElTooltip>
-                    <template #default> -->
                     <MyButton
                         type="warning"
                         :plain="stateManager.state.currentEventLayerId != 'X'"
@@ -224,28 +222,6 @@
                     >
                         特殊
                     </MyButton>
-                    <!-- </template>
-                    <template #content>
-                        特殊层级的事件与普通层级不同：<br>
-                        普通层级有4层，特殊层级只有一层<br>
-                        普通层级从左到右分别为：moveX，moveY，rotate，alpha，speed<br>
-                        特殊事件层级从左到右分别为：scaleX，scaleY，color，paint，text<br>
-                        moveX和moveY控制判定线的位置（屏幕范围为X:[-675,675], Y:[-450,450]）<br>
-                        rotate控制判定线的角度（0朝上，90朝右，180朝下，270朝左，还可以斜着）<br>
-                        alpha控制判定线的透明度（0隐藏，128半透明，255完全不透明）<br>
-                        speed控制判定线上面音符的流速（10是一个比较正常的流速）<br>
-                        scaleX和scaleY控制判定线的长度和宽度<br>
-                        color控制判定线的颜色（RGB）<br>
-                        paint暂不支持<br>
-                        text控制判定线显示的文字<br>
-                    </template>
-                </ElTooltip> -->
-                    <!-- <MyButton
-                    type="success"
-                    @click="stateManager.currentJudgeLine.addEventLayer(), update()"
-                >
-                    +
-                </MyButton> -->
                 </MyGridContainer>
                 <MyInputNumber
                     v-model="chart.META.offset"
@@ -450,23 +426,35 @@
                     >
                         谱面纠错
                     </MyButton>
+                    <MyButton
+                        type="primary"
+                        @click="stateManager.state.right = RightPanelState.Shader"
+                    >
+                        shader编辑
+                    </MyButton>
                 </MyGridContainer>
                 <h3>
                     快速切换判定线
                 </h3>
+                <MyInput
+                    v-model="judgeLineFilter"
+                    class="judge-line-filter-input"
+                    placeholder="筛选判定线"
+                    clearable
+                />
                 <MyGridContainer
                     :columns="5"
                     :gap="5"
                 >
                     <MyButton
-                        v-for="i in stateManager.judgeLinesCount"
-                        :key="i - 1 + (u ? 0 : 0)"
-                        :type="(['primary', 'warning', 'danger', 'success', 'info'] as const)[Math.floor((i - 1) / 10) % 5]"
-                        :plain="i - 1 != stateManager.state.currentJudgeLineNumber"
+                        v-for="judgeLine in filteredJudgeLines"
+                        :key="judgeLine.id + (u ? 0 : 0)"
+                        :type="(['primary', 'warning', 'danger', 'success', 'info'] as const)[Math.floor((judgeLine.id) / 10) % 5]"
+                        :plain="judgeLine.id != stateManager.state.currentJudgeLineNumber"
                         flex
-                        @click="stateManager.state.currentJudgeLineNumber = i - 1, update()"
+                        @click="stateManager.state.currentJudgeLineNumber = judgeLine.id, update()"
                     >
-                        {{ i - 1 }}
+                        {{ judgeLine.id }}
                     </MyButton>
                     <MyButton
                         type="success"
@@ -525,21 +513,21 @@
                     v-else-if="stateManager.state.right === RightPanelState.Error"
                     title-teleport=".title-right"
                 />
+                <ShaderPanel
+                    v-else-if="stateManager.state.right === RightPanelState.Shader"
+                    title-teleport=".title-right"
+                />
             </template>
         </ElAside>
         <ElFooter id="footer">
             <div class="footer-left">
-                <span @click="copyLink($event, 'https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573')">
-                    <a href="https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573">
-                        Phiedit 2573
-                    </a>
-                </span>
+                <MyLink href="https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573">
+                    Phiedit 2573
+                </MyLink>
                 Made By
-                <span @click="copyLink($event, 'https://space.bilibili.com/522248560')">
-                    <a href="https://space.bilibili.com/522248560">
-                        @程序小袁_2573
-                    </a>
-                </span>
+                <MyLink href="https://space.bilibili.com/522248560">
+                    @程序小袁_2573
+                </MyLink>
             </div>
             <div class="footer-right">
                 {{ tip }}
@@ -559,14 +547,13 @@ import {
     ElMessageBox,
     ElSlider,
     ElFooter,
-    ElMessage,
     ElTooltip,
     ElRadioButton,
     ElRadioGroup,
 } from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { mean, min } from "lodash";
+import { isNumber, mean, min } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
@@ -585,27 +572,6 @@ import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import MyImage from "@/myElements/MyImage.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 
-import ChartRenderer from "@/managers/render/chartRenderer";
-import SaveManager from "@/managers/save";
-import MouseManager from "@/managers/mouse";
-import HistoryManager from "@/managers/history";
-import CloneManager from "@/managers/clone";
-import EditorRenderer from "@/managers/render/editorRenderer";
-import ClipboardManager from "@/managers/clipboard";
-import StateManager, { RightPanelState } from "@/managers/state";
-import MoveManager from "@/managers/move";
-import ExportManager from "@/managers/export";
-import SelectionManager from "@/managers/selection";
-import SettingsManager from "@/managers/settings";
-import ParagraphRepeater from "@/managers/paragraphRepeater";
-import EventAbillitiesManager from "@/managers/eventAbillities";
-import ErrorManager from "@/managers/error";
-import BoxesManager from "@/managers/boxes";
-import NoteFiller from "@/managers/noteFiller";
-import EventFiller from "@/managers/eventFiller";
-import LineBinder from "@/managers/lineBinder";
-import AutoplayManager from "@/managers/autoplay";
-
 import BPMListPanel from "@/panels/BPMListPanel.vue";
 import ChartMetaPanel from "@/panels/ChartMetaPanel.vue";
 import JudgeLinePanel from "@/panels/JudgeLinePanel.vue";
@@ -623,12 +589,14 @@ import ColorEventEditPanel from "@/panels/ColorEventEditPanel.vue";
 import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
 
-
 import globalEventEmitter from "@/eventEmitter";
-import store, { audioRef, canvasRef, resourcePackageRef } from "@/store";
+import store, { audioRef, canvasRef, managersMap, resourcePackageRef } from "@/store";
 import Constants from "@/constants";
-import CoordinateManager from "@/managers/coordinate";
-import MutipleEditManager from "@/managers/mutipleEdit";
+import ShaderPanel from "@/panels/ShaderPanel.vue";
+import MyLink from "@/myElements/MyLink.vue";
+import MyInput from "@/myElements/MyInput.vue";
+import { ArrayedObject } from "@/tools/algorithm";
+import { RightPanelState } from "@/managers/state";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -644,71 +612,19 @@ loadStart();
 // 读取chartPackage
 const chartId = store.getChartId();
 const readResult = await window.electronAPI.readChart(chartId);
-const musicBlob = MediaUtils.arrayBufferToBlob(readResult.musicData);
-const musicSrc = URL.createObjectURL(musicBlob);
-const backgroundBlob = MediaUtils.arrayBufferToBlob(readResult.backgroundData);
-const backgroundSrc = URL.createObjectURL(backgroundBlob);
-const textureBlobs = readResult.textureDatas.map((textureData) =>
-    MediaUtils.arrayBufferToBlob(textureData)
-);
-const textureSrcs = textureBlobs.map((textureBlob) => URL.createObjectURL(textureBlob));
-store.chartPackageRef.value = new ChartPackage({
-    musicSrc,
-    background: (() => {
-        const image = new Image();
-        image.src = backgroundSrc;
-        return image;
-    })(),
-    textures: (() => {
-        const textures: Record<string, HTMLImageElement> = {};
-        for (let i = 0; i < textureSrcs.length; i++) {
-            textures[readResult.texturePaths[i]] = (() => {
-                const image = new Image();
-                image.src = textureSrcs[i];
-                return image;
-            })();
-        }
-        return textures;
-    })(),
-    chart: JSON.parse(readResult.chartContent),
-});
-const chart = store.chartPackageRef.value.chart;
+
+store.chartPackageRef.value = await ChartPackage.loadFromChartReadResult(readResult);
+
+const { chart, textures } = store.chartPackageRef.value;
 
 // 加载resourcePackage
-store.resourcePackageRef.value = await getResourcePackage();
+store.resourcePackageRef.value = await loadResourcePackage();
 
 // 创建并设置managers
-store.setManager("chartRenderer", new ChartRenderer());
-store.setManager("editorRenderer", new EditorRenderer());
-store.setManager("clipboardManager", new ClipboardManager());
-store.setManager("cloneManager", new CloneManager());
-store.setManager("historyManager", new HistoryManager());
-store.setManager("mouseManager", new MouseManager());
-store.setManager("moveManager", new MoveManager());
-store.setManager("saveManager", new SaveManager());
-store.setManager("selectionManager", new SelectionManager());
-store.setManager("settingsManager", new SettingsManager());
-store.setManager("stateManager", new StateManager());
-store.setManager("paragraphRepeater", new ParagraphRepeater());
-store.setManager("exportManager", new ExportManager());
-store.setManager("eventAbillitiesManager", new EventAbillitiesManager());
-store.setManager("boxesManager", new BoxesManager());
-store.setManager("noteFiller", new NoteFiller());
-store.setManager("eventFiller", new EventFiller());
-store.setManager("lineBinder", new LineBinder());
-store.setManager("autoplayManager", new AutoplayManager());
-store.setManager("errorManager", new ErrorManager());
-store.setManager("coordinateManager", new CoordinateManager());
-store.setManager("mutipleEditManager", new MutipleEditManager());
-
-onBeforeUnmount(() => {
-    // 释放资源
-    URL.revokeObjectURL(musicSrc);
-    URL.revokeObjectURL(backgroundSrc);
-    for (const textureSrc of textureSrcs) {
-        URL.revokeObjectURL(textureSrc);
-    }
+new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
+    store.setManager(managerName, new managerConstructor());
 });
+
 loadEnd();
 
 const stateManager = store.useManager("stateManager");
@@ -728,6 +644,122 @@ const tip = ref(Constants.tips[Math.floor(Math.random() * Constants.tips.length)
 const mouseIsInCanvas = ref(false);
 const mouseX = ref(0);
 const mouseY = ref(0);
+const judgeLineFilter = ref("");
+
+const filteredJudgeLines = computed(() => {
+    // 如果过滤条件为空，就直接返回所有的判定线
+    if (judgeLineFilter.value === "") {
+        return [...chart.judgeLineList];
+    }
+
+    const result = chart.judgeLineList.filter(judgeLine => {
+        return judgeLine.id
+            .toString()
+            .toLowerCase()
+            .includes(
+                judgeLineFilter.value
+                    .toLowerCase()
+            ) || judgeLine.Name
+            .toLowerCase()
+            .includes(
+                judgeLineFilter.value
+                    .toLowerCase()
+            );
+    });
+    const parseRanges = (input: string) => {
+        /** 分隔符可以是空格、英文逗号、英文分号、中文逗号、中文顿号、中文分号、英文斜杠、英文反斜杠，英文竖线 */
+        const parts = input.split(/[\s,;，、；/\\|]+/);
+        const result: ({ start: number, end: number } | number)[] = [];
+
+        for (const part of parts) {
+            const rangeMatch = part.match(/^(\d+)(?:-|~)(\d+)$/);
+            if (rangeMatch) {
+                result.push({
+                    start: parseInt(rangeMatch[1]),
+                    end: parseInt(rangeMatch[2])
+                });
+            }
+            else if (/^\d+$/.test(part)) {
+                result.push(parseInt(part));
+            }
+        }
+
+        return result;
+    };
+
+    const ranges = parseRanges(judgeLineFilter.value);
+
+    // 处理范围匹配
+    if (ranges.length > 0) {
+        result.push(...chart.judgeLineList.filter(judgeLine =>
+            ranges.some(range => {
+                if (isNumber(range)) {
+                    return range === judgeLine.id;
+                }
+                else {
+                    return judgeLine.id >= range.start && judgeLine.id <= range.end;
+                }
+            })
+        ));
+    }
+
+    // 根据父线筛选
+    const fatherMatch = judgeLineFilter.value.match(/^(father|parent|dad|daddy):(\d+)/);
+    if (fatherMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => judgeLine.father === +fatherMatch[2]));
+    }
+
+    // 根据绑定的 UI 筛选
+    const uiMatch = judgeLineFilter.value.match(/^ui(:(.*))?/);
+    if (uiMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => {
+            if (uiMatch[2]) {
+                return judgeLine.attachUI.includes(uiMatch[2]);
+            }
+            else {
+                return judgeLine.attachUI && judgeLine.attachUI !== "none";
+            }
+        }));
+    }
+
+    // 根据贴图筛选
+    const textureMatch = judgeLineFilter.value.match(/^(texture|picture|image)(:(.*))?/);
+    if (textureMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => {
+            if (textureMatch[3]) {
+                return judgeLine.Texture.includes(textureMatch[3]);
+            }
+            else {
+                return Object.keys(textures).includes(judgeLine.Texture);
+            }
+        }));
+    }
+
+    // 根据是否有文字事件筛选
+    const textMatch = judgeLineFilter.value.match(/^text/);
+    if (textMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => {
+            return judgeLine.extended.textEvents.length > 0;
+        }));
+    }
+
+    // 根据是否有颜色事件筛选
+    const colorMatch = judgeLineFilter.value.match(/^color/);
+    if (colorMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => {
+            return judgeLine.extended.colorEvents.length > 0;
+        }));
+    }
+
+    // 根据是否有音符筛选
+    const noteMatch = judgeLineFilter.value.match(/^note/);
+    if (noteMatch) {
+        result.push(...chart.judgeLineList.filter(judgeLine => {
+            return judgeLine.notes.length > 0;
+        }));
+    }
+    return result;
+});
 
 const FPS_THRESHOLDS = {
     HIGH: 60,
@@ -762,11 +794,6 @@ function update() {
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
 }
-function copyLink(e: MouseEvent, link: string) {
-    e.preventDefault();
-    navigator.clipboard.writeText(link);
-    ElMessage.success("已复制链接至剪贴板，请粘贴至浏览器网址栏打开");
-}
 async function handleExport() {
     const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
 
@@ -779,10 +806,15 @@ async function handleDeleteChart() {
     window.electronAPI.deleteChart(store.getChartId());
     router.push("/");
 }
-async function getResourcePackage() {
+
+async function loadResourcePackage() {
+    console.time("加载资源包");
     const arrayBuffer = await window.electronAPI.readResourcePackage();
-    const blob = MediaUtils.arrayBufferToBlob(arrayBuffer);
-    return await ResourcePackage.load(blob);
+    const resourcePackage = await ResourcePackage.load(arrayBuffer, e => {
+        console.debug(`${e.description}: ${e.progress.toFixed(2)}%...`);
+    });
+    console.timeEnd("加载资源包");
+    return resourcePackage;
 }
 async function addTextures() {
     const texturePaths = await window.electronAPI.showOpenImageDialog(true);
@@ -1037,7 +1069,7 @@ function audioOnPlay() {
 }
 
 /**
- * 该函数用于在含有object-fit:contain的canvas上，
+ * 该函数用于在含有 object-fit:contain 样式的 canvas 上，
  * 根据MouseEvent对象计算出点击位置在canvas绘制上下文中的坐标
  * 解决了由于canvas外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
  */
@@ -1174,11 +1206,7 @@ onMounted(() => {
 
         // 清理canvas和document事件
         canvas.remove();
-        store.chartPackageRef.value = null;
-        store.resourcePackageRef.value = null;
-        store.audioRef.value = null;
-        store.canvasRef.value = null;
-        store.route = null;
+        globalEventEmitter.emit("EXIT");
         for (const key in store.managers) {
             store.managers[key as keyof typeof store.managers] = null;
         }
@@ -1280,7 +1308,7 @@ onMounted(() => {
 /* .note-type-select .el-radio-button {
     border-radius: var(--el-border-radius-base) !important;
     overflow: hidden;
-    --el-border: 100px solid black; 
+    --el-border: 100px solid black;
 } */
 
 .note-type-select .el-radio-button p {
@@ -1313,7 +1341,6 @@ onMounted(() => {
 #left {
     grid-area: left;
 }
-
 
 #right {
     grid-area: right;
@@ -1381,6 +1408,9 @@ onMounted(() => {
 }
 
 .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     max-width: 35vw;
 }
 

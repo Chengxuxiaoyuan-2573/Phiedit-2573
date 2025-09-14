@@ -7,14 +7,13 @@
         filterable
         @change="emit('change', model)"
     >
-        缓动类型
+        <slot />
     </MySelect>
 </template>
 <script setup lang="ts">
 import { EasingType } from "@/models/easing";
 import MySelect from "./MySelect.vue";
 import { useTemplateRef } from "vue";
-
 const model = defineModel<EasingType>({
     required: true
 });

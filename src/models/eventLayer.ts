@@ -3,6 +3,7 @@ import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event";
 import { RGBcolor } from "../tools/color";
 import { BPM } from "./beats";
 import ChartError from "./error";
+import { IObjectizable } from "./objectizable";
 interface EventLayerOptions {
     BPMList: BPM[]
     judgeLineNumber: number
@@ -15,10 +16,11 @@ export interface IBaseEventLayer {
     alphaEvents?: IEvent<number>[]
     speedEvents?: IEvent<number>[]
 }
-abstract class AbstractEventLayer {
+abstract class AbstractEventLayer implements IObjectizable {
     readonly errors: ChartError[] = [];
     abstract getEventsByType(type: string): IEvent<unknown>[];
     abstract addEvent(event: unknown, type: string, id?: string): IEvent<unknown>;
+    abstract toObject(): object;
 }
 export const baseEventTypes = [
     "moveX",
@@ -114,6 +116,9 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
     }
     constructor(eventLayer: unknown, readonly options: EventLayerOptions) {
         super();
+        if (isNaN(+options.eventLayerId)) {
+            throw new Error(`传入的 eventLayerId 参数必须是数字，但接收到了：${options.eventLayerId}`);
+        }
         if (isObject(eventLayer)) {
             if ("moveXEvents" in eventLayer && isArray(eventLayer.moveXEvents)) {
                 for (const event of eventLayer.moveXEvents) {

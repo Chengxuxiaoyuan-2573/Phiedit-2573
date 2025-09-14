@@ -7,7 +7,7 @@ export default class KeyboardUtils {
             meta: e.metaKey,
         };
     }
-    
+
     /**
      * 将键盘事件对象格式化为可读的按键组合字符串
      *

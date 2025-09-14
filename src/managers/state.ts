@@ -12,7 +12,7 @@ import { Beats } from "@/models/beats";
 /** 音符的属性中，类型为数字的属性 */
 export type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime";
 export enum RightPanelState {
-    Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History, Calculator, NoteFill, EventFill, FastBind, Error
+    Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History, Calculator, NoteFill, EventFill, FastBind, Error, Shader
 }
 
 /** 存储当前的状态和缓存  */
@@ -122,7 +122,7 @@ return {
 };`,
         },
         error: {
-            errorType: "ChartEditError",
+            errorType: "All",
         },
         clone: {
             targetJudgeLines: new Array<number>(),

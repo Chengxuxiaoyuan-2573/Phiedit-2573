@@ -1,7 +1,7 @@
 <template>
     <ElHeader class="header">
         <h1 class="top-title">
-            欢迎使用Phiedit 2573谱面编辑器！
+            欢迎使用 Phiedit 2573 谱面编辑器！
         </h1>
         <em class="version">
             当前版本：v0.1.0
@@ -72,16 +72,25 @@
             </ElCard>
         </RouterLink>
     </div>
+    <ElFooter>
+        <MyLink
+            href="https://teamflos.github.io/phira-docs/index.html"
+            class="phira-link"
+        >
+            点击此链接以进入 Phira 文档，可查看关于谱面文件格式的更多信息。该文档不是本软件的文档，仅供参考
+        </MyLink>
+    </ElFooter>
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElCard, ElHeader, ElInput } from "element-plus";
+import { ElCard, ElFooter, ElHeader, ElInput } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
 import { inject, onErrorCaptured, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import MyLink from "@/myElements/MyLink.vue";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
@@ -133,7 +142,6 @@ async function loadBackground() {
     backgroundFileUrl.value = filePaths[0];
 }
 
-
 async function loadChart() {
     const filePaths = await window.electronAPI.showOpenChartDialog();
     if (!filePaths) {
@@ -166,7 +174,7 @@ onErrorCaptured((err) => {
     console.error("组件初始化错误:", err);
 
     // 这里可以添加用户友好的错误提示
-    return false; 
+    return false;
 });
 </script>
 <style>
@@ -192,8 +200,9 @@ onErrorCaptured((err) => {
 
 .chart-list {
     display: grid;
+    padding: 0 10px;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+    gap: 10px;
 }
 
 .chart-card {
@@ -240,5 +249,11 @@ a {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.el-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 </style>

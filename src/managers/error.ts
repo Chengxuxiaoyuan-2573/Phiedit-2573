@@ -17,14 +17,21 @@ export default class ErrorManager extends Manager {
         globalEventEmitter.on("AUTO_FIX_ERRORS", () => {
             this.autoFix();
         });
+        globalEventEmitter.on("HISTORY_UPDATE", () => {
+            const settingsManager = store.useManager("settingsManager");
+            if (settingsManager._settings.autoCheckErrors) {
+                this.checkErrors();
+            }
+        });
     }
     private checkChartReadErrors() {
-        const chart = store.useChart();
-        for (let i = 0; i < chart.errors.length; i++) {
+        // 获取谱面压缩包的所有错误
+        const chartPackage = store.useChartPackage();
+        for (let i = 0; i < chartPackage.errors.length; i++) {
             if (i >= 100) {
                 return;
             }
-            const error = chart.errors[i];
+            const error = chartPackage.errors[i];
             this.errors.push(error);
         }
     }
@@ -304,7 +311,7 @@ export default class ErrorManager extends Manager {
                     if (!(error.objects[0] instanceof Note)) {
                         break;
                     }
-                    
+
                     historyManager.recordRemoveNote(error.objects[0].toObject(), error.objects[0].judgeLineNumber, error.objects[0].id);
                     store.removeNote(error.objects[0].id);
                     isSucceeded = true;

@@ -62,7 +62,7 @@ onMounted(() => {
     if (!ctx || !canvas.value) {
         throw new Error("canvas和ctx未加载完成");
     }
-    
+
     let drawWidth, drawHeight;
     if (props.rotate === "clockwise" || props.rotate === "anti-clockwise") {
         // 计算缩放后的图片尺寸
@@ -98,7 +98,6 @@ onMounted(() => {
             drawHeight = height2;
         }
     }
-
 
     // 动态计算旋转角度
     const rotation = rotationMap[props.rotate] || 0;

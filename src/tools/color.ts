@@ -31,7 +31,7 @@ export function parseRGBAfromNumber(num: number): RGBAcolor {
     if (num > 0xffffffff) {
         throw new Error("数字超出32位");
     }
-    return [(num >>  2 * BYTE_LENGTH) & 0xff, (num >> BYTE_LENGTH) & 0xff, num & 0xff, (num >> 3 * BYTE_LENGTH) & 0xff / 255];
+    return [num >> 2 * BYTE_LENGTH & 0xff, num >> BYTE_LENGTH & 0xff, num & 0xff, num >> 3 * BYTE_LENGTH & 0xff / 255];
 }
 
 export function formatRGBcolor(color: RGBcolor) {

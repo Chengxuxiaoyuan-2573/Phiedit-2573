@@ -92,7 +92,7 @@ export default class MouseManager extends Manager {
             if (getBeatsValue(this.addedElement.startTime) === getBeatsValue(this.addedElement.endTime)) {
                 this.addedElement.endTime = addBeats(this.addedElement.startTime, [0, 1, stateManager.state.horizonalLineCount]);
             }
-            this.addedElement.makeTimeValid();
+            this.addedElement.makeSureTimeValid();
             if (this.addedElement instanceof Note) {
                 historyManager.recordAddNote(this.addedElement.id);
             }
@@ -118,7 +118,7 @@ export default class MouseManager extends Manager {
             this.addedElement = null;
         }
         else if (this.mouseMoveMode === MouseMoveMode.Drag || this.mouseMoveMode === MouseMoveMode.DragEnd) {
-            firstElement.makeTimeValid();
+            firstElement.makeSureTimeValid();
 
             // Skip modification recording for newly added elements
             if (this.addedElement === null) {

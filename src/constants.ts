@@ -167,8 +167,6 @@ export default class Constants {
     /** Flick 接 Tap 的时间离多近才会报错，单位为秒 */
     static readonly ERROR_FLICK_TAP_THRESHOLD = 0.2;
 
-
-
     /** 在右下角显示的Tips */
     static readonly tips = ([
         // 字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字，字数只能到箭头这里，不然会显示bug！↓

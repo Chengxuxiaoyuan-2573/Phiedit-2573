@@ -28,7 +28,7 @@
                 等级
             </template>
         </MyInput>
-        <MyInput 
+        <MyInput
             v-model="chartId"
             disabled
         >

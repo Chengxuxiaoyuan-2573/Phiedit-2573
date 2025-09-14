@@ -1,20 +1,41 @@
 import { easingFuncs, EasingType } from "@/models/easing";
-import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue } from "@/models/event";
+import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
 import { Note, NoteAbove, NoteType } from "@/models/note";
 import store from "@/store";
-import { sortAndForEach } from "@/tools/algorithm";
+import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
-import { ceil } from "lodash";
+import { ceil, isNull } from "lodash";
 import Manager from "../abstract";
 import globalEventEmitter from "@/eventEmitter";
 import { ArrayRepeat, UnionToTuple } from "@/tools/typeTools";
 import EditableImage from "@/tools/editableImage";
 import Constants from "@/constants";
 import { ElMessage } from "element-plus";
+import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
+
+const CANVAS_WIDTH = 1350;
+const CANVAS_HEIGHT = 900;
+
+interface ShaderInfo {
+    name: ShaderName;
+    options: Record<string, {
+        type: ShaderVarType;
+        value: ShaderNumberType;
+    } | null>
+}
 
 export default class ChartRenderer extends Manager {
+    private offscreenCanvas = new OffscreenCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    private shaderCanvas: HTMLCanvasElement | null = null;
+    private gl: WebGLRenderingContext | null = null;
+    private shaderProgram: WebGLProgram | null = null;
+    private texture: WebGLTexture | null = null;
+    private vertexBuffer: WebGLBuffer | null = null;
+    private vertexShader: WebGLShader | null = null;
+    private fragmentShader: WebGLShader | null = null;
+    private currentShaderName: string | null = null;
     constructor() {
         super();
         globalEventEmitter.on("RENDER_CHART", () => {
@@ -26,19 +47,338 @@ export default class ChartRenderer extends Manager {
     render() {
         const canvas = store.useCanvas();
         const ctx = canvasUtils.getContext(canvas);
-        ctx.reset();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 把背景、判定线和音符绘制到离屏 canvas 上
         this.drawBackground();
         this.drawJudgeLines();
         this.drawNotes();
+
+        // 把屏幕 canvas 全部清空
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 获取 shader 信息
+        const shaderConfigs = this.getShaderInfo();
+
+        // 如果有 shader，就应用 shader
+        if (shaderConfigs.length > 0) {
+            // 获取离屏 canvas 的上下文
+            const ctxOffscreen = canvasUtils.getOffscreenCanvasContext(this.offscreenCanvas);
+
+            for (const shaderConfig of shaderConfigs) {
+                // 把离屏 canvas 的内容加上一层 shader
+                this.applyShaderEffect(shaderConfig.name, shaderConfig.options);
+
+                // 把应用 shader 之后的内容绘制回离屏 canvas 上，作为下一个 shader 的输入
+                ctxOffscreen.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
+                ctxOffscreen.drawImage(this.shaderCanvas!, 0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // 如果没有 shader，就直接把离屏 canvas 绘制到屏幕 canvas 上
+        ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
+    }
+
+    private getShaderInfo(): ShaderInfo[] {
+        const chartPackage = store.useChartPackage();
+        const seconds = store.getSeconds();
+        const extra = chartPackage.extra;
+        const effects = extra.effects.filter(effect => effect.cachedStartSeconds <= seconds && effect.cachedEndSeconds >= seconds);
+        return effects.map(effect => ({
+            name: effect.shader,
+            options: new ArrayedObject(effect.vars).map((key) => {
+                const value = effect.vars[key];
+                if (isNumberOrVector(value)) {
+                    if (!(key in DEFAULT_VARS[effect.shader])) {
+                        return null;
+                    }
+                    return {
+                        type: DEFAULT_VARS[effect.shader][key].type,
+                        value,
+                    };
+                }
+                else {
+                    const event = findLastEvent(value, seconds);
+                    if (!event) {
+                        return null;
+                    }
+                    return {
+                        type: DEFAULT_VARS[effect.shader][key].type,
+                        value: interpolateShaderVariableEventValue(event, seconds),
+                    };
+                }
+            })
+                .filter(v => !isNull(v))
+                .toObject(),
+        }));
+    }
+
+    /** 把 shader 效果应用到 canvas 上 */
+    private async applyShaderEffect(shaderName: ShaderInfo["name"], shaderOptions: ShaderInfo["options"] = {}) {
+        const sourceCanvas = this.offscreenCanvas;
+        try {
+            // Create or get shader canvas
+            if (!this.shaderCanvas) {
+                this.createShaderCanvas();
+            }
+
+            if (!this.shaderCanvas || !this.gl) return;
+
+            // Ensure shader canvas matches source canvas size
+            if (this.shaderCanvas.width !== sourceCanvas.width ||
+                this.shaderCanvas.height !== sourceCanvas.height) {
+                this.shaderCanvas.width = sourceCanvas.width;
+                this.shaderCanvas.height = sourceCanvas.height;
+                this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
+            }
+
+            // Load and compile shaders if needed
+            if (!this.shaderProgram || this.currentShaderName !== shaderName) {
+                await this.loadAndCompileShaders(shaderName);
+                this.currentShaderName = shaderName;
+            }
+
+            if (this.shaderProgram && this.gl) {
+                // Apply the shader effect
+                this.renderWithShader(shaderName, shaderOptions);
+            }
+        }
+        catch (error) {
+            console.error("Error applying shader effect:", error);
+        }
+    }
+
+    /** 创建专门用于 shader 处理的 WebGL 环境 */
+    private createShaderCanvas() {
+        const sourceCanvas = this.offscreenCanvas;
+
+        // 创建一个独立的Canvas元素用于WebGL渲染
+        this.shaderCanvas = document.createElement("canvas");
+        this.shaderCanvas.width = sourceCanvas.width;
+        this.shaderCanvas.height = sourceCanvas.height;
+
+        try {
+            // 获取WebGL上下文（不与主Canvas冲突）
+            this.gl = this.shaderCanvas.getContext("webgl") ||
+                this.shaderCanvas.getContext("experimental-webgl") as WebGLRenderingContext;
+
+            if (!this.gl) {
+                console.warn("WebGL not supported, shaders will not be available");
+                return;
+            }
+
+            // 设置视口
+            this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
+
+            // 预创建纹理和顶点缓冲区以提高性能
+            this.texture = this.gl.createTexture();
+
+            // 创建全屏四边形的顶点数据
+            const vertices = new Float32Array([
+                -1.0, -1.0, 0.0, 1.0,
+                1.0, -1.0, 1.0, 1.0,
+                -1.0, 1.0, 0.0, 0.0,
+                1.0, 1.0, 1.0, 0.0
+            ]);
+
+            this.vertexBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
+        }
+        catch {
+            console.warn("WebGL not supported, shaders will not be available");
+            this.gl = null;
+        }
+    }
+
+    /** Load and compile shader programs */
+    private async loadAndCompileShaders(shaderName: string) {
+        if (!this.gl || !window.electronAPI || !window.electronAPI.readShader) {
+            return;
+        }
+
+        if (this.shaderProgram) {
+            this.gl?.deleteProgram(this.shaderProgram);
+            this.shaderProgram = null;
+        }
+        if (this.vertexShader) {
+            this.gl?.deleteShader(this.vertexShader);
+            this.vertexShader = null;
+        }
+        if (this.fragmentShader) {
+            this.gl?.deleteShader(this.fragmentShader);
+            this.fragmentShader = null;
+        }
+
+        try {
+            // Load vertex and fragment shaders
+            const { vsh: vertexShaderSource, fsh: fragmentShaderSource } = await window.electronAPI.readShader(shaderName);
+
+            if (!vertexShaderSource || !fragmentShaderSource) {
+                console.warn(`Shader files for ${shaderName} not found`);
+                return;
+            }
+
+            // Compile shaders
+            this.vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
+            this.fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
+
+            if (!this.vertexShader || !this.fragmentShader) {
+                return;
+            }
+
+            // Create shader program
+            this.shaderProgram = this.gl.createProgram();
+            if (!this.shaderProgram) return;
+
+            this.gl.attachShader(this.shaderProgram, this.vertexShader);
+            this.gl.attachShader(this.shaderProgram, this.fragmentShader);
+            this.gl.linkProgram(this.shaderProgram);
+
+            if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
+                console.error("Shader program linking failed:", this.gl.getProgramInfoLog(this.shaderProgram));
+                this.gl.deleteProgram(this.shaderProgram);
+                this.shaderProgram = null;
+                return;
+            }
+            if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
+                console.error("Shader program linking failed:", this.gl.getProgramInfoLog(this.shaderProgram));
+                this.gl.deleteProgram(this.shaderProgram);
+                this.shaderProgram = null;
+                this.currentShaderName = null;
+                return;
+            }
+        }
+        catch (error) {
+            console.error("Error loading shaders:", error);
+        }
+    }
+
+    /** Compile a shader */
+    private compileShader(source: string, type: number): WebGLShader | null {
+        if (!this.gl) return null;
+
+        const shader = this.gl.createShader(type);
+        if (!shader) return null;
+
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+
+        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            console.error("Shader compilation failed:", this.gl.getShaderInfoLog(shader));
+            this.gl.deleteShader(shader);
+            return null;
+        }
+
+        return shader;
+    }
+
+    /** 使用Shader处理Canvas内容 */
+    private renderWithShader(shaderName: ShaderName, shaderOptions: ShaderInfo["options"]) {
+        const sourceCanvas = this.offscreenCanvas;
+
+        // 检查必要资源是否存在
+        if (!this.gl || !this.shaderProgram || !this.shaderCanvas || !this.texture || !this.vertexBuffer) return;
+
+        for (const [key, defaultValue] of Object.entries(DEFAULT_VARS[shaderName])) {
+            const location = this.gl.getUniformLocation(this.shaderProgram, key);
+
+            // 添加检查，确保location不为null
+            if (location === null) {
+                console.warn(`Uniform variable '${key}' not found in shader program`);
+                continue;
+            }
+
+            const value = shaderOptions[key]?.value !== undefined ?
+                shaderOptions[key].value :
+                defaultValue.value;
+
+            switch (defaultValue.type) {
+                case "int":
+                    this.gl.uniform1i(location, value as number);
+                    break;
+                case "int2":
+                    this.gl.uniform2iv(location, value as ArrayRepeat<number, 2>);
+                    break;
+                case "int3":
+                    this.gl.uniform3iv(location, value as ArrayRepeat<number, 3>);
+                    break;
+                case "int4":
+                    this.gl.uniform4iv(location, value as ArrayRepeat<number, 4>);
+                    break;
+                case "float":
+                    this.gl.uniform1f(location, value as number);
+                    break;
+                case "float2":
+                    this.gl.uniform2fv(location, value as ArrayRepeat<number, 2>);
+                    break;
+                case "float3":
+                    this.gl.uniform3fv(location, value as ArrayRepeat<number, 3>);
+                    break;
+                case "float4":
+                    this.gl.uniform4fv(location, value as ArrayRepeat<number, 4>);
+                    break;
+                default:
+                    throw new Error(`Invalid shader variable type: ${shaderOptions[key]?.type}`);
+            }
+        }
+
+        // 清空WebGL画布
+        this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+
+        // 将主Canvas的内容作为纹理绑定到WebGL
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, sourceCanvas);
+
+        // 设置纹理参数
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+
+        // 使用Shader程序
+        this.gl.useProgram(this.shaderProgram);
+
+        // 设置顶点属性
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+
+        // 时间属性
+        const timeLocation = this.gl.getUniformLocation(this.shaderProgram, "time");
+        if (timeLocation !== null) {
+            const seconds = store.getSeconds();
+            this.gl.uniform1f(timeLocation, seconds);
+        }
+
+        // 位置属性
+        const positionLocation = this.gl.getAttribLocation(this.shaderProgram, "a_position");
+        this.gl.enableVertexAttribArray(positionLocation);
+        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 16, 0);
+
+        // 纹理坐标属性
+        const texcoordLocation = this.gl.getAttribLocation(this.shaderProgram, "a_texCoord");
+        this.gl.enableVertexAttribArray(texcoordLocation);
+        this.gl.vertexAttribPointer(texcoordLocation, 2, this.gl.FLOAT, false, 16, 8);
+
+        // 设置纹理uniform
+        const textureLocation = this.gl.getUniformLocation(this.shaderProgram, "u_texture");
+        this.gl.uniform1i(textureLocation, 0);
+
+        // 设置屏幕尺寸uniform
+        const screenSizeLocation = this.gl.getUniformLocation(this.shaderProgram, "screenSize");
+        this.gl.uniform2f(screenSizeLocation, sourceCanvas.width, sourceCanvas.height);
+
+        // 绘制全屏四边形
+        // eslint-disable-next-line no-magic-numbers
+        this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
 
     /** 显示背景的曲绘 */
     private drawBackground() {
         const settingsManager = store.useManager("settingsManager");
-        const canvas = store.useCanvas();
+        const canvas = this.offscreenCanvas;
         const chartPackage = store.useChartPackage();
-        const ctx = canvasUtils.getContext(canvas);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const { background } = chartPackage;
         const canvasWidth = canvas.width;
@@ -75,19 +415,19 @@ export default class ChartRenderer extends Manager {
             settingsManager._settings.backgroundDarkness / 100);
     }
 
-    /** 显示判定线 */
+    /** 显示判定线及其贴图和UI */
     private drawJudgeLines() {
         const settingsManager = store.useManager("settingsManager");
         const stateManager = store.useManager("stateManager");
         const autoplayManager = store.useManager("autoplayManager");
         const coordinateManager = store.useManager("coordinateManager");
-        const canvas = store.useCanvas();
+        const canvas = this.offscreenCanvas;
         const seconds = store.getSeconds();
         const chart = store.useChart();
         const audio = store.useAudio();
         const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
-        const ctx = canvasUtils.getContext(canvas);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         const { combo, score } = autoplayManager;
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
@@ -203,10 +543,6 @@ export default class ChartRenderer extends Manager {
                     const metrics = ctx.measureText(textToMeasure);
                     const textWidth = metrics.width;
 
-                    if (textAlign === "left") {
-                        console.log(textWidth);
-                    }
-
                     // Adjust the rotation point based on text alignment
                     let offsetX = 0;
                     if (textAlign === "left") {
@@ -230,7 +566,7 @@ export default class ChartRenderer extends Manager {
                     0,
                     Constants.CHART_VIEW_JUDGE_LINE_NUMBER_DISTANCE,
                     Constants.CHART_VIEW_JUDGE_LINE_NUMBER_FONT_SIZE,
-                    isMarkedCurrent ? currentColor : (color ?? defaultColor));
+                    isMarkedCurrent ? currentColor : color ?? defaultColor);
             }
 
             // 缩放
@@ -274,7 +610,6 @@ export default class ChartRenderer extends Manager {
             // 根据判定线锚点偏移
             ctx.translate((0.5 - judgeLine.anchor[0]) * size[0],
                 (0.5 - judgeLine.anchor[1]) * size[1]);
-
 
             if (judgeLine.Texture in textures) {
                 const image = textures[judgeLine.Texture];
@@ -416,11 +751,10 @@ export default class ChartRenderer extends Manager {
                     0,
                     settingsManager._settings.lineLength / 2,
                     0,
-                    isMarkedCurrent ? currentColor : (color ?? defaultColor),
+                    isMarkedCurrent ? currentColor : color ?? defaultColor,
                     settingsManager._settings.lineThickness,
                     alpha / 255);
             }
-
 
             ctx.restore();
         });
@@ -550,11 +884,11 @@ export default class ChartRenderer extends Manager {
     private drawNotes() {
         const settingsManager = store.useManager("settingsManager");
         const coordinateManager = store.useManager("coordinateManager");
-        const canvas = store.useCanvas();
+        const canvas = this.offscreenCanvas;
         const seconds = store.getSeconds();
         const chart = store.useChart();
         const resourcePackage = store.useResourcePackage();
-        const ctx = canvasUtils.getContext(canvas);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
 
         const drawRect = canvasUtils.drawRect.bind(ctx);
 
@@ -577,7 +911,7 @@ export default class ChartRenderer extends Manager {
                 getAngle: true,
                 getAlpha: true
             });
-            const currentPositionY = judgeLine.getPositionOfSeconds(seconds);
+            const currentPositionY = judgeLine.getFloorPositionOfSeconds(seconds);
             const drawNote = (note: Note) => {
                 // 把当前判定线的角度转为弧度
                 const radians = MathUtils.degToRad(judgeLineInfo.angle);
@@ -586,8 +920,8 @@ export default class ChartRenderer extends Manager {
                 const endSeconds = note.cachedEndSeconds;
 
                 // 计算音符头部和尾部离判定线的距离
-                let startPositionY = judgeLine.getPositionOfSeconds(startSeconds) - currentPositionY;
-                let endPositionY = judgeLine.getPositionOfSeconds(endSeconds) - currentPositionY;
+                let startPositionY = judgeLine.getFloorPositionOfSeconds(startSeconds) - currentPositionY;
+                let endPositionY = judgeLine.getFloorPositionOfSeconds(endSeconds) - currentPositionY;
 
                 // 正在判定的Hold音符，头部强制设为0
                 if (note.type === NoteType.Hold && seconds >= startSeconds && seconds < endSeconds) {
@@ -597,7 +931,6 @@ export default class ChartRenderer extends Manager {
 
                 startPositionY = startPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                 endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
-
 
                 if (startSeconds - seconds > note.visibleTime) {
                     // note不在可见时间内
@@ -629,7 +962,7 @@ export default class ChartRenderer extends Manager {
                             //    startPositionY --> sy
                             //     endPositionY --> ey
                             //       positionX --> x
-                            //  
+                            //
                             // +6   _____               -6
                             // +5  /     \  A.x  = -6   -5
                             // +4  |  A  |  A.sy = 2    -4
@@ -642,7 +975,7 @@ export default class ChartRenderer extends Manager {
                             // -3  |  B  |  B.sy = -2   +3
                             // -4  |     |  B.ey = -5   +4
                             // -5  \_____/  B.sy > B.ey +5
-                            // -6                       +6                     
+                            // -6                       +6
                             // 上下翻转之后，y坐标再变相反数，可以正确显示倒打长条，否则会显示成倒的
                             // 因为canvas绘制图片时，无论图片的宽高是正数还是负数，图片都是正立的
 
@@ -759,7 +1092,7 @@ export default class ChartRenderer extends Manager {
                             /** 一个随机数种子生成器，只要保证输入不同的数字输出也不同就可以，这个是最优的方案 */
                             const hash = (a: number, b: number, c: number) => a * a + b * b + c * c;
 
-                            /** 
+                            /**
                          * 给这个音符显示打击特效，“这个”音符见外部作用域中的 `note` 变量。
                          * @param type 判定类型
                          * @param hitFxStartSeconds 打击特效开始出现的时间
@@ -768,7 +1101,7 @@ export default class ChartRenderer extends Manager {
                         */
                             const showHitFx = (type: "perfect" | "good" | "bad", hitFxStartSeconds: number, n: number) => {
                                 if (type === "bad") {
-                                    let startPositionY = judgeLine.getPositionOfSeconds(startSeconds) - judgeLine.getPositionOfSeconds(hitSeconds);
+                                    let startPositionY = judgeLine.getFloorPositionOfSeconds(startSeconds) - judgeLine.getFloorPositionOfSeconds(hitSeconds);
                                     startPositionY = startPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                                     ctx.globalAlpha = (1 - (seconds - hitSeconds) / resourcePackage.config.hitFxDuration) * Constants.CHART_VIEW_BAD_ALPHA;
                                     ctx.save();
@@ -779,13 +1112,13 @@ export default class ChartRenderer extends Manager {
                                             ctx.restore();
                                             return;
                                         }
-                                        let endPositionY = judgeLine.getPositionOfSeconds(endSeconds) - judgeLine.getPositionOfSeconds(hitSeconds);
+                                        let endPositionY = judgeLine.getFloorPositionOfSeconds(endSeconds) - judgeLine.getFloorPositionOfSeconds(hitSeconds);
                                         endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                                         if (startPositionY > endPositionY) {
                                             //    startPositionY --> sy
                                             //     endPositionY --> ey
                                             //       positionX --> x
-                                            //  
+                                            //
                                             // +6   _____               -6
                                             // +5  /     \  A.x  = -6   -5
                                             // +4  |  A  |  A.sy = 2    -4
@@ -798,7 +1131,7 @@ export default class ChartRenderer extends Manager {
                                             // -3  |  B  |  B.sy = -2   +3
                                             // -4  |     |  B.ey = -5   +4
                                             // -5  \_____/  B.sy > B.ey +5
-                                            // -6                       +6                     
+                                            // -6                       +6
                                             // 上下翻转之后，y坐标再变相反数，可以正确显示倒打长条，否则会显示成倒的
                                             // 因为canvas绘制图片时，无论图片的宽高是正数还是负数，图片都是正立的
 
@@ -903,23 +1236,24 @@ export default class ChartRenderer extends Manager {
                                 if (note.type === NoteType.Hold) {
                                     /**
                                      * 满足下面不等式时Hold的第n个打击特效可见
-                                     * 
+                                     *
                                      * n >= 0
                                      * （要是n是负数的话就没意义了）
-                                     * 
+                                     *
                                      * n > (seconds - hitFxDuration - hitSeconds) / hitFxFrequency
                                      * （即 hitSeconds + n * hitFxFrequency + hitFxDuration > seconds）
                                      * （打击特效结束时间大于当前时间，即打击特效还没结束）
-                                     * 
+                                     *
                                      * n <= (endSeconds - hitSeconds) / hitFxFrequency
                                      * （用Hold的结束时间减去被击打的时间，除以打击特效频率，得到的数表示Hold可以显示多少个打击特效）
-                                     * 
+                                     *
                                      * n <= (seconds - hitSeconds) / hitFxFrequency
                                      * （即 hitSeconds + n * hitFxFrequency <= seconds）
                                      * （打击特效开始时间小于等于当前时间，即打击特效已经开始了）
                                      */
 
                                     for (
+
                                         // 初始值取两式的最大值，因为要同时大于等于这两个式子
                                         let n = Math.max(0, ceil((seconds - resourcePackage.config.hitFxDuration - hitSeconds) / hitFxFrequency));
 

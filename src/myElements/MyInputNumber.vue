@@ -94,6 +94,10 @@ function inputStringHandler() {
         else if (inputNum > max) {
             errorMessage.value = `数值不能大于${max}`;
         }
+        else {
+            errorMessage.value = "";
+        }
+
         if (step === 0) {
             model.value = clamp(inputNum, min, max);
         }
@@ -109,6 +113,10 @@ function inputStringHandler() {
                     errorMessage.value = `数值必须是${step}的倍数`;
                 }
             }
+            else {
+                errorMessage.value = "";
+            }
+
             model.value = clamp(inputNum, min, max);
         }
         isInternalUpdate = true;
@@ -125,7 +133,7 @@ let clickCount = 0;
 function clickHandler() {
     if (clickCount === 0) {
         inputString.value = "";
-    } 
+    }
     else if(clickCount === 1) {
         inputString.value = model.value.toString();
     }

@@ -20,7 +20,7 @@ protocol.registerSchemesAsPrivileged([
 // interface FolderLike {
 //     file: (string: string) => FileLike | null;
 //     folder: (string: string) => FolderLike | null;
-//     files: 
+//     files:
 // }
 
 // interface FileLike {
@@ -83,7 +83,6 @@ async function createWindow() {
         const time = Math.round(Date.now()).toString(TIMESTAMP_ENCODING_BASE);
         return `${name}-${time}`;
     }
-
 
     function canBeFileName(name: string) {
         if (CHARS_CANNOT_BE_USED_IN_FILE_NAME_REGEX.test(name)) {
@@ -408,7 +407,6 @@ async function createWindow() {
         return arrayBuffer;
     }
 
-
     ipcMain.handle("read-chart-list", async () => {
         try {
             ensurePathExists();
@@ -454,18 +452,26 @@ async function createWindow() {
         const backgroundWholePath = path.join(folderPath, backgroundPath);
         const chartWholePath = path.join(folderPath, chartPath);
         const textureWholePaths = texturePaths.map(path123 => path.join(folderPath, path123));
+        const extraPath = path.join(folderPath, "extra.json");
 
         const musicData = await fs.promises.readFile(musicWholePath);
         const backgroundData = await fs.promises.readFile(backgroundWholePath);
-        const chartContent = await fs.promises.readFile(chartWholePath, ENCODING);
+        const chartContent = await fs.promises.readFile(chartWholePath, ENCODING).catch(() => "");
         const textureDatas = await Promise.all(textureWholePaths.map(path123 => fs.promises.readFile(path123)));
+        const extraContent = await fs.promises.readFile(extraPath, ENCODING).catch(() => "");
+
+        // 将texturePaths和textureDatas合并为一个对象
+        const textures: Record<string, ArrayBuffer> = {};
+        texturePaths.forEach((path, index) => {
+            textures[path] = textureDatas[index].buffer as ArrayBuffer;
+        });
 
         return {
             musicData: musicData.buffer,
             backgroundData: backgroundData.buffer,
             chartContent,
-            texturePaths,
-            textureDatas: textureDatas.map(data => data.buffer),
+            textures,
+            extraContent
         };
     });
     ipcMain.handle("add-chart", async (event, musicPath: string, backgroundPath: string, name: string) => {
@@ -489,11 +495,14 @@ async function createWindow() {
         await Promise.all(promises);
         return chartId;
     });
-    ipcMain.handle("save-chart", async (event, chartId: string, chartContent: string) => {
+    ipcMain.handle("save-chart", async (event, chartId: string, chartContent: string, extraContent: string) => {
         ensurePathExists();
         const folderPath = path.join(chartsDir, chartId);
         const { chartPath } = await findFileInFolder(folderPath);
-        fs.writeFileSync(path.join(folderPath, chartPath), chartContent);
+        const chartWholePath = path.join(folderPath, chartPath);
+        const extraWholePath = path.join(folderPath, "extra.json");
+        fs.writeFileSync(chartWholePath, chartContent, ENCODING);
+        fs.writeFileSync(extraWholePath, extraContent, ENCODING);
     });
     ipcMain.handle("load-chart", async (event, chartPackagePath: string) => {
         ensurePathExists();
@@ -518,7 +527,6 @@ async function createWindow() {
         const chartNameInFolder = `${chartId}${chartExt}`;
 
         const texturesFiles = texturePathsInZip.map(path123 => jszip.file(path123)!);
-
 
         const path666 = path.join(chartsDir, chartId);
 
@@ -682,13 +690,27 @@ async function createWindow() {
     });
     ipcMain.handle("rename-chart-id", async (event, chartId: string, newChartId: string) => {
         if (!canBeFileName(newChartId)) {
-            throw new Error(`无法修改谱面 ID 为 ${newChartId} ，因为它不能被用作文件名`);
+            throw new Error(`无法修改谱面 ID 为 "${newChartId}"，因为它不能被用作文件名`);
         }
         fs.promises.rename(path.join(chartsDir, chartId), path.join(chartsDir, newChartId));
         modifyIdInChartList(chartId, newChartId);
     });
-
-
+    ipcMain.handle("read-shader", async (event, shaderName: string) => {
+        const vshPath = getResourcePath("shaders", `default.vsh`);
+        const fshPath = getResourcePath("shaders", `${shaderName}.glsl`);
+        try {
+            const vsh = await fs.promises.readFile(vshPath, "utf-8");
+            const fsh = await fs.promises.readFile(fshPath, "utf-8");
+            return { vsh, fsh };
+        }
+        catch (error) {
+            console.error("Failed to read shader:", error);
+            throw error;
+        }
+    });
+    ipcMain.handle("open-external-link", async (event, url: string) => {
+        shell.openExternal(url);
+    });
 
     // Create the browser window.
     const win = new BrowserWindow({
@@ -708,18 +730,14 @@ async function createWindow() {
         webPreferences: {
             devTools: isDevelopment,
             preload: path.join(__dirname, "preload.js"),
-
-            // Use pluginOptions.nodeIntegration, leave this alone
-            // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
-            nodeIntegration: (process.env
-                .ELECTRON_NODE_INTEGRATION as unknown) as boolean,
-            contextIsolation: !(process.env
-                .ELECTRON_NODE_INTEGRATION as unknown) as boolean
+            sandbox: true,
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: true,
         },
     });
 
     // Menu.setApplicationMenu(null);
-
 
     win.on("ready-to-show", () => {
         win.maximize();

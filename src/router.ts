@@ -26,7 +26,7 @@ const routes = [
 
 const router = createRouter({
     // 使用 Hash History 模式
-    history: createWebHashHistory(process.env.BASE_URL), 
+    history: createWebHashHistory(process.env.BASE_URL),
     routes
 });
 

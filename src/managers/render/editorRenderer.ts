@@ -298,7 +298,7 @@ export default class EditorRenderer extends Manager {
                     noteHeight);
                 const box = new Box(noteY - noteHeight / 2, noteY + noteHeight / 2, noteX - noteWidth / 2, noteX + noteWidth / 2);
                 if (!(note instanceof Note)) continue;
-                if ((selectionManager.isSelected(note))) {
+                if (selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
                         noteY - noteHeight / 2,
@@ -390,7 +390,6 @@ export default class EditorRenderer extends Manager {
                 }
             }
             eventGroups.push(currentGroup);
-
 
             for (let i = 0; i < eventGroups.length; i++) {
                 const group = eventGroups[i];

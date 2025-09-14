@@ -50,52 +50,28 @@ export default class HistoryManager extends Manager {
         globalEventEmitter.emit("HISTORY_UPDATE");
     }
     recordAddNote(id: string) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new AddNoteRecord(id);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
     recordModifyNote<T extends typeof noteAttributes[number]>(id: string, attribute: T, newValue: INote[T], oldValue?: INote[T]) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new ModifyNoteRecord(id, attribute, newValue, oldValue);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
     recordRemoveNote(noteObject: INote, judgeLineNumber: number, id: string) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new RemoveNoteRecord(noteObject, judgeLineNumber, id);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
     recordAddEvent(id: string) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new AddEventRecord(id);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
     recordModifyEvent<T extends typeof eventAttributes[number]>(id: string, attribute: T, newValue: IEvent<unknown>[T], oldValue?: IEvent<unknown>[T]) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new ModifyEventRecord(id, attribute, newValue, oldValue);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
     recordRemoveEvent(eventObject: IEvent<unknown>, eventType: string, eventLayerId: string, judgeLineNumber: number, id: string) {
-        const settingsManager = store.useManager("settingsManager");
         const record = new RemoveEventRecord(eventObject, eventType, eventLayerId, judgeLineNumber, id);
         this.addRecord(record);
-        if (settingsManager._settings.autoCheckErrors) {
-            globalEventEmitter.emit("CHECK_ERRORS");
-        }
     }
 
     /** 新增的命令是否加入到组中 */

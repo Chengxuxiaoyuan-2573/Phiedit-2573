@@ -30,7 +30,7 @@ export default class LineBinder extends Manager {
             const result: number[] = [];
             for (let lineNumber = 0; lineNumber < isSelected.length; lineNumber++) {
                 const selected = isSelected[lineNumber];
-                if (selected){
+                if (selected) {
                     result.push(lineNumber);
                 }
             }
@@ -90,7 +90,7 @@ export default class LineBinder extends Manager {
             const bindedLine = store.getJudgeLineById(bindedLineNumber);
             const times: Beats[] = [];
             const yPositions: number[] = [];
-            const notePosition = sourceJudgeLine.getPositionOfSeconds(beatsToSeconds(bindedLine.options.BPMList, bindedNote.startTime));
+            const notePosition = sourceJudgeLine.getFloorPositionOfSeconds(beatsToSeconds(bindedLine.options.BPMList, bindedNote.startTime));
 
             // 计算从开始到音符被判定的时间段内，每个时刻的Y坐标
             // 只从最开始的时间遍历到note被判定时
@@ -98,7 +98,7 @@ export default class LineBinder extends Manager {
             const partEndTime = bindedNote.startTime;
             for (let time = partStartTime; isLessThanOrEqualBeats(time, partEndTime); time = addBeats(time, [0, 1, stateManager.cache.fastBind.precision])) {
                 times.push(time);
-                yPositions.push(sourceJudgeLine.getPositionOfSeconds(beatsToSeconds(bindedLine.options.BPMList, time)));
+                yPositions.push(sourceJudgeLine.getFloorPositionOfSeconds(beatsToSeconds(bindedLine.options.BPMList, time)));
             }
             const moveXEvent = store.addEvent({
                 startTime: partStartTime,

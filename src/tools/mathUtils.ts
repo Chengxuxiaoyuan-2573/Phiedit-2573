@@ -6,11 +6,11 @@ export const KB_TO_BYTE = 1024;
 export const MIN_TO_SEC = 60;
 export default class MathUtils {
     /**
-     * 求从(x1, y1)点往dir方向移动x2，左转90度，再移动y2得到的坐标  
+     * 求从(x1, y1)点往dir方向移动x2，左转90度，再移动y2得到的坐标
      * dir为0表示向右（x轴正方向），为90表示向下（y轴负方向）
      */
     static moveAndRotate(x1: number, y1: number, dir: number, x2: number, y2: number) {
-        // 初始方向向量（单位向量）  
+        // 初始方向向量（单位向量）
         const dx = Math.cos(this.degToRad(dir));
         const dy = -Math.sin(this.degToRad(dir));
 
@@ -31,7 +31,7 @@ export default class MathUtils {
     }
 
     /**
-     * 把以(x, y)为原点的极坐标转换为直角坐标  
+     * 把以(x, y)为原点的极坐标转换为直角坐标
      * theta为0表示向右（x轴正方向），为90表示向下（y轴负方向）
      */
     static pole(x: number, y: number, theta: number, r: number) {
@@ -39,6 +39,9 @@ export default class MathUtils {
     }
     static degToRad(degrees: number) {
         return degrees * DEG_TO_RAD;
+    }
+    static radToDeg(radians: number) {
+        return radians / DEG_TO_RAD;
     }
     static mod(x: number, y: number) {
         return (x % y + y) % y;
@@ -95,14 +98,14 @@ export default class MathUtils {
 
         // 种子值更新函数
         function updateSeed(seed: number): number {
-            return MathUtils.mod((seed * LCG_MULTIPLIER + LCG_INCREMENT), LCG_MODULUS);
+            return MathUtils.mod(seed * LCG_MULTIPLIER + LCG_INCREMENT, LCG_MODULUS);
         }
 
         // 初始化结果数组
         const result: number[] = [];
         for (let i = 0; i < count; i++) {
             seed = updateSeed(seed);
-            result.push(min + (seed / LCG_MODULUS) * (max - min));
+            result.push(min + seed / LCG_MODULUS * (max - min));
         }
 
         return result;
@@ -114,7 +117,7 @@ export default class MathUtils {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
-            hash = ((hash << HASH_SHIFT) - hash) + char;
+            hash = (hash << HASH_SHIFT) - hash + char;
 
             // 转换为32位整数
             hash = hash & hash;

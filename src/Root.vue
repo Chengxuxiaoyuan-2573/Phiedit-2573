@@ -12,7 +12,7 @@ defineOptions({
 });
 let loadingInstance: ReturnType<typeof ElLoading.service> | null = null;
 
-function loadStart(){
+function loadStart() {
     loadingInstance = ElLoading.service({
         lock: true,
         text: "加载中...",
@@ -20,7 +20,7 @@ function loadStart(){
     });
 }
 
-function loadEnd(){
+function loadEnd() {
     loadingInstance?.close();
     loadingInstance = null;
 }

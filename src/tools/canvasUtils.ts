@@ -3,13 +3,24 @@ import { RGBcolor, RGBAcolor, colorToString } from "./color";
 import { Point } from "./mathUtils";
 
 const DEFAULT_LINE_WIDTH = 5;
+type CTX = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 export default {
-    getContext(canvas: HTMLCanvasElement) {
+    getContext(canvas: HTMLCanvasElement, options?: CanvasRenderingContext2DSettings) {
+        const ctx = canvas.getContext("2d", options);
+        if (ctx) return ctx;
+        else throw new Error("Cannot get the context");
+    },
+    getContextWebGL(canvas: HTMLCanvasElement, options?: WebGLContextAttributes) {
+        const ctx = canvas.getContext("webgl", options);
+        if (ctx) return ctx;
+        else throw new Error("Cannot get the context");
+    },
+    getOffscreenCanvasContext(canvas: OffscreenCanvas) {
         const ctx = canvas.getContext("2d");
         if (ctx) return ctx;
         else throw new Error("Cannot get the context");
     },
-    drawLine(this: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number, color: string | RGBcolor | RGBAcolor = "white", width: number = DEFAULT_LINE_WIDTH, alpha = 1) {
+    drawLine(this: CTX, startX: number, startY: number, endX: number, endY: number, color: string | RGBcolor | RGBAcolor = "white", width: number = DEFAULT_LINE_WIDTH, alpha = 1) {
         this.globalAlpha = alpha;
         if (isString(color)) {
             this.strokeStyle = color;
@@ -23,7 +34,7 @@ export default {
         this.lineTo(endX, endY);
         this.stroke();
     },
-    drawRect(this: CanvasRenderingContext2D, left: number, top: number, w: number, h: number, color: string | RGBcolor | RGBAcolor = "white", fill = false, alpha = 1) {
+    drawRect(this: CTX, left: number, top: number, w: number, h: number, color: string | RGBcolor | RGBAcolor = "white", fill = false, alpha = 1) {
         this.globalAlpha = alpha;
         if (fill) {
             if (isString(color)) {
@@ -44,7 +55,7 @@ export default {
             this.strokeRect(left, top, w, h);
         }
     },
-    writeText(this: CanvasRenderingContext2D, text: string, centerX: number, centerY: number, size: number, color: string | RGBcolor | RGBAcolor = "white", fill = true, alpha = 1, align: "center" | "left" | "right" = "center") {
+    writeText(this: CTX, text: string, centerX: number, centerY: number, size: number, color: string | RGBcolor | RGBAcolor = "white", fill = true, alpha = 1, align: "center" | "left" | "right" = "center") {
         this.globalAlpha = alpha;
         this.font = `${size}px PhiFont`;
         this.textAlign = align;
@@ -68,7 +79,7 @@ export default {
             this.strokeText(text, centerX, centerY);
         }
     },
-    drawCircle(this: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string | RGBcolor | RGBAcolor, fill: boolean = true, alpha = 1) {
+    drawCircle(this: CTX, x: number, y: number, radius: number, color: string | RGBcolor | RGBAcolor, fill: boolean = true, alpha = 1) {
         this.globalAlpha = alpha;
         if (fill) {
             if (isString(color)) {
@@ -93,7 +104,7 @@ export default {
             this.stroke();
         }
     },
-    drawPolygon(this: CanvasRenderingContext2D, points: Point[], color: string | RGBcolor | RGBAcolor, fill = false) {
+    drawPolygon(this: CTX, points: Point[], color: string | RGBcolor | RGBAcolor, fill = false) {
         if (fill) {
             if (isString(color)) {
                 this.fillStyle = color;

@@ -40,21 +40,21 @@ export default class NoteFiller extends Manager {
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
         const notes = selectionManager.selectedElements.filter(element => element instanceof Note).length;
-        if(notes !== 2){
+        if (notes !== 2) {
             throw new Error(`请选择两个音符，当前选中了${notes}个音符`);
         }
         const chart = store.useChart();
         const startNote = this.startNote;
         const endNote = this.endNote;
         if (!startNote || !endNote) {
-            throw new Error("请先选择起始和结束音符"); 
+            throw new Error("请先选择起始和结束音符");
         }
         const startTime = startNote.startTime;
         const endTime = endNote.startTime;
         if (getBeatsValue(startTime) > getBeatsValue(endTime)) {
             throw new Error("起始音符必须在结束音符之前");
         }
-        if(startNote.judgeLineNumber !== stateManager._state.currentJudgeLineNumber || endNote.judgeLineNumber !== stateManager._state.currentJudgeLineNumber){
+        if (startNote.judgeLineNumber !== stateManager._state.currentJudgeLineNumber || endNote.judgeLineNumber !== stateManager._state.currentJudgeLineNumber) {
             throw new Error("起始音符和结束音符必须都在当前判定线上");
         }
         const startSeconds = beatsToSeconds(chart.BPMList, startTime);

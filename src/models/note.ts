@@ -4,6 +4,8 @@ import { Beats, getBeatsValue } from "./beats";
 import { isObject, isNumber } from "lodash";
 import ChartError from "./error";
 import { NoteOrEvent } from "@/models/event";
+import { ITimeSegment } from "./timeSegment";
+import { IObjectizable } from "./objectizable";
 export enum NoteAbove {
     Above = 1,
     Below = 0,
@@ -68,7 +70,7 @@ const
     DEFAULT_VISIBLETIME = 999999,
     DEFAULT_TYPE = NoteType.Tap;
 
-export class Note implements INote {
+export class Note implements INote, ITimeSegment, IObjectizable {
     above = DEFAULT_ABOVE;
     alpha = DEFAULT_ALPHA;
     isFake = DEFAULT_ISFAKE;
@@ -126,7 +128,7 @@ export class Note implements INote {
         this.calculateSeconds();
     }
     readonly errors: ChartError[] = [];
-    makeTimeValid() {
+    makeSureTimeValid() {
         if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
             const a = this.startTime, b = this.endTime;
             this.startTime = b;
@@ -236,7 +238,7 @@ export class Note implements INote {
             // startTime
             if ("startTime" in note) {
                 if (isArrayOfNumbers(note.startTime, 3)) {
-                    this._startTime = [...note.startTime];
+                    this._startTime = makeSureBeatsValid(note.startTime);
                 }
                 else {
                     this.errors.push(new ChartError(
@@ -256,10 +258,9 @@ export class Note implements INote {
                 ));
             }
 
-
             if ("endTime" in note) {
                 if (isArrayOfNumbers(note.endTime, 3)) {
-                    this._endTime = [...note.endTime];
+                    this._endTime = makeSureBeatsValid(note.endTime);
                 }
                 else {
                     this.errors.push(new ChartError(
@@ -268,7 +269,7 @@ export class Note implements INote {
                         "error",
                         this
                     ));
-                    this._endTime = [...this._startTime];
+                    this._endTime = makeSureBeatsValid(this._startTime);
                 }
             }
             else {
@@ -278,9 +279,8 @@ export class Note implements INote {
                     "error",
                     this
                 ));
-                this._endTime = [...this._startTime];
+                this._endTime = makeSureBeatsValid(this._startTime);
             }
-
 
             if ("positionX" in note) {
                 if (isNumber(note.positionX)) {
@@ -304,7 +304,6 @@ export class Note implements INote {
                 ));
             }
 
-
             if ("above" in note) {
                 if (isNumber(note.above)) {
                     this.above = note.above === 1 ? NoteAbove.Above : NoteAbove.Below;
@@ -326,7 +325,6 @@ export class Note implements INote {
                     this
                 ));
             }
-
 
             if ("alpha" in note) {
                 if (isNumber(note.alpha)) {
@@ -360,7 +358,6 @@ export class Note implements INote {
                 ));
             }
 
-
             if ("type" in note) {
                 if (isNoteType(note.type)) {
                     this.type = note.type;
@@ -382,7 +379,6 @@ export class Note implements INote {
                     this
                 ));
             }
-
 
             if ("isFake" in note) {
                 if (isNumber(note.isFake)) {
@@ -406,7 +402,6 @@ export class Note implements INote {
                 ));
             }
 
-
             if ("size" in note) {
                 if (isNumber(note.size)) {
                     this.size = note.size;
@@ -428,7 +423,6 @@ export class Note implements INote {
                     this
                 ));
             }
-
 
             if ("speed" in note) {
                 if (isNumber(note.speed)) {
@@ -452,7 +446,6 @@ export class Note implements INote {
                 ));
             }
 
-
             if ("yOffset" in note) {
                 if (isNumber(note.yOffset)) {
                     this.yOffset = note.yOffset;
@@ -474,7 +467,6 @@ export class Note implements INote {
                     this
                 ));
             }
-
 
             if ("visibleTime" in note) {
                 if (isNumber(note.visibleTime)) {

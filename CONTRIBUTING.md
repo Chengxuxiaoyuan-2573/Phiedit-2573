@@ -46,15 +46,6 @@
 
 11. 在 GitHub 上提交 Pull Request，在 Pull Request 的信息中关联对应 Issue（就是向我申请，要把你的修改合并到 dev 分支里的意思）。
 12. 等待审核。审核通过后，恭喜你，你已经给这个项目的开发做出了贡献！
-<!-- 12. 发布新版本时，我会按下面步骤把 dev 分支的代码合并到 master 分支，并打上版本号（**你不需要运行这些命令**）：
-1.  `git fetch origin`（下载远程仓库的代码）
-2.  `git checkout master`（切换到 master 分支）
-3.  `git merge dev`（把本地的 dev 分支的代码合并到 master 分支）
-4.  `git push origin master`（把本地代码推送到远程仓库）
-5.  `git tag -a v新的版本号 -m "release 新的版本号"`（给新的版本打标签）
-6.  `git push origin v新的版本号`（把标签推送到远程仓库）
-7.  把需要发布的文件打包为zip压缩包
-8.  `gh release create v新的版本号 "dist_electron/Phiedit 2573 v新的版本号.zip"`（发布新的版本） -->
 
 ## 文件目录结构解释
 
@@ -75,7 +66,7 @@
 - [router.ts](src/router.ts): 路由管理，用于定义路由。
 - [constants.ts](src/constants.ts): 一些设置项，写死在代码里，用户不可更改。
 - [Root.vue](src/views/Root.vue): 根组件，用于管理 [views](src/views) 下的页面。
-<!-- 不知道为啥，eslint 非得规定组件名字必须有多个单词，搞得我不能用 Root 做组件名了，还得用 MainRoot -->
+<!-- 不知道为啥，eslint 非得规定组件名字必须要是多个单词，搞得我不能用 Root 做组件名了，还得用 MainRoot -->
 - 其他文件: 含有一些比较杂乱的文件，正在考虑优化和重构。
 
 （这些文件都是在src目录下的，你不会还在根目录下找文件吧？不会吧？）
@@ -90,27 +81,15 @@
 2. [Root.vue](src/Root.vue)
 3. [views 下的文件](src/views/)
 4. [panels 下的文件](src/panels/)
-5. [managers 下的文件](src/managers/)
-6. [store.ts](src/store.ts)
-7. [constants.ts](src/constants.ts)、[eventEmitter.ts](src/eventEmitter.ts)
-8. [* myElements 下的文件](src/myElements/)
-9. [* models 下的文件](src/models/)
-10. [* tools 下的文件](src/tools/)
-11. 第三方库
-文件只能依赖比该文件依赖等级更低的文件，标星号的还可以直接依赖同级的文件。
-特殊说明：
-除了 [main.ts](src/main.ts) 以外，请不要在 Typescript 文件中直接引用 Vue 文件。
-[store.ts](src/store.ts) 是一个特殊的文件，它可以引用 [managers 下的文件](src/managers/)，但只能引用类型，不能使用构造函数。
-[managers](src/managers/) 可以通过 [store.ts](src/store.ts) 提供的 useManager() 方法 引用其他 managers。
-例如：
+5. [* managers 下的文件](src/managers/)、[* store.ts](src/store.ts)
+6. [constants.ts](src/constants.ts)、[eventEmitter.ts](src/eventEmitter.ts)
+7. [* myElements 下的文件](src/myElements/)
+8. [* models 下的文件](src/models/)
+9. [* tools 下的文件](src/tools/)
+10. 第三方库
 
-```typescript
-// store.ts
-import { Note } from "@/models/note"; // ✅可以引用 models 下的文件
-import ClipboardManager from "@/managers/clipboard"; // ❌不能引用 managers 下的文件
-import type ClipboardManager from "@/managers/clipboard"; // ✅可以只引用类型，引用 managers 下的文件
-import MyInput from "@/myElements/MyInput.vue"; // ❌不能引用 Vue 文件
-```
+文件只能依赖比该文件依赖等级更低的文件，标星号的还可以直接依赖同级的文件。
+除了 [main.ts](src/main.ts) 以外，请不要在 Typescript 文件中直接引用 Vue 文件。
 
 ### 单一职责
 
@@ -155,12 +134,18 @@ import MyInput from "@/myElements/MyInput.vue"; // ❌不能引用 Vue 文件
 | `above`    | `below`              |
 | `positive` | `negative`           |
 | `before`   | `after`              |
+| `first`    | `last`               |
+| `previous` | `next`               |
 | `visible`  | `hidden`             |
 | `allow`    | `deny`               |
 | `increase` | `decrease`           |
 | `success`  | `failure`            |
 | `accept`   | `reject`             |
 | `create`   | `destroy`            |
+| `static`   | `dynamic`            |
+| `readonly` | `mutable`            |
+| `single`   | `multiple`           |
+| `public`   | `private`            |
 
 对于无明确反义词的场景，可在词前直接添加 `un`、`dis` 或 `not` 等前缀。
 
@@ -170,18 +155,31 @@ import MyInput from "@/myElements/MyInput.vue"; // ❌不能引用 Vue 文件
 - 缩进使用 4 个空格。如果你用的也是 VSCode，请点击界面下方的“Tab Size: 4”或类似的文字，并点击“Indent Using Spaces”，点击数字 4，那个文字应该会变为“Spaces: 4”。设置完成后，请按 Shift+Alt+F 重新格式化代码。
 - 使用 Vue 组件时，每个属性都要换一行。如果超过 2 个属性，或者一个属性占了多行，则第一个属性和开头的尖括号之间要换行，最后一个属性和结尾的尖括号之间也要换行。如果你用的也是 VSCode，请把 `html.format.wrapAttributes` 设置为 `force-expand-multiline`。
 - 大多数代码格式规则都在 eslint 配置中设置了，在编写时，如果出现了错误，你应该能收到错误提示。下列均为 eslint 中没有配置的规则，请自行遵守。
-- 对于较长的函数调用，应该遵循下面的换行格式：
+- 对于较长的函数调用，有三种换行格式，均可以选择：
 
 ```typescript
 /*
-不管参数列表中是否有对象或函数，
-只要函数调用的代码太长了，
-就可以按照这个格式换行，
-开头和结尾的括号不换行，
-每个参数的逗号后面换行
+换行格式1：
+开头和结尾的括号不换行，每个参数的逗号后面换行
 */
 method(ifThe * (parameter + contains + a + very + complex + expression
         + or + a.veryLongAttributeNameWithSevenWords),
+    ["you should split it into",
+        "multiple lines"],
+    2,
+    5,
+    7,
+    3);
+
+/*
+换行格式2：
+每个参数的逗号和开头结尾的括号相互之间都换行
+*/
+method(
+    ifThe * (
+        parameter + contains + a + very + complex + expression
+        + or + a.veryLongAttributeNameWithSevenWords
+    ),
     [
         "you should split it into",
         "multiple lines"
@@ -189,46 +187,37 @@ method(ifThe * (parameter + contains + a + very + complex + expression
     2,
     5,
     7,
-    3);
-
-/*
-参数列表中有且仅有一个对象时，
-函数和对象之间不换行，
-但大括号和对象内部的属性之间要换行
-*/
-method([1, 1, 4, 5, 1, 4], {
-    it: contains,
-    an: object
-}, "a string param");
-
-
-/*
-参数列表中有且仅有一个函数时，
-外部函数和回调函数之间不换行，
-但大括号和里面的代码之间要换行
-*/
-method([1, 1, 4, 5, 1, 4], (it, has, a, callback, function_) => {
-    ...
-}, "a string param");
-
-
-/*
-参数列表中含有多个对象或函数时，
-小括号和对象或函数之间要换行
-*/
-method(
-    {
-        it: contains,
-        an: object
-    },
-    (and, a, callback, function_) => {
-        ...
-    },
-    "and a string param",
-    {
-        and: "another object"
-    }
+    3
 );
+
+/*
+换行格式3：
+较长的参数换行，较短的参数不换行
+*/
+method([1, 1, 4, 5, 1, 4], () => {
+    if (this_ + is < a && very || (long || expression)) {
+        doSomething();
+        doSomethingElse();
+        doAnotherThing();
+    }
+    else {
+        someVar = "this is a very long string that it contains eleven words";
+        return someResult;
+    }
+}, "a string param");
+
+method(1, 2, 3, {
+    someAttribute1: "some value 1",
+    someAttribute2: "some value 2",
+    someAttribute3: "some value 3",
+    someAttribute4: "some value 4",
+    someAttribute5: "some value 5",
+    someAttribute6: "some value 6",
+    someAttribute7: "some value 7",
+    someAttribute8: "some value 8",
+    someAttribute9: "some value 9",
+}， "a short string");
+
 ```
 
 ### 文档格式
@@ -243,11 +232,10 @@ method(
 - 需要添加新功能时，请按以下步骤操作：
     1. 在 [managers](src/managers) 目录下新建一个文件，使用 `export default class 类名 extends Manager { ... }` 定义一个管理器类，实现相应的代码。
     2. 在 [eventEmitter.ts](src/eventEmitter.ts) 的 `EventMap` 接口中添加相应的事件名称。
-    3. 在 [store.ts](src/store.ts) 中的 `Store.managers` 字段中新增一个字段来存储新增的管理器。
+    3. 在 [store.ts](src/store.ts) 中的 `managersMap` 中新增一个字段来存储新增的管理器。
     4. 可能需要在 [panels](src/panels) 下新建一个侧边栏的 Vue 组件，并实现相应的界面。添加了 Vue 组件后，请在 [RightPanelState](src/managers/state.ts) 中添加相应的字段。
     5. 为了能进入上一步的界面，需要在 [编辑器界面](src/views/EditorPage.vue) 中添加一个按钮。
     6. 在你需要的地方调用 [`globalEventEmitter.emit("你的事件名称", 参数)`](src/eventEmitter.ts)。
-    7. 在 [EditorPage.vue](src/views/EditorPage.vue#L701) 中导入你定义的类，调用构造函数，创建实例，并设置进 [`store`](src/store.ts) 对象中。
 
 ### 数据使用规范
 
@@ -260,9 +248,9 @@ method(
 
 - 请遵循 eslint 中的规则。你可以使用 `npm run lint` 检查你是否有 eslint 错误。如果有，应该是会有错误提示的。
 - 实在无法避免的 eslint 错误，请使用 eslint 禁用注释、`ts-ignore`、忽略类型检查或 `as any` 等手段。
-- 但只有在你 100% 确定代码不会有运行时错误的情况下，才能使用，且不建议过多使用。
+- 但只有在你 100% 确定代码不会有运行时错误的情况下，才能使用上述的方法，且应尽量避免。
 - 如果你认为某些 eslint 规则不符合你的要求，请修改 `.eslintrc.js` 文件。
-- 普通对象只能含有属性，不能含有方法。
+- 普通对象只能含有属性，不能含有方法。方法只能在类中定义。
 - [src](src) 下的所有代码文件都应该是 Typescript 文件，Vue 组件中也应该使用 `<script setup lang="ts">`。不要出现 `.js` 文件。（当然，配置文件除外）
 - 对于AI（人工智能）写的或请他人写的代码，请确保你理解了这段代码的意思再加进项目中。（实话实说，这个项目里真的有很多用 AI 生成的代码或文档）
 - 对于较复杂难理解的逻辑，请添加注释，以确保他人能够理解你的代码。请尽量使用文档注释而不是普通注释，因为文档注释可以被你的代码编辑器识别，并显示在代码提示中。

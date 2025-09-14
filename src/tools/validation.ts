@@ -13,7 +13,7 @@ export default class Validation {
             }
         }
         else {
-            if(!(this.value instanceof type)){
+            if (!(this.value instanceof type)) {
                 throw new Error(`${this.value} is not of ${type.name} type`);
             }
         }

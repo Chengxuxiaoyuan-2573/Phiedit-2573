@@ -5,6 +5,7 @@
         v-bind="$attrs"
         :type="props.type"
         :placeholder="props.placeholder"
+        :clearable="props.clearable"
         @input="inputHandler"
         @change="changeHandler"
         @keydown.stop
@@ -52,6 +53,7 @@ const model = defineModel<string>({
 const props = defineProps<{
     placeholder?: string,
     type?: string,
+    clearable?: boolean,
 }>();
 let isInternalUpdate = false;
 watch(model, () => {
