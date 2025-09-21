@@ -266,17 +266,49 @@ const oldValues = {
     type: model.value.type,
 };
 function updateModel<K extends keyof INote>(...attrNames: K[]) {
-    // const oldValues = attrNames.map(attr => model.value[attr]);
-    // const newValues = attrNames.map(attr => inputNote[attr]);
-    // const description = `将音符${model.value.id}的属性${attrNames.join(', ')}${attrNames.length > 1 ? "分别" : ""}从${oldValues.join(', ')}修改为${newValues.join(', ')}`;
-    // historyManager.group(description);
     for (const attrName of attrNames) {
-        // historyManager.modifyNote(model.value.id, attrName, inputNote[attrName]);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (model.value[attrName] as any) = inputNote[attrName];
+        (model.value[attrName] as unknown) = inputNote[attrName];
     }
+}
 
-    // historyManager.ungroup();
+function updateInput<K extends keyof INote>(...attrNames: K[]) {
+    for (const attrName of attrNames) {
+        (inputNote[attrName] as unknown) = model.value[attrName];
+        (oldValues[attrName] as unknown) = model.value[attrName];
+        switch (attrName) {
+            case "startTime":
+            case "endTime":
+                inputStartEndTime.value?.updateShowedValue();
+                break;
+            case "above":
+                inputAbove.value?.updateShowedValue();
+                break;
+            case "alpha":
+                inputAlpha.value?.updateShowedValue();
+                break;
+            case "positionX":
+                inputPositionX.value?.updateShowedValue();
+                break;
+            case "size":
+                inputSize.value?.updateShowedValue();
+                break;
+            case "speed":
+                inputSpeed.value?.updateShowedValue();
+                break;
+            case "yOffset":
+                inputYOffset.value?.updateShowedValue();
+                break;
+            case "visibleTime":
+                inputVisibleTime.value?.updateShowedValue();
+                break;
+            case "isFake":
+                inputIsFake.value?.updateShowedValue();
+                break;
+            case "type":
+                inputType.value?.updateShowedValue();
+                break;
+        }
+    }
 }
 
 function createHistory() {
@@ -294,14 +326,20 @@ function createHistory() {
         (oldValues[attr] as any) = inputNote[attr];
     }
 }
+
+function updateTime() {
+    updateInput("startTime", "endTime", "positionX");
+}
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);
+    globalEventEmitter.on("ELEMENT_DRAGGED", updateTime);
 });
 onBeforeUnmount(() => {
     if (store.getNoteById(model.value.id)) {
         createHistory();
     }
     globalEventEmitter.off("REVERSE", reverse);
+    globalEventEmitter.off("ELEMENT_DRAGGED", updateTime);
 });
 function reverse() {
     inputNote.positionX = -inputNote.positionX;

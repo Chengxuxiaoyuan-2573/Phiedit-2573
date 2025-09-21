@@ -194,6 +194,7 @@ export default class MouseManager extends Manager {
                     [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
                     this.mouseMoveMode = MouseMoveMode.DragEnd;
                 }
+                globalEventEmitter.emit("ELEMENT_DRAGGED");
                 break;
             }
 
@@ -218,6 +219,7 @@ export default class MouseManager extends Manager {
                     [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
                     this.mouseMoveMode = MouseMoveMode.Drag;
                 }
+                globalEventEmitter.emit("ELEMENT_DRAGGED");
                 break;
             }
 

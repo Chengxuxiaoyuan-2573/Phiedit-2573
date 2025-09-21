@@ -508,6 +508,10 @@ watch(() => [
     model.value.bezier,
     model.value.bezierPoints
 ], redraw);
+
+defineExpose({
+    updateShowedValue: redraw,
+});
 </script>
 
 <style scoped>

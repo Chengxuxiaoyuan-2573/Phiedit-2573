@@ -124,6 +124,7 @@
             </ElTooltip>
         </MyGridContainer>
         <MyEasing
+            ref="inputEasing"
             v-model="inputEvent"
             :zoom-out="1.25"
             @bezier-input="updateModel('bezierPoints'), inputBezier?.updateShowedValue()"
@@ -157,6 +158,7 @@ const props = defineProps<{
 const inputStartEndTime = useTemplateRef("inputStartEndTime");
 const inputStart = useTemplateRef("inputStart");
 const inputEnd = useTemplateRef("inputEnd");
+const inputEasing = useTemplateRef("inputEasing");
 const switchBezier = useTemplateRef("switchBezier");
 const selectEasing = useTemplateRef("selectEasing");
 const switchDisabled = useTemplateRef("switchDisabled");
@@ -189,11 +191,12 @@ watch(model, () => {
     inputStart.value?.updateShowedValue();
     inputEnd.value?.updateShowedValue();
     switchBezier.value?.updateShowedValue();
+    inputEasing.value?.updateShowedValue();
     selectEasing.value?.updateShowedValue();
     switchDisabled.value?.updateShowedValue();
     inputBezier.value?.updateShowedValue();
 });
-const inputEvent: IEvent<string> & EventExtends = reactive({
+const inputEvent: Required<IEvent<string>> & EventExtends = reactive({
     startTime: model.value.startTime,
     endTime: model.value.endTime,
     start: model.value.start,
@@ -243,7 +246,9 @@ const oldValues = {
     bezierPoints: model.value.bezierPoints,
     easingType: model.value.easingType,
     easingLeft: model.value.easingLeft,
-    easingRight: model.value.easingRight
+    easingRight: model.value.easingRight,
+    linkgroup: model.value.linkgroup,
+    isDisabled: model.value.isDisabled
 };
 
 /** 检查属性是否被修改过，并记录到历史记录中 */
@@ -282,9 +287,44 @@ function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
 
     // historyManager.ungroup();
 }
+
+function updateInput<K extends keyof IEvent<number>>(...attrNames: K[]) {
+    for (const attr of attrNames) {
+        (inputEvent[attr] as unknown) = model.value[attr];
+        (oldValues[attr] as unknown) = model.value[attr];
+        switch (attr) {
+            case "start":
+                inputStart.value?.updateShowedValue();
+                break;
+            case "end":
+                inputEnd.value?.updateShowedValue();
+                break;
+            case "startTime":
+            case "endTime":
+                inputStartEndTime.value?.updateShowedValue();
+                break;
+            case "easingType":
+                selectEasing.value?.updateShowedValue();
+                break;
+            case "easingLeft":
+            case "easingRight":
+            case "bezier":
+            case "bezierPoints":
+                inputEasing.value?.updateShowedValue();
+                inputBezier.value?.updateShowedValue();
+                switchBezier.value?.updateShowedValue();
+                break;
+        }
+    }
+}
+
+function updateTime() {
+    updateInput("startTime", "endTime");
+}
 onMounted(() => {
     globalEventEmitter.on("SWAP", swap);
     globalEventEmitter.on("STICK", stick);
+    globalEventEmitter.on("ELEMENT_DRAGGED", updateTime);
 });
 onBeforeUnmount(() => {
     if (store.getEventById(model.value.id)) {
@@ -292,6 +332,7 @@ onBeforeUnmount(() => {
     }
     globalEventEmitter.off("SWAP", swap);
     globalEventEmitter.off("STICK", stick);
+    globalEventEmitter.off("ELEMENT_DRAGGED", updateTime);
 });
 function swap() {
     [inputEvent.start, inputEvent.end] = [inputEvent.end, inputEvent.start];

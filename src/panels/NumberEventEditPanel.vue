@@ -173,6 +173,7 @@
             </ElTooltip>
         </MyGridContainer>
         <MyEasing
+            ref="inputEasing"
             v-model="inputEvent"
             :zoom-out="1.25"
             @bezier-input="updateModel('bezierPoints'), inputBezier?.updateShowedValue()"
@@ -209,6 +210,7 @@ const inputStartEndTime = useTemplateRef("inputStartEndTime");
 const inputStartEnd = useTemplateRef("inputStartEnd");
 const switchBezier = useTemplateRef("switchBezier");
 const inputBezier = useTemplateRef("inputBezier");
+const inputEasing = useTemplateRef("inputEasing");
 const selectEasing = useTemplateRef("selectEasing");
 const switchDisabled = useTemplateRef("switchDisabled");
 interface EventExtends {
@@ -241,10 +243,11 @@ watch(model, () => {
     inputStartEnd.value?.updateShowedValue();
     switchBezier.value?.updateShowedValue();
     inputBezier.value?.updateShowedValue();
+    inputEasing.value?.updateShowedValue();
     selectEasing.value?.updateShowedValue();
     switchDisabled.value?.updateShowedValue();
 });
-const inputEvent: IEvent<number> & EventExtends = reactive({
+const inputEvent: Required<IEvent<number>> & EventExtends = reactive({
     startTime: model.value.startTime,
     endTime: model.value.endTime,
     start: model.value.start,
@@ -319,7 +322,9 @@ const oldValues = {
     bezierPoints: model.value.bezierPoints,
     easingType: model.value.easingType,
     easingLeft: model.value.easingLeft,
-    easingRight: model.value.easingRight
+    easingRight: model.value.easingRight,
+    linkgroup: model.value.linkgroup,
+    isDisabled: model.value.isDisabled
 };
 
 /** 检查属性是否被修改过，并记录到历史记录中 */
@@ -345,24 +350,49 @@ function createHistory() {
     }
 }
 
-function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
-    // const oldValues = attrNames.map(attr => model.value[attr]);
-    // const newValues = attrNames.map(attr => inputEvent[attr]);
-    // const description = `将事件${model.value.id}的属性${attrNames.join(', ')}${attrNames.length > 1 ? "分别" : ""}从${oldValues.join(', ')}修改为${newValues.join(', ')}`;
-    // historyManager.group(description);
-    for (const attrName of attrNames) {
-        // historyManager.modifyEvent(model.value.id, attrName, (inputEvent as any)[attrName]);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (model.value[attrName] as any) = inputEvent[attrName];
+function updateInput<K extends keyof IEvent<number>>(...attrNames: K[]) {
+    for (const attr of attrNames) {
+        (inputEvent[attr] as unknown) = model.value[attr];
+        (oldValues[attr] as unknown) = model.value[attr];
+        switch (attr) {
+            case "start":
+            case "end":
+                inputStartEnd.value?.updateShowedValue();
+                break;
+            case "startTime":
+            case "endTime":
+                inputStartEndTime.value?.updateShowedValue();
+                break;
+            case "easingType":
+                selectEasing.value?.updateShowedValue();
+                break;
+            case "easingLeft":
+            case "easingRight":
+            case "bezier":
+            case "bezierPoints":
+                inputEasing.value?.updateShowedValue();
+                inputBezier.value?.updateShowedValue();
+                switchBezier.value?.updateShowedValue();
+                break;
+        }
     }
+}
 
-    // historyManager.ungroup();
+function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
+    for (const attrName of attrNames) {
+        (model.value[attrName] as unknown) = inputEvent[attrName];
+    }
+}
+
+function updateTime() {
+    updateInput("startTime", "endTime");
 }
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);
     globalEventEmitter.on("SWAP", swap);
     globalEventEmitter.on("STICK", stick);
     globalEventEmitter.on("RANDOM", random);
+    globalEventEmitter.on("ELEMENT_DRAGGED", updateTime);
 });
 onBeforeUnmount(() => {
     if (store.getEventById(model.value.id)) {
@@ -372,6 +402,7 @@ onBeforeUnmount(() => {
     globalEventEmitter.off("SWAP", swap);
     globalEventEmitter.off("STICK", stick);
     globalEventEmitter.off("RANDOM", random);
+    globalEventEmitter.off("ELEMENT_DRAGGED", updateTime);
 });
 function reverse() {
     inputEvent.start = -inputEvent.start;

@@ -80,6 +80,7 @@ export interface GlobalEventMap {
     SELECTION_UPDATE: []
     HISTORY_UPDATE: [HistoryType]
     ERRORS_FIXED: [number]
+    ELEMENT_DRAGGED: []
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 
