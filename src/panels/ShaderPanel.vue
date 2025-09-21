@@ -28,16 +28,23 @@
                             :options="shaderOptions"
                             @change="updateVarList()"
                         >
-                            shader类型
+                            shader 类型
                         </MySelect>
                         <MyInput
                             v-model="effect.description"
                             :placeholder="defaultDescription(effect)"
                         >
                             <template #prepend>
-                                shader描述
+                                shader 描述
                             </template>
                         </MyInput>
+                        <MySwitch v-model="effect.global">
+                            全局 shader
+                            <MyQuestionMark>
+                                启用全局 shader 后，shader 会影响界面上显示的所有东西。<br>
+                                如果不启用，shader 就不会影响界面上未被绑定的 UI。<br>
+                            </MyQuestionMark>
+                        </MySwitch>
                         <MyInputBeats v-model="effect.start">
                             <template #prepend>
                                 开始时间
@@ -121,7 +128,7 @@
                                         <MySelectEasing v-model="event.easingType" />
                                         <MyButton
                                             type="danger"
-                                            @click="effect.removeEvent(event, variable)"
+                                            @click="effect.removeEvent(event, variable), updateEventList()"
                                         >
                                             删除
                                         </MyButton>
@@ -173,8 +180,10 @@ import MyInput from "@/myElements/MyInput.vue";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyInputVector from "@/myElements/MyInputVector.vue";
+import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import MySelect from "@/myElements/MySelect.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
+import MySwitch from "@/myElements/MySwitch.vue";
 import store from "@/store";
 import { confirm } from "@/tools/catchError";
 import { isArrayOfNumbers } from "@/tools/typeTools";
@@ -237,6 +246,12 @@ function updateEventList() {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
+}
+
+.effect-var {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 

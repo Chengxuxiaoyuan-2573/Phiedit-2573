@@ -4,13 +4,23 @@ import { INote, noteAttributes } from "@/models/note";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";
+import { unique } from "@/tools/algorithm";
+
+const NAME_MAP = {
+    addNote: "ADD_NOTE",
+    addEvent: "ADD_EVENT",
+    removeNote: "REMOVE_NOTE",
+    removeEvent: "REMOVE_EVENT",
+    modifyNote: "MODIFY_NOTE",
+    modifyEvent: "MODIFY_EVENT",
+} as const;
 
 export default class HistoryManager extends Manager {
     /** 撤销栈，最先被执行的操作在最前面 */
-    undoStack: Record[] = [];
+    undoStack: HistoryRecord[] = [];
 
     /** 重做栈，最先被撤销的操作在最前面 */
-    redoStack: Record[] = [];
+    redoStack: HistoryRecord[] = [];
     constructor() {
         super();
         globalEventEmitter.on("UNDO", createCatchErrorByMessage(() => {
@@ -21,7 +31,7 @@ export default class HistoryManager extends Manager {
         }, "重做"));
     }
     getSize() {
-        function _getSize(stack: Record[]) {
+        function _getSize(stack: HistoryRecord[]) {
             let sum = 0;
             for (const record of stack) {
                 if (record instanceof RecordGroup) {
@@ -37,17 +47,19 @@ export default class HistoryManager extends Manager {
     }
     clearRedoStack() {
         this.redoStack = [];
-        globalEventEmitter.emit("HISTORY_UPDATE");
+        globalEventEmitter.emit("HISTORY_UPDATE", "CLEAR");
     }
-    private addRecord<C extends Record>(record: C) {
+    private addRecord<C extends HistoryRecord>(record: C) {
         const lastRecord = this.undoStack[this.undoStack.length - 1];
         if (this.grouped && lastRecord instanceof RecordGroup) {
+            // 在组内的时候不触发 HISTORY_UPDATE 事件
+            // 而是在组结束的时候触发，以免重复触发
             lastRecord.records.push(record);
         }
         else {
             this.undoStack.push(record);
+            globalEventEmitter.emit("HISTORY_UPDATE", [NAME_MAP[record.type as keyof typeof NAME_MAP]]);
         }
-        globalEventEmitter.emit("HISTORY_UPDATE");
     }
     recordAddNote(id: string) {
         const record = new AddNoteRecord(id);
@@ -86,15 +98,22 @@ export default class HistoryManager extends Manager {
     ungroup() {
         if (!this.grouped) {
             // throw new Error("没有处于分组状态，无法取消分组");
+            return;
+        }
+        const group = this.undoStack[this.undoStack.length - 1];
+        if (!(group instanceof RecordGroup)) {
+            // throw new Error("没有处于分组状态，无法取消分组");
+            return;
         }
         this.grouped = false;
+        globalEventEmitter.emit("HISTORY_UPDATE", unique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
     }
     undo() {
         const record = this.undoStack.pop();
         if (record) {
             record.undo();
             this.redoStack.push(record);
-            globalEventEmitter.emit("HISTORY_UPDATE");
+            globalEventEmitter.emit("HISTORY_UPDATE", "UNDO");
         }
         else {
             throw new Error("没有可撤销的操作");
@@ -105,14 +124,15 @@ export default class HistoryManager extends Manager {
         if (record) {
             record.redo();
             this.undoStack.push(record);
-            globalEventEmitter.emit("HISTORY_UPDATE");
+            globalEventEmitter.emit("HISTORY_UPDATE", "REDO");
         }
         else {
             throw new Error("没有可重做的操作");
         }
     }
 }
-abstract class Record {
+abstract class HistoryRecord {
+    readonly abstract type: string;
     protected isExecuted = true;
     redo() {
         if (!this.isExecuted) {
@@ -132,7 +152,8 @@ abstract class Record {
     }
     abstract getDescription(): string;
 }
-class AddNoteRecord extends Record {
+class AddNoteRecord extends HistoryRecord {
+    readonly type = "addNote";
     private noteObject: INote | undefined = undefined;
     private judgeLineNumber: number | undefined = undefined;
     constructor(private id: string) {
@@ -162,7 +183,8 @@ class AddNoteRecord extends Record {
         return `添加音符 ${this.id}`;
     }
 }
-class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends Record {
+class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends HistoryRecord {
+    readonly type = "modifyNote";
     constructor(private id: string,
         private attribute: T,
         private newValue: INote[T],
@@ -190,7 +212,8 @@ class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends Record {
         return `将音符${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
-class RemoveNoteRecord extends Record {
+class RemoveNoteRecord extends HistoryRecord {
+    readonly type = "removeNote";
     constructor(private noteObject: INote, private judgeLineNumber: number, private id: string) {
         super();
     }
@@ -218,7 +241,8 @@ class RemoveNoteRecord extends Record {
         return `删除音符 ${this.id}`;
     }
 }
-class AddEventRecord extends Record {
+class AddEventRecord extends HistoryRecord {
+    readonly type = "addEvent";
     private eventObject: IEvent<unknown> | undefined = undefined;
     private judgeLineNumber: number | undefined = undefined;
     private eventLayerId: string | undefined = undefined;
@@ -252,7 +276,8 @@ class AddEventRecord extends Record {
         return `添加事件 ${this.id}`;
     }
 }
-class ModifyEventRecord<T extends typeof eventAttributes[number]> extends Record {
+class ModifyEventRecord<T extends typeof eventAttributes[number]> extends HistoryRecord {
+    readonly type = "modifyEvent";
     constructor(private id: string,
         private attribute: T,
         private newValue: IEvent<unknown>[T],
@@ -280,7 +305,8 @@ class ModifyEventRecord<T extends typeof eventAttributes[number]> extends Record
         return `将事件${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
-class RemoveEventRecord extends Record {
+class RemoveEventRecord extends HistoryRecord {
+    readonly type = "removeEvent";
     constructor(private eventObject: IEvent<unknown>, private eventType: string, private eventLayerId: string, private judgeLineNumber: number, private id: string) {
         super();
     }
@@ -310,8 +336,9 @@ class RemoveEventRecord extends Record {
         return `删除事件 ${this.id}`;
     }
 }
-class RecordGroup extends Record {
-    constructor(readonly records: Record[], private readonly name: string) {
+class RecordGroup extends HistoryRecord {
+    readonly type = "group";
+    constructor(readonly records: HistoryRecord[], private readonly name: string) {
         super();
         this.isExecuted = true;
     }

@@ -57,7 +57,7 @@ export default class CoordinateManager extends Manager {
     get offsetY() {
         const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
-        return stateManager._state.pxPerSecond * seconds;
+        return stateManager._state.verticalZoom * seconds;
     }
 
     /**
@@ -78,7 +78,7 @@ export default class CoordinateManager extends Manager {
     /** 把秒数转为绝对坐标 */
     getAbsolutePositionYOfSeconds(sec: number) {
         const stateManager = store.useManager("stateManager");
-        return sec * stateManager._state.pxPerSecond;
+        return sec * stateManager._state.verticalZoom;
     }
 
     /** 把秒数转为相对坐标 */
@@ -89,7 +89,7 @@ export default class CoordinateManager extends Manager {
     /** 把绝对坐标转为秒数 */
     getSecondsOfAbsolutePositionY(y: number) {
         const stateManager = store.useManager("stateManager");
-        return y / stateManager._state.pxPerSecond;
+        return y / stateManager._state.verticalZoom;
     }
 
     /** 把相对坐标转为秒数 */

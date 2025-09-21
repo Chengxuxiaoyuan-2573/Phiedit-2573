@@ -105,8 +105,7 @@ export default class ClipboardManager extends Manager {
         }
         historyManager.ungroup();
 
-        selectionManager.unselectAll();
-        selectionManager.select(...elements);
+        selectionManager.select(elements);
     }
     pasteMirror(time?: Beats) {
         const selectionManager = store.useManager("selectionManager");

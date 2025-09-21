@@ -30,6 +30,8 @@ import MutipleEditManager from "./managers/mutipleEdit";
 
 import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
 import { ArrayedObject } from "./tools/algorithm";
+import { SEC_TO_MS } from "./tools/mathUtils";
+import MediaUtils from "./tools/mediaUtils";
 
 /**
  * 用来存储 managers 的构造函数
@@ -81,12 +83,8 @@ class Store {
         this.canvasRef = ref(null);
         this.audioRef = ref(null);
         this.route = null;
-        globalEventEmitter.on("EXIT", () => {
-            this.chartPackageRef.value = null;
-            this.resourcePackageRef.value = null;
-            this.canvasRef.value = null;
-            this.audioRef.value = null;
-            this.route = null;
+        globalEventEmitter.on("TOGGLE_PLAY", () => {
+            this.togglePlay();
         });
     }
 
@@ -146,19 +144,35 @@ class Store {
         }
         return audio;
     }
+    playAudio() {
+        const audio = this.useAudio();
+        audio.play();
+    }
+    pauseAudio() {
+        const audio = this.useAudio();
+        audio.pause();
+    }
+    togglePlay() {
+        const audio = store.useAudio();
+        MediaUtils.togglePlay(audio);
+    }
+    setTime(time: number) {
+        const audio = this.useAudio();
+        audio.currentTime = time;
+    }
 
     /**
      * 获取秒数，秒数不完全等于音乐的时间，还要减去offset
      * 所以不管offset是多少，第0拍都是第0秒
      */
     getSeconds() {
-        return this.useAudio().currentTime - this.useChart().META.offset / 1000;
+        return this.useAudio().currentTime - this.useChart().META.offset / SEC_TO_MS;
     }
     setSeconds(seconds: number) {
         if (isNaN(seconds)) {
             return;
         }
-        this.useAudio().currentTime = seconds + this.useChart().META.offset / 1000;
+        this.useAudio().currentTime = seconds + this.useChart().META.offset / SEC_TO_MS;
     }
     getCurrentBeatsValue() {
         const chart = store.useChart();

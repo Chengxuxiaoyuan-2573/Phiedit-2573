@@ -3,7 +3,7 @@
         <ElHeader id="header">
             <ElScrollbar
                 id="header-inner"
-                @wheel.stop
+                @wheel.passive.stop
             >
                 <div class="audio-player">
                     <audio
@@ -36,9 +36,7 @@
                                     .padStart(2, '0');
                                 return `${min}:${sec}`;
                             }"
-                            @input="
-                                audioRef.pause(),
-                                (audioRef.currentTime = typeof time == 'number' ? time : time[0])"
+                            @input="store.pauseAudio(), store.setTime(time as number)"
                         />
                     </template>
                 </div>
@@ -178,7 +176,7 @@
                 <MyInputNumber
                     v-model="stateManager.state.verticalLineCount"
                     class="vertical-input"
-                    :min="2"
+                    :min="0"
                     :max="100"
                 >
                     <template #prepend>
@@ -240,7 +238,7 @@
         </ElHeader>
         <ElAside
             id="left"
-            @wheel.stop
+            @wheel.passive.stop
         >
             <div
                 v-if="selectionManager.selectedElements.length == 0"
@@ -260,7 +258,7 @@
                         <template #default>
                             <MyButton
                                 type="primary"
-                                @click="catchErrorByMessage(handleExport, '导出')"
+                                @click="catchErrorByMessage(exportChart, '导出')"
                             >
                                 导出谱面
                             </MyButton>
@@ -286,6 +284,12 @@
                     >
                         打开谱面文件夹
                     </MyButton>
+                    <MyButton
+                        type="primary"
+                        @click="checkForUpdates"
+                    >
+                        检查更新
+                    </MyButton>
                     <!-- <p style="overflow-y: auto;">
                         A和[：切换到上一条判定线<br>
                         D和]：切换到下一条判定线<br>
@@ -303,7 +307,7 @@
                     <MyButton
                         type="danger"
                         class="delete-chart-button"
-                        @click="confirm(handleDeleteChart, '确定要删除此谱面吗？', '删除谱面')"
+                        @click="confirm(deleteChart, '确定要删除此谱面吗？', '删除谱面')"
                     >
                         删除谱面
                     </MyButton>
@@ -350,7 +354,7 @@
         </ElMain>
         <ElAside
             id="right"
-            @wheel.stop
+            @wheel.passive.stop
         >
             <div
                 v-if="stateManager.state.right == RightPanelState.Default"
@@ -544,12 +548,12 @@ import {
     ElHeader,
     ElIcon,
     ElMain,
-    ElMessageBox,
     ElSlider,
     ElFooter,
     ElTooltip,
     ElRadioButton,
     ElRadioGroup,
+    ElMessage,
 } from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -597,6 +601,8 @@ import MyLink from "@/myElements/MyLink.vue";
 import MyInput from "@/myElements/MyInput.vue";
 import { ArrayedObject } from "@/tools/algorithm";
 import { RightPanelState } from "@/managers/state";
+import { SEC_TO_MS } from "@/tools/mathUtils";
+import getKeyHandler from "@/keyHandlers";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -611,7 +617,7 @@ loadStart();
 
 // 读取chartPackage
 const chartId = store.getChartId();
-const readResult = await window.electronAPI.readChart(chartId);
+const readResult = await window.electronAPI.loadChart(chartId);
 
 store.chartPackageRef.value = await ChartPackage.loadFromChartReadResult(readResult);
 
@@ -768,6 +774,8 @@ const FPS_THRESHOLDS = {
 };
 const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
+
+/** 每条 tip 显示 10 秒 */
 const TIP_SHOW_TIME = 10000;
 
 const fpsColor = computed(() => {
@@ -788,13 +796,16 @@ const fpsColor = computed(() => {
 let windowIsFocused = true;
 let cachedRect: DOMRect;
 
+function checkForUpdates() {
+    window.electronAPI.checkForUpdates();
+}
 function update() {
     u.value = !u.value;
 }
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
 }
-async function handleExport() {
+async function exportChart() {
     const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
 
     // 使用预加载的 API 替代直接导入
@@ -802,18 +813,14 @@ async function handleExport() {
     if (!filePath) return;
     globalEventEmitter.emit("EXPORT", filePath);
 }
-async function handleDeleteChart() {
+async function deleteChart() {
     window.electronAPI.deleteChart(store.getChartId());
     router.push("/");
 }
 
 async function loadResourcePackage() {
-    console.time("加载资源包");
-    const arrayBuffer = await window.electronAPI.readResourcePackage();
-    const resourcePackage = await ResourcePackage.load(arrayBuffer, e => {
-        console.debug(`${e.description}: ${e.progress.toFixed(2)}%...`);
-    });
-    console.timeEnd("加载资源包");
+    const arrayBuffer = await window.electronAPI.loadResourcePackage();
+    const resourcePackage = await ResourcePackage.load(arrayBuffer);
     return resourcePackage;
 }
 async function addTextures() {
@@ -872,8 +879,6 @@ function windowOnWheel(e: WheelEvent) {
         globalEventEmitter.emit("CTRL_WHEEL", e.deltaY);
     }
     else {
-        // audio.currentTime +=
-        //     (e.deltaY * settingsManager.settings.wheelSpeed) / -stateManager.state.pxPerSecond;
         globalEventEmitter.emit("WHEEL", e.deltaY);
     }
 }
@@ -882,169 +887,15 @@ function canvasOnResize() {
     cachedRect = canvas.getBoundingClientRect();
 }
 async function windowOnKeyDown(e: KeyboardEvent) {
-    const audio = store.useAudio();
     if (e.repeat) {
         return;
     }
-    const key = KeyboardUtils.formatKey(e);
-    console.debug(key);
-    switch (key) {
-        case "Space":
-            MediaUtils.togglePlay(audio);
-            return;
-        case "Q":
-            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Tap);
-            return;
-        case "W":
-            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Drag);
-            return;
-        case "E":
-            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Flick);
-            return;
-        case "R":
-            globalEventEmitter.emit("CHANGE_TYPE", NoteType.Hold);
-            return;
-        case "T": {
-            globalEventEmitter.emit("PREVIEW");
-            const time = audio.currentTime;
-
-            // 松开T键时停止预览
-            const keyUpHandler = (e: KeyboardEvent) => {
-                const key = KeyboardUtils.formatKey(e);
-                if (key === "T") {
-                    globalEventEmitter.emit("STOP_PREVIEW");
-                    audio.currentTime = time;
-                    window.removeEventListener("keyup", keyUpHandler);
-                }
-            };
-            window.addEventListener("keyup", keyUpHandler);
-            return;
-        }
-        case "U": {
-            globalEventEmitter.emit("PREVIEW");
-
-            // 松开U键时停止预览
-            const keyUpHandler = (e: KeyboardEvent) => {
-                const key = KeyboardUtils.formatKey(e);
-                if (key === "U") {
-                    globalEventEmitter.emit("STOP_PREVIEW");
-                    window.removeEventListener("keyup", keyUpHandler);
-                }
-            };
-            window.addEventListener("keyup", keyUpHandler);
-            return;
-        }
-        case "I": {
-            if (stateManager.state.isPreviewing) {
-                globalEventEmitter.emit("STOP_PREVIEW");
-            }
-            else {
-                globalEventEmitter.emit("PREVIEW");
-            }
-            return;
-        }
-        case "[":
-            globalEventEmitter.emit("PREVIOUS_JUDGE_LINE");
-            return;
-        case "]":
-            globalEventEmitter.emit("NEXT_JUDGE_LINE");
-            return;
-        case "A":
-            globalEventEmitter.emit("PREVIOUS_JUDGE_LINE");
-            return;
-        case "D":
-            globalEventEmitter.emit("NEXT_JUDGE_LINE");
-            return;
-        case "Esc":
-            globalEventEmitter.emit("UNSELECT_ALL");
-            return;
-        case "Del":
-            globalEventEmitter.emit("DELETE");
-            return;
-        case "Up":
-            globalEventEmitter.emit("MOVE_UP");
-            return;
-        case "Down":
-            globalEventEmitter.emit("MOVE_DOWN");
-            return;
-        case "Left":
-            globalEventEmitter.emit("MOVE_LEFT");
-            return;
-        case "Right":
-            globalEventEmitter.emit("MOVE_RIGHT");
-            return;
-        case "Ctrl B":
-            e.preventDefault();
-            globalEventEmitter.emit("PASTE_MIRROR");
-            return;
-        case "Ctrl S":
-            e.preventDefault();
-            globalEventEmitter.emit("SAVE");
-            return;
-        case "Ctrl A":
-            e.preventDefault();
-            globalEventEmitter.emit("SELECT_ALL");
-            return;
-        case "Ctrl X":
-            e.preventDefault();
-            globalEventEmitter.emit("CUT");
-            return;
-        case "Ctrl C":
-            e.preventDefault();
-            globalEventEmitter.emit("COPY");
-            return;
-        case "Ctrl V":
-            e.preventDefault();
-            globalEventEmitter.emit("PASTE");
-            return;
-        case "Ctrl M":
-            e.preventDefault();
-            globalEventEmitter.emit(
-                "MOVE_TO_JUDGE_LINE",
-                parseInt((await ElMessageBox.prompt("请输入判定线号", "移动到指定判定线")).value)
-            );
-            return;
-        case "Ctrl [":
-            e.preventDefault();
-            globalEventEmitter.emit("MOVE_TO_PREVIOUS_JUDGE_LINE");
-            return;
-        case "Ctrl ]":
-            e.preventDefault();
-            globalEventEmitter.emit("MOVE_TO_NEXT_JUDGE_LINE");
-            return;
-        case "Ctrl Shift V":
-            e.preventDefault();
-            globalEventEmitter.emit("REPEAT");
-            return;
-        case "Ctrl Z":
-            e.preventDefault();
-            globalEventEmitter.emit("UNDO");
-            return;
-        case "Ctrl Y":
-            e.preventDefault();
-            globalEventEmitter.emit("REDO");
-            return;
-        case "Ctrl D":
-            e.preventDefault();
-            globalEventEmitter.emit("DISABLE");
-            return;
-        case "Ctrl E":
-            e.preventDefault();
-            globalEventEmitter.emit("ENABLE");
-            return;
-        case "Alt A":
-            globalEventEmitter.emit("REVERSE");
-            return;
-        case "Alt S":
-            globalEventEmitter.emit("SWAP");
-            return;
-        case "Alt D":
-            globalEventEmitter.emit("STICK");
-            return;
-        case "Alt R":
-            globalEventEmitter.emit("RANDOM");
-            return;
-    }
+    const handler = getKeyHandler(e, "keydown");
+    handler();
+}
+async function windowOnKeyUp(e: KeyboardEvent) {
+    const handler = getKeyHandler(e, "keyup");
+    handler();
 }
 function documentOnContextmenu(e: Event) {
     e.preventDefault();
@@ -1121,8 +972,9 @@ onMounted(() => {
     canvas.addEventListener("mouseleave", canvasMouseLeave);
     const resizeObserver = new ResizeObserver(canvasOnResize);
     resizeObserver.observe(canvas);
-    window.addEventListener("wheel", windowOnWheel, { passive: false });
+    window.addEventListener("wheel", windowOnWheel);
     window.addEventListener("keydown", windowOnKeyDown);
+    window.addEventListener("keyup", windowOnKeyUp);
     window.addEventListener("blur", windowOnBlur);
     window.addEventListener("focus", windowOnFocus);
     document.oncontextmenu = documentOnContextmenu;
@@ -1142,6 +994,7 @@ onMounted(() => {
                 }
                 try {
                     globalEventEmitter.emit("RENDER_FRAME");
+                    globalEventEmitter.emit("AUTOPLAY");
                     if (stateManager.state.isPreviewing) {
                         globalEventEmitter.emit("RENDER_CHART");
                     }
@@ -1150,13 +1003,13 @@ onMounted(() => {
                     }
                 }
                 catch (error) {
-                    console.error(error);
+                    ElMessage.error(error as Error);
                 }
                 const now = performance.now();
                 const delta = now - renderTime;
 
                 if (delta > 0) {
-                    const currentFPS = 1000 / delta;
+                    const currentFPS = SEC_TO_MS / delta;
                     fpsList.push(currentFPS);
                     if (fpsList.length >= showFpsFrequency) {
                         fps.value = mean(fpsList);
@@ -1175,7 +1028,12 @@ onMounted(() => {
                 }
                 audio.volume = settingsManager._settings.musicVolume;
             }
-            requestAnimationFrame(renderLoop);
+            if (settingsManager._settings.unlimitFps) {
+                setTimeout(renderLoop);
+            }
+            else {
+                requestAnimationFrame(renderLoop);
+            }
         }
     };
     const tipInterval = setInterval(() => {
@@ -1206,7 +1064,12 @@ onMounted(() => {
 
         // 清理canvas和document事件
         canvas.remove();
-        globalEventEmitter.emit("EXIT");
+        store.chartPackageRef.value = null;
+        store.resourcePackageRef.value = null;
+        store.canvasRef.value = null;
+        store.audioRef.value = null;
+        store.route = null;
+
         for (const key in store.managers) {
             store.managers[key as keyof typeof store.managers] = null;
         }
@@ -1247,8 +1110,6 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     display: grid;
-    /* --w: calc(100% / 4.6);
-    grid-template-columns: calc(1.6 * var(--w)) repeat(3, var(--w)); */
     grid-template-columns: 1.5fr repeat(3, 1fr);
     grid-template-rows: 1fr 1fr 1fr;
     grid-template-areas:

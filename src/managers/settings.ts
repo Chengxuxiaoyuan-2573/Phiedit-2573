@@ -2,8 +2,11 @@
 import { reactive } from "vue";
 import Manager from "./abstract";
 import { NotReadonly } from "@/tools/typeTools";
-export enum BottomText { 
-    None, 
+import store from "@/store";
+import globalEventEmitter from "@/eventEmitter";
+import { createCatchErrorByMessage } from "@/tools/catchError";
+export enum BottomText {
+    None,
     Hint,
     Info
 };
@@ -22,13 +25,21 @@ export const defaultSettings = {
     markCurrentJudgeLine: true,
     autoCheckErrors: false,
     autoHighlight: true,
+    unlimitFps: false,
 };
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };
     settings = reactive(this._settings)
     constructor() {
         super();
-        window.electronAPI.readSettings().then((settings) => {
+        this.loadSettings();
+        globalEventEmitter.on("SAVE_SETTINGS", createCatchErrorByMessage(() => {
+            this.saveSettings();
+            return "修改设置成功";
+        }));
+    }
+    private loadSettings() {
+        window.electronAPI.loadSettings().then((settings) => {
             if (!settings) return;
             for (const key in settings) {
                 if (key in this.settings) {
@@ -41,5 +52,9 @@ export default class SettingsManager extends Manager {
         for (const key in defaultSettings) {
             (this.settings[key as keyof typeof this.settings] as any) = defaultSettings[key as keyof typeof defaultSettings];
         }
+    }
+    saveSettings() {
+        const settingsManager = store.useManager("settingsManager");
+        window.electronAPI.saveSettings(settingsManager._settings);
     }
 }

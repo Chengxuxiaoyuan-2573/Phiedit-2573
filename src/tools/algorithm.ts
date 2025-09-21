@@ -261,6 +261,9 @@ export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
         arr.sort(compare);
     }
 }
+export function unique<T>(array: T[]) {
+    return [...new Set(array)];
+}
 export function isEqualDeep(obj1: unknown, obj2: unknown, ignoreArrayOrders = false) {
     // Check if types are different
     if (typeof obj1 !== typeof obj2) {
@@ -360,10 +363,10 @@ export class ArrayedObject<K extends string | number | symbol, V> {
         return ArrayedObject.fromEntries(this.entries().filter(([key, value]) => filterFunc(key, value)));
     }
     every(filterFunc: (key: K, value: V) => boolean) {
-        return Object.entries(this.object).every(([key, value]) => filterFunc(key as K, value as V));
+        return this.entries().every(([key, value]) => filterFunc(key, value));
     }
     some(filterFunc: (key: K, value: V) => boolean) {
-        return Object.entries(this.object).some(([key, value]) => filterFunc(key as K, value as V));
+        return this.entries().some(([key, value]) => filterFunc(key, value));
     }
     keys(): K[] {
         return Object.keys(this.object) as K[];
@@ -406,11 +409,11 @@ export class ArrayedObject<K extends string | number | symbol, V> {
     }
 
     /** 调试用，链式调用中穿插断点查看对象 */
-    log() {
-        // 为了防止浏览器 console.log 的特性，需要先复制 this.object 再打印
-        console.log({ ...this.object });
-        return this;
-    }
+    // log() {
+    //     // 为了防止浏览器 console.log 的特性，需要先复制 this.object 再打印
+    //     console.log({ ...this.object });
+    //     return this;
+    // }
 
     /** 把值中的所有 Promise 解析为值，并返回一个新的 Promise，链式调用完后需要 await 一下 */
     async waitPromises(): Promise<ArrayedObject<K, Awaited<V>>> {

@@ -15,8 +15,13 @@ export enum RightPanelState {
     Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History, Calculator, NoteFill, EventFill, FastBind, Error, Shader
 }
 
-/** 存储当前的状态和缓存  */
+export const
+    VERTICAL_ZOOM_MIN = 1,
+    VERTICAL_ZOOM_MAX = 1000;
+
+/** 存储当前的状态和缓存 */
 export default class StateManager extends Manager {
+    /** 状态对象，非响应式 */
     readonly _state = {
         /** 右侧菜单栏的状态 */
         right: RightPanelState.Default,
@@ -31,7 +36,7 @@ export default class StateManager extends Manager {
         verticalLineCount: 21,
 
         /** 纵向拉伸（一秒的时间在编辑器时间轴上是多少像素） */
-        pxPerSecond: 300,
+        verticalZoom: 300,
 
         /** 选中的判定线号 */
         currentJudgeLineNumber: 0,
@@ -42,6 +47,8 @@ export default class StateManager extends Manager {
         /** 正在放置的note类型 */
         currentNoteType: NoteType.Tap
     };
+
+    /** 状态对象，响应式 */
     readonly state = reactive(this._state);
 
     /* eslint-disable no-magic-numbers */
@@ -167,15 +174,32 @@ return {
         globalEventEmitter.on("CHANGE_TYPE", (type) => {
             this.state.currentNoteType = type;
         });
-        globalEventEmitter.on("PREVIEW", () => {
+        globalEventEmitter.on("PREVIEW", (goBack) => {
             const audio = store.useAudio();
+            const time = audio.currentTime;
             this.state.isPreviewing = true;
             audio.play();
+            const handler = () => {
+                const audio = store.useAudio();
+                this.state.isPreviewing = false;
+                audio.pause();
+                if (goBack) {
+                    audio.currentTime = time;
+                }
+                globalEventEmitter.off("STOP_PREVIEW", handler);
+            };
+            globalEventEmitter.on("STOP_PREVIEW", handler);
         });
-        globalEventEmitter.on("STOP_PREVIEW", () => {
+        globalEventEmitter.on("TOGGLE_PREVIEW", () => {
             const audio = store.useAudio();
-            this.state.isPreviewing = false;
-            audio.pause();
+            if (this.state.isPreviewing) {
+                this.state.isPreviewing = false;
+                audio.pause();
+            }
+            else {
+                this.state.isPreviewing = true;
+                audio.play();
+            }
         });
     }
     get currentJudgeLine() {

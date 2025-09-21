@@ -6,6 +6,7 @@ import { Note, NoteType } from "@/models/note";
 import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats } from "@/models/beats";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import Constants from "@/constants";
+import { SEC_TO_MS } from "@/tools/mathUtils";
 
 export default class ErrorManager extends Manager {
     errors: ChartError[] = [];
@@ -84,7 +85,7 @@ export default class ErrorManager extends Manager {
                 }
 
                 // 检查音符有没有超出时间范围的
-                if (note.cachedEndSeconds + chart.META.offset / 1000 < 0) {
+                if (note.cachedEndSeconds + chart.META.offset / SEC_TO_MS < 0) {
                     this.errors.push(new ChartError(
                         `音符时间超出范围，位于音乐开始之前`,
                         "ChartEditError.NoteOutOfRange",
@@ -92,7 +93,7 @@ export default class ErrorManager extends Manager {
                         note
                     ));
                 }
-                if (note.cachedStartSeconds + chart.META.offset / 1000 > audio.duration) {
+                if (note.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                     this.errors.push(new ChartError(
                         `音符时间超出范围，位于音乐结束之后`,
                         "ChartEditError.NoteOutOfRange",
@@ -236,7 +237,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
-                        if (event.cachedEndSeconds + chart.META.offset / 1000 < 0) {
+                        if (event.cachedEndSeconds + chart.META.offset / SEC_TO_MS < 0) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐开始之前`,
                                 "ChartEditError.EventOutOfRange",
@@ -244,7 +245,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
-                        if (event.cachedStartSeconds + chart.META.offset / 1000 > audio.duration) {
+                        if (event.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐结束之后`,
                                 "ChartEditError.EventOutOfRange",

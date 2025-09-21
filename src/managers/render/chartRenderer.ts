@@ -14,20 +14,31 @@ import EditableImage from "@/tools/editableImage";
 import Constants from "@/constants";
 import { ElMessage } from "element-plus";
 import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
-
-const CANVAS_WIDTH = 1350;
-const CANVAS_HEIGHT = 900;
+import { createCatchErrorByMessage } from "@/tools/catchError";
 
 interface ShaderInfo {
     name: ShaderName;
+    global: boolean;
     options: Record<string, {
         type: ShaderVarType;
         value: ShaderNumberType;
     } | null>
 }
 
+// 4 bytes per float
+const FLOAT_SIZE = Float32Array.BYTES_PER_ELEMENT;
+
+// 4 vertices
+const VERTEX_STRIDE = 4 * FLOAT_SIZE;
+
+// x, y
+const POSITION_COMPONENTS = 2;
+
+// 2 * 4 = 8 bytes
+const TEXCOORD_OFFSET = POSITION_COMPONENTS * FLOAT_SIZE;
+
 export default class ChartRenderer extends Manager {
-    private offscreenCanvas = new OffscreenCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
     private shaderCanvas: HTMLCanvasElement | null = null;
     private gl: WebGLRenderingContext | null = null;
     private shaderProgram: WebGLProgram | null = null;
@@ -38,12 +49,12 @@ export default class ChartRenderer extends Manager {
     private currentShaderName: string | null = null;
     constructor() {
         super();
-        globalEventEmitter.on("RENDER_CHART", () => {
+        globalEventEmitter.on("RENDER_CHART", createCatchErrorByMessage(() => {
             this.render();
-        });
+        }, "渲染谱面", false));
     }
 
-    /** 显示谱面到canvas上 */
+    /** 显示谱面到 canvas 上 */
     render() {
         const canvas = store.useCanvas();
         const ctx = canvasUtils.getContext(canvas);
@@ -60,22 +71,33 @@ export default class ChartRenderer extends Manager {
         // 获取 shader 信息
         const shaderConfigs = this.getShaderInfo();
 
-        // 如果有 shader，就应用 shader
-        if (shaderConfigs.length > 0) {
-            // 获取离屏 canvas 的上下文
-            const ctxOffscreen = canvasUtils.getOffscreenCanvasContext(this.offscreenCanvas);
+        // 获取离屏 canvas 的上下文
+        const ctxOffscreen = canvasUtils.getOffscreenCanvasContext(this.offscreenCanvas);
 
-            for (const shaderConfig of shaderConfigs) {
-                // 把离屏 canvas 的内容加上一层 shader
-                this.applyShaderEffect(shaderConfig.name, shaderConfig.options);
+        const _addShader = (shaderConfig: ShaderInfo) => {
+            // 把 offscreenCanvas 的内容加上一层 shader
+            this.applyShaderEffect(shaderConfig.name, shaderConfig.options);
 
-                // 把应用 shader 之后的内容绘制回离屏 canvas 上，作为下一个 shader 的输入
-                ctxOffscreen.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
-                ctxOffscreen.drawImage(this.shaderCanvas!, 0, 0, canvas.width, canvas.height);
-            }
+            // 把应用 shader 之后的内容绘制回 offscreenCanvas 上，作为下一个 shader 的输入
+            ctxOffscreen.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
+            ctxOffscreen.drawImage(this.shaderCanvas!, 0, 0, canvas.width, canvas.height);
+        };
+
+        // 先应用非全局的 shader
+        for (const shaderConfig of shaderConfigs.filter(shaderConfig => !shaderConfig.global)) {
+            _addShader(shaderConfig);
         }
 
-        // 如果没有 shader，就直接把离屏 canvas 绘制到屏幕 canvas 上
+        // 显示未被判定线绑定的 UI
+        this.drawUI();
+
+        // 再应用全局的 shader，此时 shader 会影响 UI
+        for (const shaderConfig of shaderConfigs.filter(shaderConfig => shaderConfig.global)) {
+            _addShader(shaderConfig);
+        }
+
+        // 到最后，offscreenCanvas 上显示的应该是已经叠加了所有 shader 的画面
+        // 把 offscreenCanvas 直接绘制到屏幕 canvas 上
         ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
     }
 
@@ -86,6 +108,7 @@ export default class ChartRenderer extends Manager {
         const effects = extra.effects.filter(effect => effect.cachedStartSeconds <= seconds && effect.cachedEndSeconds >= seconds);
         return effects.map(effect => ({
             name: effect.shader,
+            global: effect.global,
             options: new ArrayedObject(effect.vars).map((key) => {
                 const value = effect.vars[key];
                 if (isNumberOrVector(value)) {
@@ -116,35 +139,31 @@ export default class ChartRenderer extends Manager {
     /** 把 shader 效果应用到 canvas 上 */
     private async applyShaderEffect(shaderName: ShaderInfo["name"], shaderOptions: ShaderInfo["options"] = {}) {
         const sourceCanvas = this.offscreenCanvas;
-        try {
-            // Create or get shader canvas
-            if (!this.shaderCanvas) {
-                this.createShaderCanvas();
-            }
 
-            if (!this.shaderCanvas || !this.gl) return;
-
-            // Ensure shader canvas matches source canvas size
-            if (this.shaderCanvas.width !== sourceCanvas.width ||
-                this.shaderCanvas.height !== sourceCanvas.height) {
-                this.shaderCanvas.width = sourceCanvas.width;
-                this.shaderCanvas.height = sourceCanvas.height;
-                this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
-            }
-
-            // Load and compile shaders if needed
-            if (!this.shaderProgram || this.currentShaderName !== shaderName) {
-                await this.loadAndCompileShaders(shaderName);
-                this.currentShaderName = shaderName;
-            }
-
-            if (this.shaderProgram && this.gl) {
-                // Apply the shader effect
-                this.renderWithShader(shaderName, shaderOptions);
-            }
+        // Create or get shader canvas
+        if (!this.shaderCanvas) {
+            this.createShaderCanvas();
         }
-        catch (error) {
-            console.error("Error applying shader effect:", error);
+
+        if (!this.shaderCanvas || !this.gl) return;
+
+        // Ensure shader canvas matches source canvas size
+        if (this.shaderCanvas.width !== sourceCanvas.width ||
+            this.shaderCanvas.height !== sourceCanvas.height) {
+            this.shaderCanvas.width = sourceCanvas.width;
+            this.shaderCanvas.height = sourceCanvas.height;
+            this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
+        }
+
+        // Load and compile shaders if needed
+        if (!this.shaderProgram || this.currentShaderName !== shaderName) {
+            await this.loadAndCompileShaders(shaderName);
+            this.currentShaderName = shaderName;
+        }
+
+        if (this.shaderProgram && this.gl) {
+            // Apply the shader effect
+            this.renderWithShader(shaderName, shaderOptions);
         }
     }
 
@@ -152,48 +171,42 @@ export default class ChartRenderer extends Manager {
     private createShaderCanvas() {
         const sourceCanvas = this.offscreenCanvas;
 
-        // 创建一个独立的Canvas元素用于WebGL渲染
+        // 创建一个独立的 canvas 用于 WebGL 渲染
         this.shaderCanvas = document.createElement("canvas");
         this.shaderCanvas.width = sourceCanvas.width;
         this.shaderCanvas.height = sourceCanvas.height;
 
-        try {
-            // 获取WebGL上下文（不与主Canvas冲突）
-            this.gl = this.shaderCanvas.getContext("webgl") ||
-                this.shaderCanvas.getContext("experimental-webgl") as WebGLRenderingContext;
+        // 获取WebGL上下文（不与主Canvas冲突）
+        this.gl = this.shaderCanvas.getContext("webgl") ||
+            this.shaderCanvas.getContext("experimental-webgl") as WebGLRenderingContext;
 
-            if (!this.gl) {
-                console.warn("WebGL not supported, shaders will not be available");
-                return;
-            }
-
-            // 设置视口
-            this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
-
-            // 预创建纹理和顶点缓冲区以提高性能
-            this.texture = this.gl.createTexture();
-
-            // 创建全屏四边形的顶点数据
-            const vertices = new Float32Array([
-                -1.0, -1.0, 0.0, 1.0,
-                1.0, -1.0, 1.0, 1.0,
-                -1.0, 1.0, 0.0, 0.0,
-                1.0, 1.0, 1.0, 0.0
-            ]);
-
-            this.vertexBuffer = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
-        }
-        catch {
-            console.warn("WebGL not supported, shaders will not be available");
+        if (!this.gl) {
             this.gl = null;
+            throw new Error("不支持 WebGL，将无法使用 shader 效果");
         }
+
+        // 设置视口
+        this.gl.viewport(0, 0, this.shaderCanvas.width, this.shaderCanvas.height);
+
+        // 预创建纹理和顶点缓冲区以提高性能
+        this.texture = this.gl.createTexture();
+
+        // 创建全屏四边形的顶点数据
+        const vertices = new Float32Array([
+            -1.0, -1.0, 0.0, 1.0,
+            1.0, -1.0, 1.0, 1.0,
+            -1.0, 1.0, 0.0, 0.0,
+            1.0, 1.0, 1.0, 0.0
+        ]);
+
+        this.vertexBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
     }
 
     /** Load and compile shader programs */
     private async loadAndCompileShaders(shaderName: string) {
-        if (!this.gl || !window.electronAPI || !window.electronAPI.readShader) {
+        if (!this.gl || !window.electronAPI || !window.electronAPI.loadShaderFile) {
             return;
         }
 
@@ -210,64 +223,72 @@ export default class ChartRenderer extends Manager {
             this.fragmentShader = null;
         }
 
-        try {
-            // Load vertex and fragment shaders
-            const { vsh: vertexShaderSource, fsh: fragmentShaderSource } = await window.electronAPI.readShader(shaderName);
+        // Load vertex and fragment shaders
+        const { vsh: vertexShaderSource, fsh: fragmentShaderSource } = await window.electronAPI.loadShaderFile(shaderName);
 
-            if (!vertexShaderSource || !fragmentShaderSource) {
-                console.warn(`Shader files for ${shaderName} not found`);
-                return;
-            }
-
-            // Compile shaders
-            this.vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
-            this.fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
-
-            if (!this.vertexShader || !this.fragmentShader) {
-                return;
-            }
-
-            // Create shader program
-            this.shaderProgram = this.gl.createProgram();
-            if (!this.shaderProgram) return;
-
-            this.gl.attachShader(this.shaderProgram, this.vertexShader);
-            this.gl.attachShader(this.shaderProgram, this.fragmentShader);
-            this.gl.linkProgram(this.shaderProgram);
-
-            if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
-                console.error("Shader program linking failed:", this.gl.getProgramInfoLog(this.shaderProgram));
-                this.gl.deleteProgram(this.shaderProgram);
-                this.shaderProgram = null;
-                return;
-            }
-            if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
-                console.error("Shader program linking failed:", this.gl.getProgramInfoLog(this.shaderProgram));
-                this.gl.deleteProgram(this.shaderProgram);
-                this.shaderProgram = null;
-                this.currentShaderName = null;
-                return;
-            }
+        if (!vertexShaderSource) {
+            throw new Error(`shader 不存在，缺少 vertex shader：${shaderName}`);
         }
-        catch (error) {
-            console.error("Error loading shaders:", error);
+        if (!fragmentShaderSource) {
+            throw new Error(`shader 不存在，缺少 fragment shader：${shaderName}`);
+        }
+
+        // Compile shaders
+        this.vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
+        this.fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
+
+        // Create shader program
+        this.shaderProgram = this.gl.createProgram();
+        if (!this.shaderProgram) {
+            throw new Error("无法创建着色器程序对象");
+        }
+
+        this.gl.attachShader(this.shaderProgram, this.vertexShader);
+        this.gl.attachShader(this.shaderProgram, this.fragmentShader);
+        this.gl.linkProgram(this.shaderProgram);
+
+        if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
+            const log = this.gl.getProgramInfoLog(this.shaderProgram);
+            this.gl.deleteProgram(this.shaderProgram);
+            this.shaderProgram = null;
+            throw new Error(`无法链接着色器程序：${log}`);
+        }
+        if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
+            const log = this.gl.getProgramInfoLog(this.shaderProgram);
+            this.gl.deleteProgram(this.shaderProgram);
+            this.shaderProgram = null;
+            this.currentShaderName = null;
+            throw new Error(`无法链接着色器程序：${log}`);
         }
     }
 
-    /** Compile a shader */
-    private compileShader(source: string, type: number): WebGLShader | null {
-        if (!this.gl) return null;
+    /**
+     * 编译指定类型的 WebGL 着色器。
+     *
+     * 该函数负责创建着色器对象、设置源代码、执行编译并验证编译结果。
+     * 若编译失败，将自动清理资源并返回 null。
+     *
+     * @param source 着色器源代码字符串（GLSL 代码）
+     * @param type 着色器类型常量，必须是 gl.VERTEX_SHADER 或 gl.FRAGMENT_SHADER
+     * @returns 编译成功的 WebGLShader 对象，若上下文不可用或编译失败则报错
+     */
+    private compileShader(source: string, type: WebGLRenderingContext["VERTEX_SHADER"] | WebGLRenderingContext["FRAGMENT_SHADER"]): WebGLShader {
+        if (!this.gl) {
+            throw new Error("WebGL 上下文不可用");
+        }
 
         const shader = this.gl.createShader(type);
-        if (!shader) return null;
+        if (!shader) {
+            throw new Error("无法创建着色器");
+        }
 
         this.gl.shaderSource(shader, source);
         this.gl.compileShader(shader);
 
         if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error("Shader compilation failed:", this.gl.getShaderInfoLog(shader));
+            const log = this.gl.getShaderInfoLog(shader);
             this.gl.deleteShader(shader);
-            return null;
+            throw new Error(`无法编译 shader：${log}`);
         }
 
         return shader;
@@ -278,14 +299,34 @@ export default class ChartRenderer extends Manager {
         const sourceCanvas = this.offscreenCanvas;
 
         // 检查必要资源是否存在
-        if (!this.gl || !this.shaderProgram || !this.shaderCanvas || !this.texture || !this.vertexBuffer) return;
+        if (!this.gl || !this.shaderProgram || !this.shaderCanvas || !this.texture || !this.vertexBuffer) {
+            throw new Error("必要资源不存在");
+        }
 
+        // 清空WebGL画布
+        this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+
+        // 将 sourceCanvas 的内容作为纹理绑定到WebGL
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, sourceCanvas);
+
+        // 设置纹理参数
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+
+        // 使用 shader 程序
+        this.gl.useProgram(this.shaderProgram);
+
+        // 设置 shader 变量
         for (const [key, defaultValue] of Object.entries(DEFAULT_VARS[shaderName])) {
             const location = this.gl.getUniformLocation(this.shaderProgram, key);
 
             // 添加检查，确保location不为null
             if (location === null) {
-                console.warn(`Uniform variable '${key}' not found in shader program`);
+                console.error(`没有找到 uniform 变量 ${key}，该变量将会被忽略`);
                 continue;
             }
 
@@ -319,26 +360,9 @@ export default class ChartRenderer extends Manager {
                     this.gl.uniform4fv(location, value as ArrayRepeat<number, 4>);
                     break;
                 default:
-                    throw new Error(`Invalid shader variable type: ${shaderOptions[key]?.type}`);
+                    throw new Error(`未知的 shader 变量类型：${shaderOptions[key]?.type}`);
             }
         }
-
-        // 清空WebGL画布
-        this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-
-        // 将主Canvas的内容作为纹理绑定到WebGL
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, sourceCanvas);
-
-        // 设置纹理参数
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-
-        // 使用Shader程序
-        this.gl.useProgram(this.shaderProgram);
 
         // 设置顶点属性
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -353,12 +377,12 @@ export default class ChartRenderer extends Manager {
         // 位置属性
         const positionLocation = this.gl.getAttribLocation(this.shaderProgram, "a_position");
         this.gl.enableVertexAttribArray(positionLocation);
-        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 16, 0);
+        this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, VERTEX_STRIDE, 0);
 
         // 纹理坐标属性
         const texcoordLocation = this.gl.getAttribLocation(this.shaderProgram, "a_texCoord");
         this.gl.enableVertexAttribArray(texcoordLocation);
-        this.gl.vertexAttribPointer(texcoordLocation, 2, this.gl.FLOAT, false, 16, 8);
+        this.gl.vertexAttribPointer(texcoordLocation, 2, this.gl.FLOAT, false, VERTEX_STRIDE, TEXCOORD_OFFSET);
 
         // 设置纹理uniform
         const textureLocation = this.gl.getUniformLocation(this.shaderProgram, "u_texture");
@@ -369,7 +393,6 @@ export default class ChartRenderer extends Manager {
         this.gl.uniform2f(screenSizeLocation, sourceCanvas.width, sourceCanvas.height);
 
         // 绘制全屏四边形
-        // eslint-disable-next-line no-magic-numbers
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
 
@@ -439,13 +462,6 @@ export default class ChartRenderer extends Manager {
         const drawRect = canvasUtils.drawRect.bind(ctx);
 
         const { textures } = chartPackage;
-        let comboNumberIsAttached = false,
-            comboIsAttached = false,
-            scoreIsAttached = false,
-            pauseIsAttached = false,
-            nameIsAttached = false,
-            levelIsAttached = false,
-            barIsAttached = false;
         const defaultScaleX = 1;
         const defaultScaleY = 1;
         const defaultColor = RGBAtoRGB(resourcePackage.config.colorPerfect);
@@ -472,37 +488,30 @@ export default class ChartRenderer extends Manager {
                 switch (judgeLine.attachUI) {
                     case "combonumber":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_COMBO_NUMBER_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_COMBO_NUMBER_POSITION.y));
-                        comboNumberIsAttached = true;
                         break;
 
                     case "combo":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_COMBO_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_COMBO_POSITION.y));
-                        comboIsAttached = true;
                         break;
 
                     case "score":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_SCORE_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_SCORE_POSITION.y));
-                        scoreIsAttached = true;
                         break;
 
                     case "name":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_NAME_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_NAME_POSITION.y));
-                        nameIsAttached = true;
                         break;
 
                     case "level":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_LEVEL_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_LEVEL_POSITION.y));
-                        levelIsAttached = true;
                         break;
 
                     case "pause":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.y));
-                        pauseIsAttached = true;
                         break;
 
                     case "bar":
                         ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_BAR_POSITION.x), coordinateManager.convertYToCanvas(Constants.CHART_VIEW_BAR_POSITION.y));
-                        barIsAttached = true;
                         break;
                 }
 
@@ -758,8 +767,64 @@ export default class ChartRenderer extends Manager {
 
             ctx.restore();
         });
+    }
 
-        // 检测是否有被判定线绑定的UI
+    private drawUI() {
+        const autoplayManager = store.useManager("autoplayManager");
+        const coordinateManager = store.useManager("coordinateManager");
+        const canvas = this.offscreenCanvas;
+        const chart = store.useChart();
+        const audio = store.useAudio();
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
+        const { combo, score } = autoplayManager;
+
+        const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
+        const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
+        const shownScore = isNaN(score) ? perfectScoreString : Math.round(score).toString().padStart(perfectScoreString.length, "0");
+
+        const drawLine = canvasUtils.drawLine.bind(ctx);
+        const writeText = canvasUtils.writeText.bind(ctx);
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        let comboNumberIsAttached = false,
+            comboIsAttached = false,
+            scoreIsAttached = false,
+            pauseIsAttached = false,
+            nameIsAttached = false,
+            levelIsAttached = false,
+            barIsAttached = false;
+        for (const judgeLine of chart.judgeLineList) {
+            if (judgeLine.attachUI !== "none") {
+                switch (judgeLine.attachUI) {
+                    case "combonumber":
+                        comboNumberIsAttached = true;
+                        break;
+
+                    case "combo":
+                        comboIsAttached = true;
+                        break;
+
+                    case "score":
+                        scoreIsAttached = true;
+                        break;
+
+                    case "name":
+                        nameIsAttached = true;
+                        break;
+
+                    case "level":
+                        levelIsAttached = true;
+                        break;
+
+                    case "pause":
+                        pauseIsAttached = true;
+                        break;
+
+                    case "bar":
+                        barIsAttached = true;
+                        break;
+                }
+            }
+        }
         if (!comboNumberIsAttached) {
             ctx.save();
 

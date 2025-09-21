@@ -19,14 +19,14 @@ export interface IEffect {
     shader: string;
 
     /**
-     * shader 是否是全局 shader
+     * shader 是否是全局 shader，
      * 即 shader 是否影响界面 UI
      */
     global: boolean;
 
     /**
-     * shader 的参数
-     * 如果为单个数字，则表示该值不会变
+     * shader 的参数，
+     * 如果为单个数字，则表示该值不会变；
      * 如果为事件数组，则表示该值会随时间而变化
      */
     vars: Record<string, ShaderNumberType | IEvent<ShaderNumberType>[]>;
@@ -213,7 +213,7 @@ export class Effect implements IEffect, IObjectizable {
     }
     removeEvent(event: unknown, varName: string) {
         if (isNumberOrVector(this.vars[varName])) return;
-        const index = this.vars[varName].findIndex(event => event.toObject() === event);
+        const index = this.vars[varName].findIndex(e => e === event);
         if (index === -1) return;
         this.vars[varName].splice(index, 1);
     }

@@ -362,11 +362,8 @@ onMounted(() => {
     globalEventEmitter.on("RANDOM", random);
 });
 onBeforeUnmount(() => {
-    try {
+    if (store.getEventById(model.value.id)) {
         createHistory();
-    }
-    catch (e) {
-        console.error(e);
     }
     globalEventEmitter.off("REVERSE", reverse);
     globalEventEmitter.off("SWAP", swap);

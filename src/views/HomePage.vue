@@ -85,7 +85,7 @@
 import { useRouter } from "vue-router";
 import { ElCard, ElFooter, ElHeader, ElInput } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
-import { inject, onErrorCaptured, ref } from "vue";
+import { inject, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage } from "@/tools/catchError";
@@ -111,7 +111,7 @@ const chartNames: Record<string, string> = {};
 const levels: Record<string, string> = {};
 for (let i = 0; i < chartList.length; i++) {
     const chartId = chartList[i];
-    const chartObject = await window.electronAPI.readChart(chartId);
+    const chartObject = await window.electronAPI.loadChart(chartId);
     const chartInfo = await window.electronAPI.readChartInfo(chartId);
     const src = await MediaUtils.createObjectURL(chartObject.backgroundData);
     backgroundSrcs[chartId] = src;
@@ -151,7 +151,7 @@ async function loadChart() {
         throw new Error("未选择谱面文件");
     }
     const filePath = filePaths[0];
-    const chartId = await window.electronAPI.loadChart(filePath);
+    const chartId = await window.electronAPI.importChart(filePath);
     router.push(`/editor?chartId=${chartId}`);
 }
 
@@ -169,13 +169,6 @@ async function addChart() {
 function imageOnLoad(chartId: string) {
     URL.revokeObjectURL(backgroundSrcs[chartId]);
 }
-
-onErrorCaptured((err) => {
-    console.error("组件初始化错误:", err);
-
-    // 这里可以添加用户友好的错误提示
-    return false;
-});
 </script>
 <style>
 .header {

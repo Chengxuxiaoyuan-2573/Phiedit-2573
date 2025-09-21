@@ -13,14 +13,15 @@
                 width: `${props.width}px`,
                 height: `${props.height}px`
             }"
-            :width="props.width * dpr"
-            :height="props.height * dpr"
+            :width="props.width * dpr.pixelRatio.value"
+            :height="props.height * dpr.pixelRatio.value"
         />
     </div>
 </template>
 <script setup lang="ts">
+import MediaUtils from "@/tools/mediaUtils";
 import { useDevicePixelRatio } from "@vueuse/core";
-import { onMounted, useTemplateRef } from "vue";
+import { onMounted, useTemplateRef, watch } from "vue";
 
 const props = withDefaults(defineProps<{
     image: string | HTMLImageElement | HTMLCanvasElement
@@ -32,8 +33,13 @@ const props = withDefaults(defineProps<{
     rotate: "none"
 });
 const canvas = useTemplateRef("canvas");
-const dpr = useDevicePixelRatio().pixelRatio;
+
+/** 设备的 devicePixelRatio */
+const dpr = useDevicePixelRatio();
+
+/** 图片缩放的倍数，1为撑满canvas，越大则图片越小 */
 const scale = 1.2;
+
 const rotationMap = {
     // 不旋转
     none: 0,
@@ -47,17 +53,30 @@ const rotationMap = {
     // 180°
     "180deg": Math.PI
 };
-onMounted(() => {
-    const image = (() => {
-        if (typeof props.image === "string") {
-            const image = new Image();
-            image.src = props.image;
-            return image;
+watch(() => props.image, async () => {
+    await renderImage();
+});
+watch(dpr.pixelRatio, () => {
+    // 确保canvas尺寸更新后再渲染
+    requestAnimationFrame(() => {
+        renderImage();
+    });
+});
+async function renderImage() {
+    const image = await (async () => {
+        try {
+            if (typeof props.image === "string") {
+                return await MediaUtils.createImage(props.image);
+            }
+            else {
+                return props.image;
+            }
         }
-        else {
-            return props.image;
+        catch (error) {
+            throw new Error(`图片加载失败：${error}`);
         }
     })();
+
     const ctx = canvas.value?.getContext("2d");
     if (!ctx || !canvas.value) {
         throw new Error("canvas和ctx未加载完成");
@@ -120,19 +139,13 @@ onMounted(() => {
     // 应用旋转
     ctx.rotate(rotation);
 
-    // 顺时针/逆时针旋转时交换宽高
-    // if (props.rotate === 'clockwise' || props.rotate === 'anti-clockwise') {
-    //     [drawWidth, drawHeight] = [drawHeight, drawWidth]; // 交换宽高
-    // }
-
     // 绘制图片（以中心为原点）
     ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
 
     // 恢复画布状态
     ctx.restore();
-
-    image.onerror = () => {
-        console.error("图片加载失败");
-    };
+}
+onMounted(async () => {
+    await renderImage();
 });
 </script>

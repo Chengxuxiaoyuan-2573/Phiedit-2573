@@ -15,14 +15,30 @@ export default class SelectionManager extends Manager {
         globalEventEmitter.on("DELETE", createCatchErrorByMessage(() => {
             this.deleteSelection();
         }, "删除"));
-        globalEventEmitter.on("SELECT_ALL", () => {
+        globalEventEmitter.on("SELECT_ALL", createCatchErrorByMessage(() => {
             this.selectAll();
-        });
-        globalEventEmitter.on("UNSELECT_ALL", () => {
+        }, "全选", false));
+        globalEventEmitter.on("UNSELECT_ALL", createCatchErrorByMessage(() => {
             this.unselectAll();
+        }, "取消选择", false));
+
+        // 在撤消重做时，取消所有选中元素，以免 selectedElements 依赖旧的元素而出现 bug
+        globalEventEmitter.on("HISTORY_UPDATE", (type) => {
+            if (type === "UNDO" || type === "REDO") {
+                this.unselectAll();
+            }
         });
     }
-    select(...elements: NoteOrEvent[]) {
+
+    /** 取消选择所有元素，并选择指定的元素 */
+    select(elements: NoteOrEvent[]) {
+        this.selectedElements.splice(0);
+        this.selectedElements.push(...elements);
+        globalEventEmitter.emit("SELECTION_UPDATE");
+    }
+
+    /** 在原有选择的基础上添加元素 */
+    addToSelection(elements: NoteOrEvent[]) {
         let selectionIsChanged = false;
         for (const element of elements) {
             if (!this.selectedElements.includes(element)) {
@@ -34,7 +50,9 @@ export default class SelectionManager extends Manager {
             globalEventEmitter.emit("SELECTION_UPDATE");
         }
     }
-    unselect(...elements: NoteOrEvent[]) {
+
+    /** 在原有选择的基础上移除元素 */
+    removeFromSelection(elements: NoteOrEvent[]) {
         let selectionIsChanged = false;
         for (const element of elements) {
             const index = this.selectedElements.indexOf(element);
@@ -43,7 +61,7 @@ export default class SelectionManager extends Manager {
                 selectionIsChanged = true;
             }
             else {
-                console.warn("SelectionManager: unselect failed, element not found");
+                console.error("取消选择的元素不存在：", element);
             }
         }
         if (selectionIsChanged) {
@@ -60,7 +78,11 @@ export default class SelectionManager extends Manager {
         globalEventEmitter.emit("SELECTION_UPDATE");
     }
 
+    /** 删除所有选中元素 */
     deleteSelection() {
+        if (this.selectedElements.length === 0) {
+            throw new Error("未选择任何元素");
+        }
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
@@ -80,9 +102,7 @@ export default class SelectionManager extends Manager {
         globalEventEmitter.emit("SELECTION_UPDATE");
     }
 
-    /**
-     * 全选
-     */
+    /** 全选 */
     selectAll() {
         const stateManager = store.useManager("stateManager");
         this.unselectAll();

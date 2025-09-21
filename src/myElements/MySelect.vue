@@ -1,9 +1,6 @@
 <template>
     <div class="my-select">
-        <p
-            v-if="$slots.default && $slots.default().length > 0"
-            class="my-select-label"
-        >
+        <p class="my-select-label">
             <slot />
         </p>
         <ElSelect
@@ -27,7 +24,7 @@
                     :value="option.value"
                     :label="option.label"
                     :disabled="option.isDisabled"
-                    @wheel.stop
+                    @wheel.passive.stop
                 >
                     {{ option.text }}
                 </ElOption>
@@ -36,7 +33,7 @@
                     :value="option"
                     :label="option.toString()"
                     :disabled="false"
-                    @wheel.stop
+                    @wheel.passive.stop
                 >
                     {{ option }}
                 </ElOption>
@@ -147,10 +144,14 @@ defineExpose({
 .my-select {
     display: flex;
     align-items: center;
-    gap: 10px;
 }
 
 .my-select-label {
     white-space: nowrap;
+}
+
+/* 有子元素时，添加间距 */
+.my-select-label:not(:empty) {
+    margin-right: 10px;
 }
 </style>

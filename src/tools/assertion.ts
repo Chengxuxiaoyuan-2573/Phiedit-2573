@@ -1,12 +1,13 @@
 import { isString } from "lodash";
+import { Typeof } from "./typeTools";
 
 /** 用于给输入的数据进行检查 */
-export default class Validation {
+export default class Assertion {
     value: unknown;
     constructor(value: unknown) {
         this.value = value;
     }
-    is(type: string | (new () => unknown)) {
+    is(type: Typeof | (new () => unknown)) {
         if (isString(type)) {
             if (typeof this.value !== type) {
                 throw new Error(`${this.value} is not of ${type} type`);
@@ -103,7 +104,7 @@ export default class Validation {
         }
         return this;
     }
-    validateByRegex(regex: RegExp) {
+    assertRegex(regex: RegExp) {
         if (!regex.test(this.value as string)) {
             throw new Error(`${this.value} is not valid according to the regex ${regex}`);
         }

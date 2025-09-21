@@ -39,7 +39,6 @@ import { reactive, useSlots, useTemplateRef, watch } from "vue";
 const inputBeats = useTemplateRef("inputVector");
 const inputData = reactive({
     get vector() {
-        console.log(model.value);
         return model.value?.join(",") || "";
     },
     set vector(value: string) {

@@ -120,7 +120,7 @@ function goto(object: Note | NumberEvent | ColorEvent | TextEvent) {
         store.gotoBeats(object.startTime);
     }
     selectionManager.unselectAll();
-    selectionManager.select(object);
+    selectionManager.addToSelection(object);
 }
 function updateErrors() {
     globalEventEmitter.emit("CHECK_ERRORS");

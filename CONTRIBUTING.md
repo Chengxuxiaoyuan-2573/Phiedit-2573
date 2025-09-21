@@ -16,9 +16,9 @@
     31.13.71.19 github.global.ssl.fastly.net
     ```
 
-    或者你也可以把域名中的 `github.com` 替换成 `kkgithub.com`（GitHub 镜像网站）。
+    你也可以把域名中的 `github.com` 替换成 `kkgithub.com`（GitHub 镜像网站）来提高访问速度。
 3. 点击 GitHub 页面右上角的 “Fork” 按钮，创建一个 fork（就是把我的项目给你复制一份的意思）。
-4. 创建一个文件夹，在文件夹中右键，点击菜单中的 Git Bash Here，打开命令行窗口。
+4. 新建一个文件夹，点进文件夹中并右键，点击菜单中的 Git Bash Here，打开命令行窗口。
 5. 输入以下命令，把项目克隆到本地（就是把项目下载下来的意思）。
 
     ```bash
@@ -29,8 +29,8 @@
    或者你也可以使用 `npm install` 安装依赖。
 7. 双击运行根目录下的 [dev.cmd](dev.cmd) 启动项目。
    或者你也可以手动输入命令 `npm run electron:dev`。
-8. 开始你的开发
-9. 基于 dev 分支创建功能分支（你开发完的代码就会在这个分支里）。
+8. **开始你的开发**
+9. 给你的功能起一个名字（详见[功能分支命名规则](#功能分支命名规则)），并基于 dev 分支创建功能分支（你开发完的代码会被推送到这个分支里）。
 
     ```bash
     git checkout -b 你的功能名 dev
@@ -40,7 +40,7 @@
 
     ```bash
     git add .
-    git commit -m "你的提交信息，对你的修改做了哪些进行描述"
+    git commit -m "你的提交信息，对你做的修改进行描述"
     git push origin 你的功能名
     ```
 
@@ -73,6 +73,9 @@
 
 ## 注意事项
 
+这些注意事项是本项目的开发规范，旨在防止代码成为“屎山代码”。
+如果你发现现有的代码中有不合规定的地方，可以进行修改。
+
 ### 分层架构
 
 项目遵循分层架构原则，文件的依赖等级从高到低分别是：
@@ -81,7 +84,7 @@
 2. [Root.vue](src/Root.vue)
 3. [views 下的文件](src/views/)
 4. [panels 下的文件](src/panels/)
-5. [* managers 下的文件](src/managers/)、[* store.ts](src/store.ts)
+5. [managers 下的文件](src/managers/)、[store.ts](src/store.ts)
 6. [constants.ts](src/constants.ts)、[eventEmitter.ts](src/eventEmitter.ts)
 7. [* myElements 下的文件](src/myElements/)
 8. [* models 下的文件](src/models/)
@@ -90,18 +93,20 @@
 
 文件只能依赖比该文件依赖等级更低的文件，标星号的还可以直接依赖同级的文件。
 除了 [main.ts](src/main.ts) 以外，请不要在 Typescript 文件中直接引用 Vue 文件。
+特殊说明：[managers 下的文件](src/managers/) 内部不能相互依赖，他们必须依赖 [store.ts](src/store.ts)。
 
 ### 单一职责
 
 - 项目遵循单一职责原则，请确保每个 manager 只负责一个功能。
 - 如果你的函数或方法名中出现 `and`、`or` 等连词，请考虑将其拆分为多个函数或方法。
-- 如果你发现一个文件的代码行数过多，请考虑将其拆分为多个文件。正常情况下，一个文件的代码行数应该在 50~150 行左右。
-- [panels](src/panels) 中的文件应该只是 Vue 组件，不应该代替 [managers](src/managers) 中文件的功能。
+- 如果你发现一个文件的代码行数过多，请考虑将其拆分为多个文件。正常情况下，一个 Typescript 文件的代码行数应该在 50~150 行左右，Vue 文件的代码行数应该在 100~300 行左右。
+- [panels](src/panels) 中的文件应该只是 Vue 组件，不应该含有过多的具体功能实现。具体功能实现应该放在 [managers](src/managers) 中。
 
 ### 命名规则
 
 - 函数和变量命名应该使用小驼峰命名法，例如 `myVariable`、`myFunction`。
 - 类和组件的命名应该使用大驼峰命名法，例如 `MyClass`、`MyComponent`。
+- 驼峰命名法的特殊情况：含有数字或者全大写简称时，后面的一个单词要用全小写，比如应该是 `RGBcolor` 而不是 `RGBColor`。
 - HTML 的 class 名和 id 名应该使用小写短横线命名法，例如 `.my-class`、`#my-id`。
 - 常量名称以及 [eventEmitter.ts](src/eventEmitter.ts) 中的事件名称应该使用大写下划线命名法，例如 `MY_CONSTANT`、`MY_EVENT_NAME`。
 - 变量应该以名词或名词性短语命名，例如 `store`、`judgeLineNumber`。
@@ -115,45 +120,54 @@
   例如：
   `CHANGE_JUDGE_LINE` 表示“用户想要切换判定线”，应该在用户按下切换判定线的按钮或快捷键时发出该事件，在业务代码中监听该事件并实现切换判定线的具体逻辑。
   `JUDGE_LINE_CHANGED` 表示“用户已经切换了判定线”，应该在切换判定线的具体代码中应该发出该事件，以通知其他模块，其他模块可以监听该事件以更新判定线信息。
-- 布尔类型的变量或属性应该以 `isXxx`、`hasXxx` 或 `canXxx` 等形式命名。
+- 布尔类型的变量或属性应该以 `isXxx`、`hasXxx`、`canXxx` 等形式命名。
+- `aaaToBbb` 可以简称为 `aaa2bbb`。
 - 含义相反的方法、属性、变量、函数应该以反义词命名，如下：
 
-| 正义       | 反义                 |
-| ---------- | -------------------- |
-| `add`      | `remove` 或 `delete` |
-| `get`      | `set`                |
-| `start`    | `end`                |
-| `enable`   | `disable`            |
-| `open`     | `close`              |
-| `show`     | `hide`               |
-| `min`      | `max`                |
-| `play`     | `pause`              |
-| `up`       | `down`               |
-| `left`     | `right`              |
-| `top`      | `bottom`             |
-| `above`    | `below`              |
-| `positive` | `negative`           |
-| `before`   | `after`              |
-| `first`    | `last`               |
-| `previous` | `next`               |
-| `visible`  | `hidden`             |
-| `allow`    | `deny`               |
-| `increase` | `decrease`           |
-| `success`  | `failure`            |
-| `accept`   | `reject`             |
-| `create`   | `destroy`            |
-| `static`   | `dynamic`            |
-| `readonly` | `mutable`            |
-| `single`   | `multiple`           |
-| `public`   | `private`            |
+| 正义               | 反义                 |
+| ------------------ | -------------------- |
+| `add`              | `remove` 或 `delete` |
+| `push`（压入）     | `pop`（弹出）        |
+| `push`（推送）     | `pull`（拉取）       |
+| `get`              | `set`                |
+| `start` 或 `begin` | `end`                |
+| `enable`           | `disable`            |
+| `open`             | `close`              |
+| `show`             | `hide`               |
+| `min`              | `max`                |
+| `play`（播放）     | `pause`（暂停）      |
+| `up`               | `down`               |
+| `left`             | `right`              |
+| `top`              | `bottom`             |
+| `above`            | `below`              |
+| `positive`         | `negative`           |
+| `before`           | `after`              |
+| `first`            | `last`               |
+| `previous`         | `next`               |
+| `visible`          | `hidden`             |
+| `allow`            | `deny`               |
+| `increase`         | `decrease`           |
+| `success`          | `failure`            |
+| `accept`           | `reject`             |
+| `create`           | `destroy`            |
+| `static`           | `dynamic`            |
+| `readonly`         | `mutable`            |
+| `single`           | `multiple`           |
+| `public`           | `private`            |
+| `real`             | `fake`               |
+| `read`             | `write`              |
+| `save`             | `load`               |
+| `import`           | `export`             |
 
-对于无明确反义词的场景，可在词前直接添加 `un`、`dis` 或 `not` 等前缀。
+对于无明确反义词的场景，可在词前直接添加 `un-`、`dis-`、`not-` 等表示否定的前缀。
+`-ful` 结尾的词与相对应的 `-less` 结尾的词互为反义词。
+对于一个词有多个反义词的场景，请只使用其中的一个。
 
 ### 代码格式
 
 - 请经常使用代码编辑器的格式化功能统一代码格式。Visual Studio Code（以下简称 VSCode）中，格式化代码的快捷键为 Shift+Alt+F。
 - 缩进使用 4 个空格。如果你用的也是 VSCode，请点击界面下方的“Tab Size: 4”或类似的文字，并点击“Indent Using Spaces”，点击数字 4，那个文字应该会变为“Spaces: 4”。设置完成后，请按 Shift+Alt+F 重新格式化代码。
-- 使用 Vue 组件时，每个属性都要换一行。如果超过 2 个属性，或者一个属性占了多行，则第一个属性和开头的尖括号之间要换行，最后一个属性和结尾的尖括号之间也要换行。如果你用的也是 VSCode，请把 `html.format.wrapAttributes` 设置为 `force-expand-multiline`。
+- 使用 Vue 组件时，每个属性都要换一行。如果超过 2 个属性，或者一个属性占了多行，则第一个属性和开头的尖括号之间要换行，最后一个属性和结尾的尖括号之间也要换行。如果你用的也是 VSCode，请打开设置，并把 `html.format.wrapAttributes` 设置为 `force-expand-multiline`。
 - 大多数代码格式规则都在 eslint 配置中设置了，在编写时，如果出现了错误，你应该能收到错误提示。下列均为 eslint 中没有配置的规则，请自行遵守。
 - 对于较长的函数调用，有三种换行格式，均可以选择：
 
@@ -222,10 +236,33 @@ method(1, 2, 3, {
 
 ### 文档格式
 
+- 本规定针对文档内除嵌入代码外的文字部分，以及代码内的注释部分。
 - 如果你使用的是 VSCode，请安装 `markdownlint` 插件，并按照其中的规则编写文档。你可以使用 Quick Fix 功能中的 “Fix all supported markdownlint violations in the document” 来自动修复报错，然后再手动修复剩余的报错。下列均为 markdownlint 中没有配置的规则，请自行遵守。
-- 中英文之间、中文和数字之间要加空格。英文和标点符号之间、数字和标点符号之间不加空格。
-- 完整的话后面要加句号。如果只是一个短语，则不用加句号。
-- 如果要使用简称，第一次出现时请用全称，并在括号中注明“以下简称xxx”。
+- 空格的格式规定如下：
+
+| 字符种类 | 中文 | 英文 | 数字 | 全角标点 | 半角标点 | 特殊字符 |
+| -------- | ---- | ---- | ---- | -------- | -------- | -------- |
+| 中文     | ×    | √    | O    | ×        | √        | √        |
+| 英文     | √    | √    | √    | ×        | √        | √        |
+| 数字     | O    | √    | √    | ×        | √        | √        |
+| 全角标点 | ×    | ×    | ×    | ×        | O        | ×        |
+| 半角标点 | ×    | ×    | ×    | ×        | ×        | √        |
+| 特殊字符 | √    | √    | √    | ×        | √        | O        |
+
+注：
+列表示前面的字符，行表示后面的字符；
+√ 表示对应行列的两个字符之间要有空格，× 表示不要有空格，O 表示可有可无；
+
+中文、英文以词为单位，按照对应的语言习惯空格即可；
+数字仅包括阿拉伯数字，同一个数内部不空格；
+全角标点仅包括全角的逗号、句号、问号、感叹号、冒号、分号、省略号、括号、引号、破折号、顿号、书名号；
+半角标点仅包括半角的逗号、句点、问号、感叹号、冒号、分号、括号、引号、斜杠、反斜杠、波浪线、横杠；
+特殊字符是包括数学符号在内的不属于前面五类的所有非语言字符；
+多种字符混合，共同表达一个意思的词语，比如“B站”、“i18n”、“C++”等，中间不空格；
+你要是记不住也不用担心，只要看看文档的其他部分是怎么写的，按照这个格式写就可以了。
+
+- 结构完整的句子后面要加标点符号。
+- 如果要使用简称，第一次出现时请用全称，并在括号中注明 “以下简称 xxx”。
 
 ### 开发流程规范
 
@@ -236,6 +273,10 @@ method(1, 2, 3, {
     4. 可能需要在 [panels](src/panels) 下新建一个侧边栏的 Vue 组件，并实现相应的界面。添加了 Vue 组件后，请在 [RightPanelState](src/managers/state.ts) 中添加相应的字段。
     5. 为了能进入上一步的界面，需要在 [编辑器界面](src/views/EditorPage.vue) 中添加一个按钮。
     6. 在你需要的地方调用 [`globalEventEmitter.emit("你的事件名称", 参数)`](src/eventEmitter.ts)。
+- 如果要添加设置项，请按以下步骤操作：
+    1. 在 [`settings.ts`](src/managers/settings.ts) 的 `defaultSettings` 中添加相应的字段。
+    2. 在 [`SettingsPanel.vue`](src/panels/SettingsPanel.vue) 中添加相应的设置项。
+    3. 在对应的代码处引用 settingsManager，以应用该设置项。（详见 [数据使用规范第 1 条](#数据使用规范)）
 
 ### 数据使用规范
 
@@ -250,11 +291,12 @@ method(1, 2, 3, {
 - 实在无法避免的 eslint 错误，请使用 eslint 禁用注释、`ts-ignore`、忽略类型检查或 `as any` 等手段。
 - 但只有在你 100% 确定代码不会有运行时错误的情况下，才能使用上述的方法，且应尽量避免。
 - 如果你认为某些 eslint 规则不符合你的要求，请修改 `.eslintrc.js` 文件。
+- 下列规则均为 eslint 中没有配置的规则：
 - 普通对象只能含有属性，不能含有方法。方法只能在类中定义。
 - [src](src) 下的所有代码文件都应该是 Typescript 文件，Vue 组件中也应该使用 `<script setup lang="ts">`。不要出现 `.js` 文件。（当然，配置文件除外）
-- 对于AI（人工智能）写的或请他人写的代码，请确保你理解了这段代码的意思再加进项目中。（实话实说，这个项目里真的有很多用 AI 生成的代码或文档）
+- 对于AI（人工智能）写的或请他人写的代码，请确保你理解了这段代码的意思再加进项目中。
 - 对于较复杂难理解的逻辑，请添加注释，以确保他人能够理解你的代码。请尽量使用文档注释而不是普通注释，因为文档注释可以被你的代码编辑器识别，并显示在代码提示中。
-- 用户传入的参数有误时，不要直接 return。请使用 `throw new Error()` 抛出一个错误，并在 [`globalEventEmitter.on()`](src/eventEmitter.ts) 中使用 [`createCatchErrorByMessage()`](src/tools/catchError.ts) 包裹住函数以捕获错误，这样该错误会在界面的顶部显示为一个弹窗。
+- 在 [managers](src/managers/) 中，如果发现用户传入的参数有误时，不要直接 return。请使用 `throw new Error()` 抛出一个错误，并在 [`globalEventEmitter.on()`](src/eventEmitter.ts) 中使用 [`createCatchErrorByMessage()`](src/tools/catchError.ts) 包裹住函数以捕获错误，这样该错误会在界面的顶部显示为一个弹窗。
 - 路径的拼接请使用 `path` 库中的 `path.join()` 方法，不要直接把字符串相加，也不要使用模板字符串拼接。
 - Javascript 中，对负数做取模运算仍会返回负数。如果这不合你的预期，请使用 [`MathUtils.mod`](src/tools/mathUtils.ts) 函数来处理负数的取模运算。
 - 不要用 `var` 定义变量，请使用 `let` 或 `const`。如果变量没有被修改过，必须使用 `const`。
@@ -270,7 +312,7 @@ method(1, 2, 3, {
 
 ### 其他
 
-- 不要轻易升级或降级依赖，因为在这可能会带来一些非常难解决的问题。
+- 建议不要轻易升级或降级依赖，因为这可能会带来一些非常难解决的问题。
 - 其他的规则有可能在代码的注释中给出，请自行查看。
 
 ## Pull Request 审核标准
@@ -282,14 +324,22 @@ method(1, 2, 3, {
   - 关联的 Issue 编号（如 Closes #123）
   - 测试情况（如是否通过 [build.cmd](build.cmd) 构建测试）
 
-- 需遵守 [Commit 规范](https://www.conventionalcommits.org/zh-hans/)。
-- 需通过 [build.cmd](build.cmd) 构建测试，编译后的安装包安装后可以正常运行无 bug。
-- 需遵循本文件 [注意事项](#注意事项) 部分的规定，旨在防止代码成为“屎山代码”。
-- 请在提交前删除或注释掉所有的 `console.log()` 等用来调试的语句，`console.warn()` 和 `console.error()` 除外。
-- 请在提交前去掉所有未被使用的模块。
-- 请在提交前去掉所有未被使用的依赖。
+- Commit 的信息需遵守 [Commit 规范](https://www.conventionalcommits.org/zh-hans/)。
+- 需通过 [build.cmd](build.cmd) 构建测试，编译后的安装包安装后可以正常运行，不能有软件打不开、功能失效等严重 bug。
+- 需遵循本文件 [注意事项](#注意事项) 部分的规定。
+
+<!-- 这些规则已被注释禁用
+- 请在提交 Pull Request 前删除或注释掉所有的 `console.log()` 语句。
+- 请在提交 Pull Request 前去掉所有未被使用的模块。
+- 请在提交 Pull Request 前去掉所有未被使用的依赖。
+-->
+
+### 功能分支命名规则
+
+- `feature/xxx`：新功能
+- `fix/xxx`：修复 bug
+- `hotfix/xxx`：紧急修复 bug
 
 ## 备注
 
-本项目作者第一次发布开源项目，对于 Github 平台的开发逻辑还不是很懂，所以本文档的 [如何参与开发我的项目](#如何参与开发我的项目) 和 [Pull Request 审核标准](#pull-request-审核标准) 部分的内容大多为 AI 生成，可能会有错误，欢迎指正。
-本项目作者是个学生党，有可能无法及时处理 Pull Request。
+本项目作者第一次发布开源项目，对于 Github 平台的开发逻辑还不是很懂，所以可能会有错误，欢迎指正。

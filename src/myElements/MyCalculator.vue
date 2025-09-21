@@ -30,6 +30,7 @@ import { ElInput } from "element-plus";
 import MyButton from "./MyButton.vue";
 import { isString } from "lodash";
 import { ref } from "vue";
+import MathUtils from "@/tools/mathUtils";
 
 const display = ref("");
 const buttons: (string | [string, string])[] = [
@@ -49,18 +50,27 @@ const expresstionCalculator = new ExpressionCalculator(
     },
     {
         sin(deg) {
-            return Math.sin(deg * Math.PI / 180);
+            return Math.sin(MathUtils.degToRad(deg));
         },
         cos(deg) {
-            return Math.cos(deg * Math.PI / 180);
+            return Math.cos(MathUtils.degToRad(deg));
         },
         tan(deg) {
-            return Math.tan(deg * Math.PI / 180);
+            if (MathUtils.mod(deg, 180) === 90) {
+                throw new Error(`tan(${deg})：函数值无意义`);
+            }
+            return Math.tan(MathUtils.degToRad(deg));
         },
         arcsin(x) {
+            if (x < -1 || x > 1) {
+                throw new Error(`arcsin(${x})：arcsin 函数的自变量超出定义域 [-1, 1]`);
+            }
             return Math.asin(x) * 180 / Math.PI;
         },
         arccos(x) {
+            if (x < -1 || x > 1) {
+                throw new Error(`arccos(${x})：arccos 函数的自变量超出定义域 [-1, 1]`);
+            }
             return Math.acos(x) * 180 / Math.PI;
         },
         arctan(x) {
@@ -68,7 +78,7 @@ const expresstionCalculator = new ExpressionCalculator(
         },
         sqrt(x) {
             if (x < 0) {
-                throw new Error("负数不能开平方");
+                throw new Error(`sqrt(${x})：负数不能开平方`);
             }
             return Math.sqrt(x);
         },

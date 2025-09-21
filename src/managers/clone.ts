@@ -96,8 +96,7 @@ export default class CloneManager extends Manager {
             }
         }
         historyManager.ungroup();
-        selectionManager.unselectAll();
-        selectionManager.select(...elements);
+        selectionManager.select(elements);
         const seconds = beatsToSeconds(chart.BPMList, maxTime);
         if (!MathUtils.between(coordinateManager.getRelativePositionYOfSeconds(seconds), Constants.EDITOR_VIEW_NOTES_VIEWBOX.top, Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom)) {
             store.setSeconds(seconds);

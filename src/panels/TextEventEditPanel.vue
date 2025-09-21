@@ -285,11 +285,8 @@ onMounted(() => {
     globalEventEmitter.on("STICK", stick);
 });
 onBeforeUnmount(() => {
-    try {
+    if (store.getEventById(model.value.id)) {
         createHistory();
-    }
-    catch (e) {
-        console.error(e);
     }
     globalEventEmitter.off("SWAP", swap);
     globalEventEmitter.off("STICK", stick);

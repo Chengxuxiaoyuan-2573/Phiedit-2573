@@ -316,7 +316,7 @@ function isPointNearControlPoint(
     const [px, py] = transformPoint(pointX, pointY);
 
     // 10px hit detection radius
-    return MathUtils.distance(canvasX, canvasY, px, py) < 10;
+    return MathUtils.distance(canvasX, canvasY, px, py) < POINT_SIZE;
 }
 
 // 重绘函数

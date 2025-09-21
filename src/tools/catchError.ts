@@ -1,24 +1,36 @@
 import { ElMessage, ElMessageBox } from "element-plus";
-export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T) => Promise<unknown> | unknown, operationName: string, hintWhenSucceeded = true) {
+export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T) => Promise<unknown> | unknown, operationName?: string, hintWhenSucceeded = true) {
+    function _getErrorMessage(error: unknown) {
+        if (error instanceof Error) {
+            return error.message;
+        }
+        else {
+            return String(error);
+        }
+    }
+    function _getMessage(isSucceeded: boolean, operationName: string | undefined, result: unknown) {
+        if (operationName === undefined) {
+            if (result !== undefined && result !== null) {
+                return isSucceeded ? result : _getErrorMessage(result);
+            }
+            return isSucceeded ? "成功" : "失败";
+        }
+        else {
+            if (result !== undefined && result !== null) {
+                return isSucceeded ? `${operationName}成功: ${result}` : `${operationName}失败: ${_getErrorMessage(result)}`;
+            }
+            return isSucceeded ? `${operationName}成功` : `${operationName}失败`;
+        }
+    }
     return async function (...args: T) {
         try {
             const result = await func(...args);
             if (hintWhenSucceeded) {
-                if (result !== undefined && result !== null) {
-                    ElMessage.success(`${operationName}成功：${result}`);
-                }
-                else {
-                    ElMessage.success(`${operationName}成功`);
-                }
+                ElMessage.success(_getMessage(true, operationName, result));
             }
         }
         catch (err) {
-            if (err instanceof Error) {
-                ElMessage.error(`${operationName}失败：${err.message}`);
-            }
-            else {
-                ElMessage.error(`${operationName}失败：${err}`);
-            }
+            ElMessage.error(_getMessage(false, operationName, err));
         }
     };
 }

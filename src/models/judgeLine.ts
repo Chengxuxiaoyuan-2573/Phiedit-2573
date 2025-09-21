@@ -414,13 +414,10 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
             throw new Error(`错误的事件层编号: ${id}`);
         }
         if (eventLayerNumber < 0) {
-            throw new Error(`事件层编号不能小于0，但当前为${id}`);
+            throw new Error(`事件层编号不能小于 0，但当前为${id}`);
         }
         if (!Number.isInteger(eventLayerNumber)) {
             throw new Error(`事件层编号必须是整数，但当前为${eventLayerNumber}`);
-        }
-        if (eventLayerNumber >= 10) {
-            throw new Error(`试图访问${eventLayerNumber}号事件层，但目前最多支持10个事件层`);
         }
         if (eventLayerNumber >= this.eventLayers.length) {
             throw new Error(`事件层编号超出范围: ${id}`);

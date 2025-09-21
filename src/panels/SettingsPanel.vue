@@ -7,7 +7,7 @@
         <MyButton
             type="primary"
             @click="settingsManager.setToDefault(), update()"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             恢复默认设置
         </MyButton>
@@ -17,7 +17,7 @@
             :max="1"
             :step="0.01"
             :format-tooltip="(number) => Math.round(number * 100) + '%'"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             音乐音量
         </MySlider>
@@ -27,7 +27,7 @@
             :max="1"
             :step="0.01"
             :format-tooltip="(number) => Math.round(number * 100) + '%'"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             音效音量
         </MySlider>
@@ -35,7 +35,7 @@
             v-model="settingsManager.settings.backgroundDarkness"
             :min="0"
             :max="100"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             <template #prepend>
                 背景黑暗度
@@ -47,7 +47,7 @@
         <MyInputNumber
             v-model="settingsManager.settings.noteSize"
             :min="0"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             <template #prepend>
                 音符大小
@@ -62,14 +62,14 @@
             :max="0.5"
             :step="0.005"
             :format-tooltip="value => `${Math.round(value * 200)}%`"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             滚轮速度
         </MySlider>
         <MyInputNumber
             v-model="settingsManager.settings.lineThickness"
             :min="0"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             <template #prepend>
                 判定线粗细
@@ -81,7 +81,7 @@
         <MyInputNumber
             v-model="settingsManager.settings.lineLength"
             :min="0"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             <template #prepend>
                 判定线长度
@@ -93,7 +93,7 @@
         <MyInputNumber
             v-model="settingsManager.settings.textSize"
             :min="0"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             <template #prepend>
                 文字大小
@@ -104,34 +104,40 @@
         </MyInputNumber>
         <MySwitch
             v-model="settingsManager.settings.showJudgeLineNumber"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             预览时显示判定线编号
         </MySwitch>
         <MySelect
             v-model="settingsManager.settings.bottomText"
             :options="bottomTextOptions"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             界面底部文字
         </MySelect>
         <MySwitch
             v-model="settingsManager.settings.markCurrentJudgeLine"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             把当前判定线标记为绿色
         </MySwitch>
         <MySwitch
             v-model="settingsManager.settings.autoHighlight"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
             自动标注双押提示
         </MySwitch>
         <MySwitch
             v-model="settingsManager.settings.autoCheckErrors"
-            @change="saveSettings"
+            @change="settingsManager.saveSettings()"
         >
-            自动纠错<em>（可能会影响性能！）</em>
+            自动纠错
+        </MySwitch>
+        <MySwitch
+            v-model="settingsManager.settings.unlimitFps"
+            @change="settingsManager.saveSettings()"
+        >
+            取消帧率限制<em>（谨慎使用）</em>
         </MySwitch>
         <!-- <h3>资源包设置</h3>
         <MyInputNumber
@@ -201,7 +207,4 @@ const bottomTextOptions = [
 
 // const resourcePackage = store.useResourcePackage();
 const settingsManager = store.useManager("settingsManager");
-function saveSettings() {
-    window.electronAPI.writeSettings(settingsManager._settings);
-}
 </script>

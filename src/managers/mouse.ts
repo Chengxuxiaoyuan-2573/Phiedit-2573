@@ -12,10 +12,13 @@ import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } fr
 import { ColorEvent, findLastEvent, NumberEvent, TextEvent } from "@/models/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { ElMessage } from "element-plus";
+import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
 export enum MouseMoveMode {
     None, Drag, DragEnd, Select
 }
 const MAX_WHEEL_VELOCITY = 100;
+
+// 滚轮缩放的敏感度
 const WHEEL_ZOOM_SENSITIVITY = -0.05;
 export default class MouseManager extends Manager {
     /** 鼠标的x坐标 */
@@ -152,9 +155,9 @@ export default class MouseManager extends Manager {
                 }
                 if (selectedElements.length > 0) {
                     if (!mutiple) {
-                        selectionManager.unselectAll();
+                        selectionManager.select(selectedElements);
                     }
-                    selectionManager.select(...selectedElements);
+                    selectionManager.addToSelection(selectedElements);
                 }
                 this.selectionBox = null;
             }
@@ -285,10 +288,10 @@ export default class MouseManager extends Manager {
             if (mutiple) {
                 // 如果是多选，且已经选择的话就取消选择，未选择就选择这个元素
                 if (selectionManager.selectedElements.includes(clickedObject)) {
-                    selectionManager.unselect(clickedObject);
+                    selectionManager.removeFromSelection([clickedObject]);
                 }
                 else {
-                    selectionManager.select(clickedObject);
+                    selectionManager.addToSelection([clickedObject]);
                 }
             }
             else {
@@ -299,8 +302,7 @@ export default class MouseManager extends Manager {
                         this.oldPositionX = clickedObject.positionX;
                     }
                 }
-                selectionManager.unselectAll();
-                selectionManager.select(clickedObject);
+                selectionManager.select([clickedObject]);
 
                 // 检测拖动头尾
                 const startY = coordinateManager.relative(clickedBox.top);
@@ -354,8 +356,7 @@ export default class MouseManager extends Manager {
                 above: NoteAbove.Above
             }, stateManager.state.currentJudgeLineNumber);
             this.addedElement = addedNote;
-            selectionManager.unselectAll();
-            selectionManager.select(addedNote);
+            selectionManager.select([addedNote]);
             if (stateManager.state.currentNoteType === NoteType.Hold) {
                 this.oldTime = addedNote.endTime;
                 this.oldPositionX = addedNote.positionX;
@@ -406,8 +407,7 @@ export default class MouseManager extends Manager {
                 isDisabled: false,
             }, type, stateManager.state.currentEventLayerId, stateManager.state.currentJudgeLineNumber);
             this.addedElement = addedEvent;
-            selectionManager.unselectAll();
-            selectionManager.select(addedEvent);
+            selectionManager.select([addedEvent]);
             this.oldTime = addedEvent.endTime;
             this.mouseMoveMode = MouseMoveMode.DragEnd;
         }
@@ -432,11 +432,11 @@ export default class MouseManager extends Manager {
     }
     ctrlWheel(deltaY: number) {
         const stateManager = store.useManager("stateManager");
-        const scale = (stateManager.state.pxPerSecond + deltaY * WHEEL_ZOOM_SENSITIVITY) / stateManager.state.pxPerSecond;
-        stateManager.state.pxPerSecond = clamp(
-            stateManager.state.pxPerSecond + deltaY * WHEEL_ZOOM_SENSITIVITY,
-            1,
-            1000
+        const scale = (stateManager.state.verticalZoom + deltaY * WHEEL_ZOOM_SENSITIVITY) / stateManager.state.verticalZoom;
+        stateManager.state.verticalZoom = clamp(
+            stateManager.state.verticalZoom + deltaY * WHEEL_ZOOM_SENSITIVITY,
+            VERTICAL_ZOOM_MIN,
+            VERTICAL_ZOOM_MAX
         );
         if (this.selectionBox) {
             this.selectionBox.bottom = this.selectionBox.bottom * scale;
@@ -450,7 +450,7 @@ export default class MouseManager extends Manager {
             this.wheelVelocity = 0;
             return;
         }
-        audio.currentTime += this.wheelVelocity / -stateManager.state.pxPerSecond;
+        audio.currentTime += this.wheelVelocity / -stateManager.state.verticalZoom;
         this.wheelVelocity *= 0.9;
         if (Math.abs(this.wheelVelocity) < 1) {
             this.wheelVelocity = 0;

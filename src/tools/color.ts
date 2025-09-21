@@ -105,6 +105,7 @@ export function RGBtoRGBA(color: RGBcolor, alpha: number): RGBAcolor {
 }
 
 export function colorToHex(color: RGBcolor): string {
+    // eslint-disable-next-line no-magic-numbers
     return `#${(color[0] | 0).toString(16).padStart(2, "0")}${(color[1] | 0).toString(16).padStart(2, "0")}${(color[2] | 0).toString(16).padStart(2, "0")}`;
 }
 

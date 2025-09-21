@@ -6,6 +6,7 @@ import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
+import { ElMessageBox } from "element-plus";
 
 export default class MoveManager extends Manager {
     constructor() {
@@ -22,8 +23,8 @@ export default class MoveManager extends Manager {
         globalEventEmitter.on("MOVE_DOWN", () => {
             this.moveDown();
         });
-        globalEventEmitter.on("MOVE_TO_JUDGE_LINE", (targetJudgeLineNumber) => {
-            this.moveToJudgeLine(targetJudgeLineNumber);
+        globalEventEmitter.on("MOVE_TO_JUDGE_LINE", () => {
+            this.moveToJudgeLine();
         });
         globalEventEmitter.on("MOVE_TO_PREVIOUS_JUDGE_LINE", createCatchErrorByMessage(() => {
             this.moveToPreviousJudgeLine();
@@ -123,7 +124,10 @@ export default class MoveManager extends Manager {
         historyManager.ungroup();
     }
 
-    moveToJudgeLine(targetJudgeLineNumber: number) {
+    async moveToJudgeLine(targetJudgeLineNumber?: number) {
+        if (targetJudgeLineNumber === undefined) {
+            targetJudgeLineNumber = await ElMessageBox.prompt("请输入要移动到的判定线编号", "移动判定线").then(res => +res.value) as number;
+        }
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
@@ -144,7 +148,7 @@ export default class MoveManager extends Manager {
         historyManager.ungroup();
         selectionManager.deleteSelection();
         stateManager.state.currentJudgeLineNumber = targetJudgeLineNumber;
-        selectionManager.select(...elements);
+        selectionManager.addToSelection(elements);
     }
     moveToPreviousJudgeLine() {
         const stateManager = store.useManager("stateManager");
