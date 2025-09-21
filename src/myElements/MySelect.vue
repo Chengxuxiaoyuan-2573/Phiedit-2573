@@ -121,17 +121,20 @@ function filterMethod(value: string) {
             }
         }
     }
+
     if (filteredOptions.value.length > 0) {
         inputData.value = getValue(filteredOptions.value[0]);
     }
     onChange();
 }
+
 function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Enter") {
         onChange();
         select.value?.blur();
     }
 }
+
 function updateShowedValue() {
     inputData.value = model.value;
 }

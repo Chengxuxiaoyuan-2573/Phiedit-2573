@@ -72,6 +72,7 @@ function updateShowedValue() {
     // 把内部修改的标记取消
     isInternalUpdate = false;
 }
+
 function inputHandler() {
     model.value = inputData.value;
 
@@ -79,10 +80,12 @@ function inputHandler() {
     isInternalUpdate = true;
     emit("input", model.value);
 }
+
 function changeHandler() {
     emit("change", model.value);
     input.value?.$el?.blur();
 }
+
 function setValueWithoutUpdate(value: string) {
     model.value = value;
     isInternalUpdate = true;

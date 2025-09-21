@@ -64,10 +64,13 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
             e.preventDefault();
         }
     }
+
     const EMPTY_FUNCTION = () => { };
+
     if (!(key in keyConfigs)) {
         return EMPTY_FUNCTION;
     }
+
     let keyConfig: B = keyConfigs[key as keyof typeof keyConfigs];
 
     if (isObject(keyConfig) && !isArray(keyConfig)) {

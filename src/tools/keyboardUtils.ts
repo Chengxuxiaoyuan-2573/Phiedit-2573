@@ -24,12 +24,15 @@ export default class KeyboardUtils {
         if (e.key === "Control") {
             return "Ctrl";
         }
+
         if (e.key === "Shift") {
             return "Shift";
         }
+
         if (e.key === "Alt") {
             return "Alt";
         }
+
         if (e.key === "Meta") {
             return "Meta";
         }

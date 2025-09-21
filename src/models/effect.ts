@@ -193,10 +193,12 @@ export class Effect implements IEffect, IObjectizable {
         if (isNumberOrVector(this.vars[varName])) {
             this.vars[varName] = [];
         }
+
         const value = this.vars[varName];
         if (!(varName in DEFAULT_VARS[this.shader])) {
             throw new Error(`尝试向不存在的变量 ${this.shader}.${varName} 添加事件`);
         }
+
         const newEvent = new ShaderVariableEvent(event, {
             BPMList: this.BPMList,
             shader: this.shader,
@@ -206,6 +208,7 @@ export class Effect implements IEffect, IObjectizable {
         if (isLessThanBeats(newEvent.startTime, this.startTime)) {
             newEvent.startTime = [...this.startTime];
         }
+
         if (isGreaterThanBeats(newEvent.endTime, this.endTime)) {
             newEvent.endTime = [...this.endTime];
         }
@@ -258,6 +261,7 @@ export class Effect implements IEffect, IObjectizable {
                     "error"
                 ));
             }
+
             if ("end" in effect) {
                 if (isArrayOfNumbers(effect.end, 3)) {
                     this._end = [...effect.end];
@@ -277,6 +281,7 @@ export class Effect implements IEffect, IObjectizable {
                     "error"
                 ));
             }
+
             if ("shader" in effect) {
                 if (isString(effect.shader) && effect.shader in DEFAULT_VARS) {
                     this._shader = effect.shader as ShaderName;
@@ -296,6 +301,7 @@ export class Effect implements IEffect, IObjectizable {
                     "error"
                 ));
             }
+
             if ("global" in effect) {
                 if (isBoolean(effect.global)) {
                     this.global = effect.global;

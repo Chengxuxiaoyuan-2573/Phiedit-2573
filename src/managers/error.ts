@@ -32,6 +32,7 @@ export default class ErrorManager extends Manager {
             if (i >= 100) {
                 return;
             }
+
             const error = chartPackage.errors[i];
             this.errors.push(error);
         }
@@ -73,6 +74,7 @@ export default class ErrorManager extends Manager {
                     ));
                 }
             }
+
             for (const note of notes) {
                 // 检查非Hold音符有没有结束时间不等于起始时间的
                 if (note.type !== NoteType.Hold && !isEqualBeats(note.endTime, note.startTime)) {
@@ -93,6 +95,7 @@ export default class ErrorManager extends Manager {
                         note
                     ));
                 }
+
                 if (note.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                     this.errors.push(new ChartError(
                         `音符时间超出范围，位于音乐结束之后`,
@@ -178,6 +181,7 @@ export default class ErrorManager extends Manager {
                         ));
                     }
                 }
+
                 for (let j = 0; j < flicks.length; j++) {
                     const flick = flicks[j];
                     if (Math.abs(tap.positionX - flick.positionX) < settingsManager._settings.noteSize &&
@@ -217,6 +221,7 @@ export default class ErrorManager extends Manager {
                             }
                         }
                     }
+
                     for (let i = 0; i < events.length; i++) {
                         const event = events[i];
 
@@ -229,6 +234,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
+
                         if (event.type === "paint") {
                             this.errors.push(new ChartError(
                                 `出现了本软件不支持的 paint 事件`,
@@ -237,6 +243,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
+
                         if (event.cachedEndSeconds + chart.META.offset / SEC_TO_MS < 0) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐开始之前`,
@@ -245,6 +252,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
+
                         if (event.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐结束之后`,
@@ -253,6 +261,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
+
                         if (event.easingLeft >= event.easingRight) {
                             this.errors.push(new ChartError(
                                 `事件缓动截取错误，左边界必须小于右边界`,
@@ -261,6 +270,7 @@ export default class ErrorManager extends Manager {
                                 event
                             ));
                         }
+
                         if (event.isDisabled) {
                             this.errors.push(new ChartError(
                                 `事件已禁用，请在导出谱面前删除该事件`,
@@ -358,6 +368,7 @@ export default class ErrorManager extends Manager {
                     isSucceeded = true;
                     break;
             }
+
             if (isSucceeded) {
                 this.errors.splice(i, 1);
                 fixedErrors++;

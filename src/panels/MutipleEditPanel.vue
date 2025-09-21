@@ -524,6 +524,7 @@ const description = computed(() => {
         if (stateManager.cache.mutipleEdit.mode === "invert") {
             return "";
         }
+
         if (stateManager.cache.mutipleEdit.isDynamic) {
             if (paramType.value === "number") {
                 let str = `以${EasingType[stateManager.cache.mutipleEdit.paramEasing]}缓动从${stateManager.cache.mutipleEdit.paramStart}到${stateManager.cache.mutipleEdit.paramEnd}的值`;
@@ -567,22 +568,26 @@ const description = computed(() => {
             if (stateManager.cache.mutipleEdit.attributeNote === "isFake") {
                 return `将${subject}变为${stateManager.cache.mutipleEdit.paramBoolean ? "假" : "真"}音符`;
             }
+
             if (stateManager.cache.mutipleEdit.attributeNote === "above") {
                 return `将${subject}变为${stateManager.cache.mutipleEdit.paramBoolean ? "正向" : "反向"}音符`;
             }
         }
     }
+
     const sentence = `将${subject}的${attribute}${verb}${value}`;
     return sentence;
 });
 async function clone() {
     globalEventEmitter.emit("CLONE");
 }
+
 function selectionUpdateHandler() {
     const selectedElements = selectionManager.selectedElements;
     if (selectedElements.length === 0) {
         return;
     }
+
     if (selectedElements.every(element => element instanceof Note)) {
         stateManager.cache.mutipleEdit.type = "note";
     }

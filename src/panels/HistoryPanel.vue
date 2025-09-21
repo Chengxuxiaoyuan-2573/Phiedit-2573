@@ -50,12 +50,15 @@ onBeforeUnmount(() => {
 function update() {
     u.value = !u.value;
 }
+
 function padStart<T>(arr: T[], padLength: number, padding?: T): T[] {
     return padLength > arr.length ? Array(padLength - arr.length).fill(padding).concat(arr) : [...arr];
 }
+
 function padEnd<T>(arr: T[], padLength: number, padding?: T): T[] {
     return padLength > arr.length ? arr.concat(Array(padLength - arr.length).fill(padding)) : [...arr];
 }
+
 const num = 3;
 function getData() {
     return [
@@ -83,6 +86,7 @@ function getData() {
         }),
     ];
 }
+
 function rowClassName(options: {
     row: ReturnType<typeof getData>[number],
     rowIndex: number

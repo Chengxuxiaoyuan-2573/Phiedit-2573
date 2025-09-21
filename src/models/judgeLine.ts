@@ -136,6 +136,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
                 result += eventLayer.getEventsByType(type).length;
             }
         }
+
         for (const type of extendedEventTypes) {
             result += this.extended.getEventsByType(type).length;
         }
@@ -254,6 +255,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
         if (this.eventLayers.length >= MAX_EVENT_LAYERS) {
             throw new Error("最多只能有4个事件层级");
         }
+
         const newEventLayer = this.createAnInitializedEventLayer(0, 0, 0, 0, 0);
         this.eventLayers.push(newEventLayer);
         return newEventLayer;
@@ -409,16 +411,20 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
         if (id === "X") {
             return this.extended;
         }
+
         const eventLayerNumber = parseInt(id);
         if (isNaN(eventLayerNumber)) {
             throw new Error(`错误的事件层编号: ${id}`);
         }
+
         if (eventLayerNumber < 0) {
             throw new Error(`事件层编号不能小于 0，但当前为${id}`);
         }
+
         if (!Number.isInteger(eventLayerNumber)) {
             throw new Error(`事件层编号必须是整数，但当前为${eventLayerNumber}`);
         }
+
         if (eventLayerNumber >= this.eventLayers.length) {
             throw new Error(`事件层编号超出范围: ${id}`);
         }
@@ -430,6 +436,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
         if (this.notes.length > 0) {
             return true;
         }
+
         for (const eventLayer of this.eventLayers) {
             for (const event of eventLayer.alphaEvents) {
                 if (event.start > 0 || event.end > 0) {

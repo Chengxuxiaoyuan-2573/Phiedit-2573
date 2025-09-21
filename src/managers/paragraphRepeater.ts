@@ -43,27 +43,33 @@ export default class ParagraphRepeater {
                             eventObject.start = -eventObject.start;
                             eventObject.end = -eventObject.end;
                         }
+
                         if ((this.flip === FlipOptions.Vertical || this.flip === FlipOptions.Both) && type === "moveY") {
                             eventObject.start = -eventObject.start;
                             eventObject.end = -eventObject.end;
                         }
+
                         if (type === "rotate" && this.flip === FlipOptions.Horizontal) {
                             eventObject.start = -eventObject.start;
                             eventObject.end = -eventObject.end;
                         }
+
                         if (type === "rotate" && this.flip === FlipOptions.Vertical) {
                             eventObject.start = 180 - eventObject.start;
                             eventObject.end = 180 - eventObject.end;
                         }
+
                         if (type === "rotate" && this.flip === FlipOptions.Both) {
                             eventObject.start = 180 + eventObject.start;
                             eventObject.end = 180 + eventObject.end;
                         }
+
                         const newEvent = store.addEvent(eventObject, type, event.eventLayerId, event.judgeLineNumber);
                         historyManager.recordAddEvent(newEvent.id);
                     }
                 }
             }
+
             const notes = judgeLine.notes;
             const filteredNotes = notes.filter(note => {
                 return getBeatsValue(note.endTime) >= getBeatsValue(this.startTime) &&
@@ -76,6 +82,7 @@ export default class ParagraphRepeater {
                 if (this.flip === FlipOptions.Horizontal || this.flip === FlipOptions.Vertical) {
                     noteObject.positionX = -noteObject.positionX;
                 }
+
                 const newNote = store.addNote(noteObject, judgeLine.id);
                 historyManager.recordAddNote(newNote.id);
             }

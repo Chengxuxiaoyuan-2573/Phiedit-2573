@@ -193,6 +193,7 @@ class Store {
         if (!this.route) {
             throw new Error("route is not defined");
         }
+
         const chartId = this.route.query.chartId;
         if (!chartId) {
             throw new Error("chartId is not defined");

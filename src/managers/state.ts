@@ -164,6 +164,7 @@ return {
             if (isNaN(num)) {
                 throw new Error("请输入数字");
             }
+
             if (num >= 0 && num < chart.judgeLineList.length) {
                 this.state.currentJudgeLineNumber = num;
             }

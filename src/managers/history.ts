@@ -100,6 +100,7 @@ export default class HistoryManager extends Manager {
             // throw new Error("没有处于分组状态，无法取消分组");
             return;
         }
+
         const group = this.undoStack[this.undoStack.length - 1];
         if (!(group instanceof RecordGroup)) {
             // throw new Error("没有处于分组状态，无法取消分组");
@@ -164,6 +165,7 @@ class AddNoteRecord extends HistoryRecord {
         if (this.noteObject === undefined || this.judgeLineNumber === undefined) {
             throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
         }
+
         const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
         this.id = note.id;
         return note;
@@ -173,6 +175,7 @@ class AddNoteRecord extends HistoryRecord {
         if (this.id === undefined) {
             throw new Error("AddNoteRecord: id is undefined");
         }
+
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         this.noteObject = note.toObject();
@@ -183,6 +186,7 @@ class AddNoteRecord extends HistoryRecord {
         return `添加音符 ${this.id}`;
     }
 }
+
 class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends HistoryRecord {
     readonly type = "modifyNote";
     constructor(private id: string,
@@ -212,6 +216,7 @@ class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends HistoryR
         return `将音符${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
+
 class RemoveNoteRecord extends HistoryRecord {
     readonly type = "removeNote";
     constructor(private noteObject: INote, private judgeLineNumber: number, private id: string) {
@@ -222,6 +227,7 @@ class RemoveNoteRecord extends HistoryRecord {
         if (this.id === undefined) {
             throw new Error("RemoveNoteRecord: id is undefined");
         }
+
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         this.noteObject = note.toObject();
@@ -233,6 +239,7 @@ class RemoveNoteRecord extends HistoryRecord {
         if (this.noteObject === undefined || this.judgeLineNumber === undefined) {
             throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
         }
+
         const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
         this.id = note.id;
         return note;
@@ -241,6 +248,7 @@ class RemoveNoteRecord extends HistoryRecord {
         return `删除音符 ${this.id}`;
     }
 }
+
 class AddEventRecord extends HistoryRecord {
     readonly type = "addEvent";
     private eventObject: IEvent<unknown> | undefined = undefined;
@@ -255,6 +263,7 @@ class AddEventRecord extends HistoryRecord {
         if (this.eventObject === undefined || this.judgeLineNumber === undefined || this.eventLayerId === undefined || this.eventType === undefined) {
             throw new Error("AddEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined");
         }
+
         const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
         this.id = event.id;
         return event;
@@ -264,6 +273,7 @@ class AddEventRecord extends HistoryRecord {
         if (this.id === undefined) {
             throw new Error("AddEventRecord: id is undefined");
         }
+
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} not found`);
         this.eventObject = event.toObject();
@@ -276,6 +286,7 @@ class AddEventRecord extends HistoryRecord {
         return `添加事件 ${this.id}`;
     }
 }
+
 class ModifyEventRecord<T extends typeof eventAttributes[number]> extends HistoryRecord {
     readonly type = "modifyEvent";
     constructor(private id: string,
@@ -305,6 +316,7 @@ class ModifyEventRecord<T extends typeof eventAttributes[number]> extends Histor
         return `将事件${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
+
 class RemoveEventRecord extends HistoryRecord {
     readonly type = "removeEvent";
     constructor(private eventObject: IEvent<unknown>, private eventType: string, private eventLayerId: string, private judgeLineNumber: number, private id: string) {
@@ -315,6 +327,7 @@ class RemoveEventRecord extends HistoryRecord {
         if (this.id === undefined) {
             throw new Error("RemoveEventRecord: id is undefined");
         }
+
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} not found`);
         this.eventObject = event.toObject();
@@ -328,6 +341,7 @@ class RemoveEventRecord extends HistoryRecord {
         if (this.eventObject === undefined || this.judgeLineNumber === undefined || this.eventLayerId === undefined || this.eventType === undefined) {
             throw new Error("RemoveEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined");
         }
+
         const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
         this.id = event.id;
         return event;
@@ -336,6 +350,7 @@ class RemoveEventRecord extends HistoryRecord {
         return `删除事件 ${this.id}`;
     }
 }
+
 class RecordGroup extends HistoryRecord {
     readonly type = "group";
     constructor(readonly records: HistoryRecord[], private readonly name: string) {

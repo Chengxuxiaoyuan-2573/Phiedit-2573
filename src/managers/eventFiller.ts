@@ -17,6 +17,7 @@ export default class EventFiller extends Manager {
         if (stateManager.cache.eventFill.startTime === undefined || stateManager.cache.eventFill.endTime === undefined) {
             throw new Error("请输入起始和结束时间");
         }
+
         const easingFuncKeys: EasingType[] = Object.keys(easingFuncs).map(Number);
         const easingFuncNames = easingFuncKeys.map(key => EasingType[key]);
         const easingFuncValues = easingFuncKeys.map(name => easingFuncs[name]);

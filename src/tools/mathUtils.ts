@@ -81,10 +81,12 @@ export default class MathUtils {
         if (!Number.isInteger(exponent)) {
             return base ** exponent;
         }
+
         let result = 1;
         if (exponent < 0) {
             return this.pow(1 / base, -exponent);
         }
+
         while (exponent > 0) {
             if (exponent & 1) {
                 result *= base;
@@ -106,6 +108,7 @@ export default class MathUtils {
             }
             return result;
         }
+
         if (isString(seed)) {
             seed = MathUtils.hashCode(seed);
         }
@@ -160,12 +163,15 @@ export default class MathUtils {
         if (!Array.isArray(units) || units.length === 0) {
             throw new Error("Invalid units array");
         }
+
         if (typeof base !== "number" || base <= 0) {
             throw new Error("Invalid base: " + base);
         }
+
         if (!isFinite(num) || isNaN(num)) {
             throw new Error("Invalid number: " + num);
         }
+
         if (typeof p !== "number" || p < 0 || !Number.isInteger(p)) {
             throw new Error("Invalid precision: " + p);
         }
@@ -185,6 +191,7 @@ export default class MathUtils {
         if (num === 0) {
             return "0";
         }
+
         let str = num.toFixed(p).replace(/0+$/, "");
         if (str.endsWith(".")) {
             str = str.slice(0, -1);

@@ -125,6 +125,7 @@ async function loadMusic() {
     if (!filePaths) {
         throw new Error("操作已取消");
     }
+
     if (filePaths.length === 0) {
         throw new Error("未选择音乐文件");
     }
@@ -136,6 +137,7 @@ async function loadBackground() {
     if (!filePaths) {
         throw new Error("操作已取消");
     }
+
     if (filePaths.length === 0) {
         throw new Error("未选择背景文件");
     }
@@ -147,9 +149,11 @@ async function loadChart() {
     if (!filePaths) {
         throw new Error("操作已取消");
     }
+
     if (filePaths.length === 0) {
         throw new Error("未选择谱面文件");
     }
+
     const filePath = filePaths[0];
     const chartId = await window.electronAPI.importChart(filePath);
     router.push(`/editor?chartId=${chartId}`);
@@ -159,9 +163,11 @@ async function addChart() {
     if (!musicFileUrl.value || !backgroundFileUrl.value) {
         throw new Error("请先选择音乐和背景");
     }
+
     if (name.value.trim() === "") {
         throw new Error("请填写名称");
     }
+
     const chartId = await window.electronAPI.addChart(musicFileUrl.value, backgroundFileUrl.value, name.value);
     router.push(`/editor?chartId=${chartId}`);
 }

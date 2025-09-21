@@ -13,6 +13,7 @@ class UnaryExpression extends AstNode {
         this.argument = argument;
     }
 }
+
 class BinaryExpression extends AstNode {
     op: string;
     left: AstNode;
@@ -24,6 +25,7 @@ class BinaryExpression extends AstNode {
         this.right = right;
     }
 }
+
 class Literal extends AstNode {
     value: number;
     constructor(value: number) {
@@ -31,6 +33,7 @@ class Literal extends AstNode {
         this.value = value;
     }
 }
+
 class CallExpression extends AstNode {
     callee: string;
     arguments: AstNode[];
@@ -40,6 +43,7 @@ class CallExpression extends AstNode {
         this.arguments = arguments_;
     }
 }
+
 class Identifier extends AstNode {
     name: string;
     constructor(name: string) {
@@ -149,9 +153,11 @@ export class ExpressionCalculator {
                 index++;
                 return expr;
             }
+
             if (numberRegex.test(tokens[index])) {
                 return new Literal(Number(tokens[index++]));
             }
+
             if (variableRegex.test(tokens[index])) {
                 const id = tokens[index++];
                 if (tokens[index] === "(") {
@@ -162,6 +168,7 @@ export class ExpressionCalculator {
                         if (index < tokens.length && tokens[index] === ",") {
                             index++;
                         }
+
                         if (index >= tokens.length) {
                             throw new Error(`函数 ${id} 的括号不匹配`);
                         }
@@ -171,11 +178,13 @@ export class ExpressionCalculator {
                 }
                 return new Identifier(id);
             }
+
             if (/^[+-]$/.test(tokens[index])) {
                 return new UnaryExpression(tokens[index++], parse4());
             }
             throw new Error(`无法解析的符号: ${tokens[index]}`);
         };
+
         const result = parse1();
         if (index < tokens.length) {
             throw new Error(`无法解析: ${tokens[index]}`);
@@ -191,6 +200,7 @@ export class ExpressionCalculator {
             if (typeof value !== "number") throw new Error(`变量 ${node.name} 不是数字`);
             return value;
         }
+
         if (node instanceof BinaryExpression) {
             const left = this.evaluate(node.left);
             const right = this.evaluate(node.right);
@@ -204,11 +214,13 @@ export class ExpressionCalculator {
                 default: throw new Error(`未知运算符: ${node.op}`);
             }
         }
+
         if (node instanceof CallExpression) {
             const func = this.functions[node.callee];
             if (typeof func !== "function") throw new Error(`${node.callee} 不是函数`);
             return func(...node.arguments.map(arg => this.evaluate(arg)));
         }
+
         if (node instanceof UnaryExpression) {
             const arg = this.evaluate(node.argument);
             return node.op === "-" ? -arg : +arg;
@@ -248,6 +260,7 @@ export function sortAndForEach<T>(a: T[], compare: (a: T, b: T) => number, forEa
         forEach(item.value, item.index);
     });
 }
+
 export function isSorted<T>(arr: T[], compare: (a: T, b: T) => number) {
     for (let i = 1; i < arr.length; i++) {
         if (compare(arr[i - 1], arr[i]) > 0) {
@@ -256,14 +269,17 @@ export function isSorted<T>(arr: T[], compare: (a: T, b: T) => number) {
     }
     return true;
 }
+
 export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
     if (!isSorted(arr, compare)) {
         arr.sort(compare);
     }
 }
+
 export function unique<T>(array: T[]) {
     return [...new Set(array)];
 }
+
 export function isEqualDeep(obj1: unknown, obj2: unknown, ignoreArrayOrders = false) {
     // Check if types are different
     if (typeof obj1 !== typeof obj2) {
@@ -325,6 +341,7 @@ export function isEqualDeep(obj1: unknown, obj2: unknown, ignoreArrayOrders = fa
         if (!(key in obj2AsRecord)) {
             return false;
         }
+
         if (!isEqualDeep(obj1AsRecord[key], obj2AsRecord[key], ignoreArrayOrders)) {
             return false;
         }
@@ -332,6 +349,7 @@ export function isEqualDeep(obj1: unknown, obj2: unknown, ignoreArrayOrders = fa
 
     return true;
 }
+
 export function syncToAsync<A extends unknown[], R>(func: (...args: A) => R) {
     return function (...args: A) {
         return new Promise<R>((resolve, reject) => {

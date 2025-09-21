@@ -90,6 +90,7 @@ const childLines = computed(() => {
 function update() {
     u.value = !u.value;
 }
+
 function addNewJudgeLine(count = 1) {
     for (let i = 0; i < count; i++) {
         const judgeLine = chart.addNewJudgeLine();
@@ -97,6 +98,7 @@ function addNewJudgeLine(count = 1) {
         stateManager.cache.fastBind.judgeLinesIsSelected.push(true);
     }
 }
+
 function bindLine() {
     const selectedLineNumbers = [];
     for (let i = 0; i < stateManager.cache.fastBind.judgeLinesIsSelected.length; i++) {

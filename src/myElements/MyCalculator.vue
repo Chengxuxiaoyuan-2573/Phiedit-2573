@@ -87,12 +87,15 @@ const expresstionCalculator = new ExpressionCalculator(
 function backspace() {
     display.value = display.value.slice(0, -1);
 }
+
 function clear() {
     display.value = "";
 }
+
 function append(value: string) {
     display.value += value;
 }
+
 const calculate = createCatchErrorByMessage(() => {
     const result = expresstionCalculator.calculate(display.value);
     display.value = String(result);

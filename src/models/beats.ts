@@ -62,6 +62,7 @@ export class BPM implements IBPM, IObjectizable {
                     "ChartReadError.MissingProperty"
                 ));
             }
+
             if ("startTime" in bpm) {
                 if (isArrayOfNumbers(bpm.startTime, 3)) {
                     this._startTime = bpm.startTime;
@@ -178,6 +179,7 @@ export function parseBeats(str: string) {
         Number.isNaN(+split[2]) ? 1 : +split[2]];
     return beats;
 }
+
 export function addBeats(beats1: Beats, beats2: Beats): Beats {
     const newBeats: Beats = [
         beats1[0] + beats2[0],
@@ -186,6 +188,7 @@ export function addBeats(beats1: Beats, beats2: Beats): Beats {
     ];
     return makeSureBeatsValid(newBeats);
 }
+
 export function subBeats(beats1: Beats, beats2: Beats): Beats {
     const newBeats: Beats = [
         beats1[0] - beats2[0],
@@ -194,6 +197,7 @@ export function subBeats(beats1: Beats, beats2: Beats): Beats {
     ];
     return makeSureBeatsValid(newBeats);
 }
+
 export function multiplyBeats(beats: Beats, ratio: number): Beats {
     const newBeats: Beats = [
         beats[0] * ratio,
@@ -202,6 +206,7 @@ export function multiplyBeats(beats: Beats, ratio: number): Beats {
     ];
     return makeSureBeatsValid(newBeats);
 }
+
 export function divideBeats(beats: Beats, ratio: number) {
     const newBeats: Beats = [
         0,
@@ -210,24 +215,31 @@ export function divideBeats(beats: Beats, ratio: number) {
     ];
     return makeSureBeatsValid(newBeats);
 }
+
 export function divide2Beats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) / getBeatsValue(beats2);
 }
+
 export function isLessThanBeats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) < getBeatsValue(beats2);
 }
+
 export function isGreaterThanBeats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) > getBeatsValue(beats2);
 }
+
 export function isEqualBeats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) === getBeatsValue(beats2);
 }
+
 export function isLessThanOrEqualBeats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) <= getBeatsValue(beats2);
 }
+
 export function isGreaterThanOrEqualBeats(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) >= getBeatsValue(beats2);
 }
+
 export function beatsCompare(beats1: Beats, beats2: Beats) {
     return getBeatsValue(beats1) - getBeatsValue(beats2);
 }

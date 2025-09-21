@@ -82,5 +82,6 @@ export interface GlobalEventMap {
     ERRORS_FIXED: [number]
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
+
 const globalEventEmitter = new GlobalEventEmitter();
 export default globalEventEmitter;

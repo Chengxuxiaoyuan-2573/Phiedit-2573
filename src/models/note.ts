@@ -50,6 +50,7 @@ export enum NoteType { Tap = 1, Hold, Flick, Drag }
 function isNoteType(type: unknown): type is NoteType {
     return type === NoteType.Tap || type === NoteType.Hold || type === NoteType.Flick || type === NoteType.Drag;
 }
+
 const
     TAP_PERFECT = 0.08,
     TAP_GOOD = 0.16,
@@ -161,6 +162,7 @@ export class Note implements INote, ITimeSegment, IObjectizable {
             // 该音符是假音符，无法被击打
             return "FAKE";
         }
+
         if (this.hitSeconds !== undefined) {
             // 该音符已经被击打
             return "ALREADY_HIT";

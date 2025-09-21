@@ -41,6 +41,7 @@ export default class BoxesManager extends Manager {
                 boxes.push(box);
             }
         }
+
         const types = (() => {
             const eventLayer = stateManager.currentEventLayer;
             if (eventLayer instanceof BaseEventLayer) {

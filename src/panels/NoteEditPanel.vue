@@ -246,6 +246,7 @@ const inputNote: INote & NoteExtends = reactive({
             this.endTime = startTime;
             return;
         }
+
         const endTime = makeSureBeatsValid(parseBeats(end));
         this.startTime = startTime;
         this.endTime = endTime;
@@ -277,6 +278,7 @@ function updateModel<K extends keyof INote>(...attrNames: K[]) {
 
     // historyManager.ungroup();
 }
+
 function createHistory() {
     // 遍历新值和旧值，找到不一样的属性
     for (const attr of attributes) {

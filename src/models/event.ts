@@ -884,6 +884,7 @@ export function getEasingFunctionOfNumberEvent(event: IEvent<number>) {
             return (func(time * deltaX + left) - start) / deltaY;
         };
 }
+
 export function interpolateNumberEventValue(event: IEvent<number> & ITimeSegment, seconds: number) {
     const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;
@@ -904,6 +905,7 @@ export function interpolateNumberEventValue(event: IEvent<number> & ITimeSegment
         return start + easingFactor * dy;
     }
 }
+
 export function interpolateColorEventValue(event: IEvent<RGBcolor> & ITimeSegment, seconds: number): RGBcolor {
     const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;
@@ -926,6 +928,7 @@ export function interpolateColorEventValue(event: IEvent<RGBcolor> & ITimeSegmen
         };
         return interpolateNumberEventValue(e, seconds);
     };
+
     if (endSeconds <= seconds) {
         return end;
     }
@@ -940,6 +943,7 @@ export function interpolateColorEventValue(event: IEvent<RGBcolor> & ITimeSegmen
         ];
     }
 }
+
 export function interpolateTextEventValue(event: IEvent<string> & ITimeSegment, seconds: number) {
     const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;
@@ -996,6 +1000,7 @@ export function interpolateTextEventValue(event: IEvent<string> & ITimeSegment, 
         return start;
     }
 }
+
 export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberType> & ITimeSegment, seconds: number) {
     const startSeconds = event.cachedStartSeconds;
     const endSeconds = event.cachedEndSeconds;

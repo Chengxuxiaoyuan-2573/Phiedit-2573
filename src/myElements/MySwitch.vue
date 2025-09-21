@@ -39,6 +39,7 @@ function changeHandler() {
     model.value = inputData.value;
     emit("change", model.value);
 }
+
 function updateShowedValue() {
     inputData.value = model.value;
 }

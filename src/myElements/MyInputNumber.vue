@@ -105,6 +105,7 @@ function inputStringHandler() {
             const attachToStep = (num: number) => {
                 return Math.round(num / step) * step;
             };
+
             if (attachToStep(inputNum) !== inputNum) {
                 if (step === 1) {
                     errorMessage.value = "数值必须是整数";
@@ -123,6 +124,7 @@ function inputStringHandler() {
     }
     emit("input", model.value);
 }
+
 function changeStringHandler() {
     input.value?.$el?.blur();
     emit("change", model.value);

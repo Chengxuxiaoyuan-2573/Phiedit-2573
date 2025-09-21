@@ -245,6 +245,7 @@ const drawFunction = () => {
         }
     }
 };
+
 const drawControlPoints = () => {
     // Draw control points if in Bézier mode
     if (model.value.bezier && model.value.bezierPoints) {
@@ -348,6 +349,7 @@ onMounted(() => {
         initCanvas();
         redraw();
     }
+
     if (canvas.value) {
         canvas.value.addEventListener("mousedown", handleMouseDown);
         canvas.value.addEventListener("mousemove", handleMouseMove);
@@ -361,6 +363,7 @@ onBeforeUnmount(() => {
     if (container.value) {
         resizeObserver.unobserve(container.value);
     }
+
     if (canvas.value) {
         canvas.value.removeEventListener("mousedown", handleMouseDown);
         canvas.value.removeEventListener("mousemove", handleMouseMove);
@@ -406,6 +409,7 @@ function handleMouseDown(e: MouseEvent) {
         }
     }
 }
+
 function canvasToModelCoords(canvasX: number, canvasY: number): { x: number, y: number } {
     const width = size.value.width / dpr;
     const height = size.value.height / dpr;
@@ -422,6 +426,7 @@ function canvasToModelCoords(canvasX: number, canvasY: number): { x: number, y: 
 
     return { x, y };
 }
+
 function handleMouseMove(e: MouseEvent) {
     if (!ctx.value || !canvas.value) return;
 

@@ -244,6 +244,7 @@ const inputEvent: IEvent<RGBcolor> & EventExtends = reactive({
             this.end = this.start;
             return;
         }
+
         const endValue = parseRGBcolor(end);
         if (endValue === null) return;
         this.start = startValue;
@@ -278,11 +279,13 @@ function createHistory() {
                 continue;
             }
         }
+
         if (attr === "startTime" || attr === "endTime") {
             if (isEqualBeats(inputEvent[attr], oldValues[attr])) {
                 continue;
             }
         }
+
         if (inputEvent[attr] !== oldValues[attr]) {
             // mouseManager.checkMouseUp();
             historyManager.recordModifyEvent(model.value.id, attr, inputEvent[attr], oldValues[attr]);
@@ -295,6 +298,7 @@ function createHistory() {
         (oldValues[attr] as any) = inputEvent[attr];
     }
 }
+
 function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
     // const oldValues = attrNames.map(attr => model.value[attr]);
     // const newValues = attrNames.map(attr => inputEvent[attr]);
@@ -332,12 +336,14 @@ function reverse() {
     createHistory();
     inputStartEnd.value?.updateShowedValue();
 }
+
 function swap() {
     [inputEvent.start, inputEvent.end] = [inputEvent.end, inputEvent.start];
     updateModel("start", "end");
     createHistory();
     inputStartEnd.value?.updateShowedValue();
 }
+
 function stick() {
     const judgeLine = store.getJudgeLineById(model.value.judgeLineNumber);
     const eventLayer = judgeLine.getEventLayerById(model.value.eventLayerId);
@@ -352,6 +358,7 @@ function stick() {
             break;
         }
     }
+
     if (!event) {
         throw new Error("当前事件前面没有事件，无法粘合");
     }
@@ -360,6 +367,7 @@ function stick() {
     createHistory();
     inputStartEnd.value?.updateShowedValue();
 }
+
 function random() {
     const randomStart = MathUtils.randomNumbers(3, undefined, 0, 255) as RGBcolor;
     const randomEnd = MathUtils.randomNumbers(3, undefined, 0, 255) as RGBcolor;

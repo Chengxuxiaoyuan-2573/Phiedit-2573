@@ -81,6 +81,7 @@ export default class EditorRenderer extends Manager {
                 if (pos < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top || pos > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                     continue;
                 }
+
                 if (j === 0) {
                     writeText(i.toString(),
                         (Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left + Constants.EDITOR_VIEW_NOTES_VIEWBOX.right) / 2,
@@ -143,6 +144,7 @@ export default class EditorRenderer extends Manager {
                     Constants.EDITOR_VIEW_VERTICAL_LINE_COLOR);
             }
         }
+
         const types = (() => {
             const eventLayer = stateManager.currentEventLayer;
             if (eventLayer instanceof BaseEventLayer) {
@@ -208,6 +210,7 @@ export default class EditorRenderer extends Manager {
             if (!Constants.EDITOR_VIEW_NOTES_VIEWBOX.touch(mouseManager.mouseX, mouseManager.mouseY)) {
                 return true;
             }
+
             if (mouseManager.mouseMoveMode !== MouseMoveMode.None) {
                 return true;
             }
@@ -243,10 +246,12 @@ export default class EditorRenderer extends Manager {
                 if (noteEndY > Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom) {
                     continue;
                 }
+
                 if (noteStartY > Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom) {
                     noteStartY = Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom;
                     isCuttedStart = true;
                 }
+
                 const noteHeight = noteStartY - noteEndY;
                 const noteHeadHeight = head.height / body.width * noteWidth;
                 const noteEndHeight = end.height / body.width * noteWidth;
@@ -318,6 +323,7 @@ export default class EditorRenderer extends Manager {
                 }
             }
         }
+
         if (settingsManager._settings.bottomText === BottomText.Info) {
             writeText(`${stateManager._state.currentJudgeLineNumber}号判定线   名称${stateManager.currentJudgeLine.Name}`,
                 Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
@@ -332,6 +338,7 @@ export default class EditorRenderer extends Manager {
                 "white",
                 true);
         }
+
         if (settingsManager._settings.bottomText === BottomText.Hint) {
             writeText("在此区域右键放置音符",
                 Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
@@ -414,14 +421,17 @@ export default class EditorRenderer extends Manager {
                     if (eventEndY > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom || eventStartY < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top) {
                         continue;
                     }
+
                     if (eventEndY < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top) {
                         eventEndY = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top;
                         isCuttedEnd = true;
                     }
+
                     if (eventStartY > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                         eventStartY = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom;
                         isCuttedStart = true;
                     }
+
                     const eventHeight = eventStartY - eventEndY;
 
                     const box = new Box(eventEndY, eventStartY, eventX - Constants.EDITOR_VIEW_EVENT_WIDTH / 2, eventX + Constants.EDITOR_VIEW_EVENT_WIDTH / 2);
@@ -497,10 +507,12 @@ export default class EditorRenderer extends Manager {
                                 if (endSeconds - sec < Constants.EDITOR_VIEW_EVENT_LINE_PRECISION) {
                                     sec = endSeconds;
                                 }
+
                                 const y = coordinateManager.getRelativePositionYOfSeconds(sec);
                                 if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top || y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                                     continue;
                                 }
+
                                 const value = interpolateNumberEventValue(event, sec);
                                 const x = left + (right - left) * ((value - minValue) / (maxValue - minValue));
                                 ctx.lineTo(x, y);
@@ -519,10 +531,12 @@ export default class EditorRenderer extends Manager {
                             if (endSeconds - sec < Constants.EDITOR_VIEW_EVENT_LINE_PRECISION) {
                                 nextSec = endSeconds;
                             }
+
                             const y = coordinateManager.getRelativePositionYOfSeconds(sec);
                             if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top || y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                                 continue;
                             }
+
                             const nextY = coordinateManager.getRelativePositionYOfSeconds(nextSec);
                             const left = eventX - Constants.EDITOR_VIEW_EVENT_WIDTH * Constants.EDITOR_VIEW_COLOR_EVENT_GRADIENT_WIDTH / 2;
                             const right = eventX + Constants.EDITOR_VIEW_EVENT_WIDTH * Constants.EDITOR_VIEW_COLOR_EVENT_GRADIENT_WIDTH / 2;
@@ -581,6 +595,7 @@ export default class EditorRenderer extends Manager {
                     }
                 }
             }
+
             if (!(settingsManager._settings.bottomText === BottomText.Info)) {
                 continue;
             }
@@ -614,6 +629,7 @@ export default class EditorRenderer extends Manager {
                 writeText(currentEventValue.toFixed(2), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
         }
+
         if (settingsManager._settings.bottomText === BottomText.Hint) {
             writeText("在此区域右键放置事件",
                 Constants.EDITOR_VIEW_EVENTS_VIEWBOX.middleX,

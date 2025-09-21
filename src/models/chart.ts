@@ -75,6 +75,7 @@ export class Chart implements IChart, IObjectizable {
             note.cachedStartSeconds = beatsToSeconds(this.BPMList, note.startTime);
             note.cachedEndSeconds = beatsToSeconds(this.BPMList, note.endTime);
         }
+
         for (const event of this.getAllEvents()) {
             event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
             event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
@@ -115,6 +116,7 @@ export class Chart implements IChart, IObjectizable {
                     this.errors.push(...newBPM.errors);
                 }
             }
+
             const newChartMeta = new ChartMeta("META" in chart ? chart.META : null);
             this.META = reactive(newChartMeta);
             this.errors.push(...newChartMeta.errors);

@@ -21,10 +21,12 @@ export default class LineBinder extends Manager {
         if (!stateManager.cache.fastBind.eventLength) {
             throw new Error("请输入事件长度");
         }
+
         const selectedNotes = selectionManager.selectedElements.filter(element => element instanceof Note).sort((note1, note2) => beatsCompare(note1.startTime, note2.startTime));
         if (selectedNotes.length === 0) {
             throw new Error("未选择任何音符");
         }
+
         const lineNumbers = (() => {
             const isSelected = stateManager.cache.fastBind.judgeLinesIsSelected;
             const result: number[] = [];
@@ -42,6 +44,7 @@ export default class LineBinder extends Manager {
                 throw new Error("被绑线的判定线必须是当前判定线的子线");
             }
         }
+
         for (let i = 1; i < selectedNotes.length; i++) {
             const thisNote = selectedNotes[i];
             const previousNote = selectedNotes[i - 1];
@@ -49,6 +52,7 @@ export default class LineBinder extends Manager {
                 throw new Error("被绑线的音符必须在同一条判定线上");
             }
         }
+
         const judgeLineNumber = selectedNotes[0].judgeLineNumber;
         const sourceJudgeLine = store.getJudgeLineById(judgeLineNumber);
 
@@ -82,6 +86,7 @@ export default class LineBinder extends Manager {
                 }
             }
         }
+
         for (let i = 0; i < selectedNotes.length; i++) {
             const bindedNote = selectedNotes[i];
 
@@ -100,6 +105,7 @@ export default class LineBinder extends Manager {
                 times.push(time);
                 yPositions.push(sourceJudgeLine.getFloorPositionOfSeconds(beatsToSeconds(bindedLine.options.BPMList, time)));
             }
+
             const moveXEvent = store.addEvent({
                 startTime: partStartTime,
                 endTime: partEndTime,

@@ -197,9 +197,11 @@ const extra = store.useExtra();
 function addEffect() {
     extra.addEffect(null);
 }
+
 function getNumberVars(effect: Effect): string[] {
     return Object.keys(DEFAULT_VARS[effect.shader]);
 }
+
 const u = ref(false);
 const v = ref(false);
 const w = ref(false);
@@ -225,12 +227,15 @@ const shaderOptions = (Object.keys(DEFAULT_VARS) as ShaderName[]).map((key) => {
 function defaultDescription(effect: Effect) {
     return ` ${effect.id + 1}. ${effect.shader} ${formatBeats(effect.startTime)}~${formatBeats(effect.endTime)}`;
 }
+
 function updateEffectList() {
     u.value = !u.value;
 }
+
 function updateVarList() {
     v.value = !v.value;
 }
+
 function updateEventList() {
     w.value = !w.value;
 }

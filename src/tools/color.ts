@@ -47,6 +47,7 @@ export function parseRGBcolor(color: string): RGBcolor | null {
         if (color.length < HEX_SHORT_LENGTH) {
             return null;
         }
+
         if (color.length < HEX_LONG_LENGTH) {
             const parts = [];
             for (let index = 1; index < color.length; index++) {
@@ -88,6 +89,7 @@ export function parseRGBcolor(color: string): RGBcolor | null {
         if (split.length !== RGB_LENGTH) {
             return null;
         }
+
         const r = +split[0], g = +split[1], b = +split[2];
         if (isNaN(r) || isNaN(g) || isNaN(b)) {
             return null;

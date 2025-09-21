@@ -214,10 +214,12 @@ export default class ChartRenderer extends Manager {
             this.gl?.deleteProgram(this.shaderProgram);
             this.shaderProgram = null;
         }
+
         if (this.vertexShader) {
             this.gl?.deleteShader(this.vertexShader);
             this.vertexShader = null;
         }
+
         if (this.fragmentShader) {
             this.gl?.deleteShader(this.fragmentShader);
             this.fragmentShader = null;
@@ -229,6 +231,7 @@ export default class ChartRenderer extends Manager {
         if (!vertexShaderSource) {
             throw new Error(`shader 不存在，缺少 vertex shader：${shaderName}`);
         }
+
         if (!fragmentShaderSource) {
             throw new Error(`shader 不存在，缺少 fragment shader：${shaderName}`);
         }
@@ -253,6 +256,7 @@ export default class ChartRenderer extends Manager {
             this.shaderProgram = null;
             throw new Error(`无法链接着色器程序：${log}`);
         }
+
         if (!this.gl.getProgramParameter(this.shaderProgram, this.gl.LINK_STATUS)) {
             const log = this.gl.getProgramInfoLog(this.shaderProgram);
             this.gl.deleteProgram(this.shaderProgram);
@@ -607,6 +611,7 @@ export default class ChartRenderer extends Manager {
                     const image = textures[judgeLine.Texture];
                     return [image.width, image.height];
                 }
+
                 if (text !== undefined) {
                     ctx.font = `${settingsManager._settings.textSize}px PhiFont`;
                     return [ctx.measureText(text).width, settingsManager._settings.textSize];
@@ -825,6 +830,7 @@ export default class ChartRenderer extends Manager {
                 }
             }
         }
+
         if (!comboNumberIsAttached) {
             ctx.save();
 
@@ -842,6 +848,7 @@ export default class ChartRenderer extends Manager {
             }
             ctx.restore();
         }
+
         if (!comboIsAttached) {
             ctx.save();
 
@@ -858,6 +865,7 @@ export default class ChartRenderer extends Manager {
             }
             ctx.restore();
         }
+
         if (!scoreIsAttached) {
             ctx.save();
 
@@ -873,6 +881,7 @@ export default class ChartRenderer extends Manager {
 
             ctx.restore();
         }
+
         if (!nameIsAttached) {
             ctx.save();
 
@@ -890,6 +899,7 @@ export default class ChartRenderer extends Manager {
 
             ctx.restore();
         }
+
         if (!levelIsAttached) {
             ctx.save();
 
@@ -907,6 +917,7 @@ export default class ChartRenderer extends Manager {
 
             ctx.restore();
         }
+
         if (!pauseIsAttached) {
             ctx.save();
             ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.x),
@@ -928,6 +939,7 @@ export default class ChartRenderer extends Manager {
 
             ctx.restore();
         }
+
         if (!barIsAttached) {
             ctx.save();
 
@@ -992,6 +1004,7 @@ export default class ChartRenderer extends Manager {
                 if (note.type === NoteType.Hold && seconds >= startSeconds && seconds < endSeconds) {
                     startPositionY = 0;
                 }
+
                 const isCovered = endPositionY < 0 && judgeLine.isCover === 1 && seconds < endSeconds;
 
                 startPositionY = startPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
@@ -1001,10 +1014,12 @@ export default class ChartRenderer extends Manager {
                     // note不在可见时间内
                     return;
                 }
+
                 if (judgeLineInfo.alpha < 0) {
                     // 线的透明度是负数把note给隐藏了
                     return;
                 }
+
                 if (isCovered) {
                     // note被遮罩了
                     return;
@@ -1048,6 +1063,7 @@ export default class ChartRenderer extends Manager {
                             startPositionY = -startPositionY;
                             endPositionY = -endPositionY;
                         }
+
                         const height = endPositionY - startPositionY;
                         const { head, body, end } = resourcePackage.getSkin(type, highlight);
                         const width = note.size * settingsManager._settings.noteSize *
@@ -1098,6 +1114,7 @@ export default class ChartRenderer extends Manager {
                             }
                             ctx.globalAlpha *= Math.max(0, 1 - (seconds - startSeconds) / missSeconds);
                         }
+
                         const image = resourcePackage.getSkin(type, highlight);
                         const width = note.size * settingsManager._settings.noteSize *
                             resourcePackage.getSkin(type, highlight).width / resourcePackage.getSkin(type, false).width;
@@ -1114,6 +1131,7 @@ export default class ChartRenderer extends Manager {
                     });
                 }
             };
+
             for (let noteNumber = 0; noteNumber < judgeLine.notes.length; noteNumber++) {
                 const note = judgeLine.notes[noteNumber];
                 const startSeconds = note.cachedStartSeconds;
@@ -1177,6 +1195,7 @@ export default class ChartRenderer extends Manager {
                                             ctx.restore();
                                             return;
                                         }
+
                                         let endPositionY = judgeLine.getFloorPositionOfSeconds(endSeconds) - judgeLine.getFloorPositionOfSeconds(hitSeconds);
                                         endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                                         if (startPositionY > endPositionY) {
@@ -1204,6 +1223,7 @@ export default class ChartRenderer extends Manager {
                                             startPositionY = -startPositionY;
                                             endPositionY = -endPositionY;
                                         }
+
                                         const height = endPositionY - startPositionY;
                                         const { head, body, end } = resourcePackage.getSkin(note.type, note.highlight);
                                         const width = note.size * settingsManager._settings.noteSize *
@@ -1297,6 +1317,7 @@ export default class ChartRenderer extends Manager {
                                     ctx.restore();
                                 }
                             };
+
                             if (judgement === "perfect" || judgement === "good") {
                                 if (note.type === NoteType.Hold) {
                                     /**
@@ -1397,24 +1418,28 @@ export default class ChartRenderer extends Manager {
                     x += interpolateNumberEventValue(event, seconds);
                 }
             }
+
             if (getY) {
                 const event = findLastEvent(layer.moveYEvents, seconds);
                 if (event) {
                     y += interpolateNumberEventValue(event, seconds);
                 }
             }
+
             if (getAngle) {
                 const event = findLastEvent(layer.rotateEvents, seconds);
                 if (event) {
                     angle += interpolateNumberEventValue(event, seconds);
                 }
             }
+
             if (getAlpha) {
                 const event = findLastEvent(layer.alphaEvents, seconds);
                 if (event) {
                     alpha += interpolateNumberEventValue(event, seconds);
                 }
             }
+
             if (getSpeed) {
                 const event = findLastEvent(layer.speedEvents, seconds);
                 if (event) {
@@ -1422,6 +1447,7 @@ export default class ChartRenderer extends Manager {
                 }
             }
         }
+
         if (judgeLine.father >= 0 && judgeLine.father < chart.judgeLineList.length) {
             const { x: fatherX, y: fatherY, angle: fatherAngle } = this.getJudgeLineInfo(judgeLine.father, seconds, {
                 getX: true,
@@ -1432,6 +1458,7 @@ export default class ChartRenderer extends Manager {
             x = newX;
             y = newY;
         }
+
         const scaleX = (() => {
             if (getScaleX) {
                 const event = findLastEvent(judgeLine.extended.scaleXEvents, seconds);

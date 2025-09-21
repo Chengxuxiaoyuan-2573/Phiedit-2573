@@ -64,9 +64,11 @@ function updateShowedValue() {
     inputBeats.value?.updateShowedValue();
     isInternalUpdate = false;
 }
+
 function formatCoordinate(coordinate: [number, number]) {
     return `(${coordinate[0]}, ${coordinate[1]})`;
 }
+
 function parseCoordinate(coordinate: string): [number, number] | null {
     const match = coordinate.match(/^\((.*), (.*)\)$/);
     if (!match) return null;

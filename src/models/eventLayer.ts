@@ -86,24 +86,28 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "moveY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveY", id, eventNumber: this.eventNumbers.moveY++ });
                 this.moveYEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "rotate": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "rotate", id, eventNumber: this.eventNumbers.rotate++ });
                 this.rotateEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "alpha": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "alpha", id, eventNumber: this.eventNumbers.alpha++ });
                 this.alphaEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "speed": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "speed", id, eventNumber: this.eventNumbers.speed++ });
                 this.speedEvents.push(newEvent);
@@ -119,27 +123,32 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
         if (isNaN(+options.eventLayerId)) {
             throw new Error(`传入的 eventLayerId 参数必须是数字，但接收到了：${options.eventLayerId}`);
         }
+
         if (isObject(eventLayer)) {
             if ("moveXEvents" in eventLayer && isArray(eventLayer.moveXEvents)) {
                 for (const event of eventLayer.moveXEvents) {
                     this.addEvent(event, "moveX");
                 }
             }
+
             if ("moveYEvents" in eventLayer && isArray(eventLayer.moveYEvents)) {
                 for (const event of eventLayer.moveYEvents) {
                     this.addEvent(event, "moveY");
                 }
             }
+
             if ("rotateEvents" in eventLayer && isArray(eventLayer.rotateEvents)) {
                 for (const event of eventLayer.rotateEvents) {
                     this.addEvent(event, "rotate");
                 }
             }
+
             if ("alphaEvents" in eventLayer && isArray(eventLayer.alphaEvents)) {
                 for (const event of eventLayer.alphaEvents) {
                     this.addEvent(event, "alpha");
                 }
             }
+
             if ("speedEvents" in eventLayer && isArray(eventLayer.speedEvents)) {
                 for (const event of eventLayer.speedEvents) {
                     this.addEvent(event, "speed");
@@ -218,29 +227,34 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "scaleY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleY", id, eventNumber: this.eventNumbers.scaleY++ });
                 this.scaleYEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "color": {
                 const newEvent = new ColorEvent(event, { ...baseConfig, type: "color", id, eventNumber: this.eventNumbers.color++ });
                 this.colorEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "paint": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "paint", id, eventNumber: this.eventNumbers.paint++ });
                 this.paintEvents.push(newEvent);
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
+
             case "text": {
                 const newEvent = new TextEvent(event, { ...baseConfig, type: "text", id, eventNumber: this.eventNumbers.text++ });
                 this.textEvents.push(newEvent);
                 return newEvent;
             }
+
             case "incline": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "incline", id, eventNumber: this.eventNumbers.incline++ });
                 this.inclineEvents.push(newEvent);
@@ -256,32 +270,38 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
         if (options.eventLayerId !== "X") {
             throw new Error("特殊事件层级的id只能为X");
         }
+
         if (isObject(eventLayer)) {
             if ("scaleXEvents" in eventLayer && isArray(eventLayer.scaleXEvents)) {
                 for (const event of eventLayer.scaleXEvents) {
                     this.addEvent(event, "scaleX");
                 }
             }
+
             if ("scaleYEvents" in eventLayer && isArray(eventLayer.scaleYEvents)) {
                 for (const event of eventLayer.scaleYEvents) {
                     this.addEvent(event, "scaleY");
                 }
             }
+
             if ("colorEvents" in eventLayer && isArray(eventLayer.colorEvents)) {
                 for (const event of eventLayer.colorEvents) {
                     this.addEvent(event, "color");
                 }
             }
+
             if ("paintEvents" in eventLayer && isArray(eventLayer.paintEvents)) {
                 for (const event of eventLayer.paintEvents) {
                     this.addEvent(event, "paint");
                 }
             }
+
             if ("textEvents" in eventLayer && isArray(eventLayer.textEvents)) {
                 for (const event of eventLayer.textEvents) {
                     this.addEvent(event, "text");
                 }
             }
+
             if ("inclineEvents" in eventLayer && isArray(eventLayer.inclineEvents)) {
                 for (const event of eventLayer.inclineEvents) {
                     this.addEvent(event, "incline");

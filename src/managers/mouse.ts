@@ -85,6 +85,7 @@ export default class MouseManager extends Manager {
         if (!this.mousePressed) {
             return;
         }
+
         const selectionManager = store.useManager("selectionManager");
         const boxesManager = store.useManager("boxesManager");
         const historyManager = store.useManager("historyManager");
@@ -114,6 +115,7 @@ export default class MouseManager extends Manager {
                         break;
                     }
                 }
+
                 if (isSucceeded) {
                     historyManager.recordAddEvent(this.addedElement.id);
                 }
@@ -153,6 +155,7 @@ export default class MouseManager extends Manager {
                         selectedElements.push(box.data);
                     }
                 }
+
                 if (selectedElements.length > 0) {
                     if (!mutiple) {
                         selectionManager.select(selectedElements);
@@ -177,6 +180,7 @@ export default class MouseManager extends Manager {
                 else {
                     store.setCursor("ns-resize");
                 }
+
                 const beats = coordinateManager.attatchY(y);
                 if (firstElement instanceof Note) {
                     firstElement.startTime = beats;
@@ -185,6 +189,7 @@ export default class MouseManager extends Manager {
                 else {
                     firstElement.startTime = beats;
                 }
+
                 if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
                     [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
                     this.mouseMoveMode = MouseMoveMode.DragEnd;
@@ -199,6 +204,7 @@ export default class MouseManager extends Manager {
                 else {
                     store.setCursor("ns-resize");
                 }
+
                 const beats = coordinateManager.attatchY(y);
                 if (firstElement instanceof Note) {
                     firstElement.endTime = beats;
@@ -207,6 +213,7 @@ export default class MouseManager extends Manager {
                 else {
                     firstElement.endTime = beats;
                 }
+
                 if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
                     [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
                     this.mouseMoveMode = MouseMoveMode.Drag;

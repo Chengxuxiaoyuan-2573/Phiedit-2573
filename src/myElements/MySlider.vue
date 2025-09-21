@@ -43,9 +43,11 @@ function inputHandler(value: number | number[]) {
     model.value = value;
     emit("input", value);
 }
+
 function changeHandler(value: number | number[]) {
     emit("change", value);
 }
+
 function updateShowedValue() {
     inputData.value = model.value;
 }

@@ -128,6 +128,7 @@ export default class MoveManager extends Manager {
         if (targetJudgeLineNumber === undefined) {
             targetJudgeLineNumber = await ElMessageBox.prompt("请输入要移动到的判定线编号", "移动判定线").then(res => +res.value) as number;
         }
+
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");

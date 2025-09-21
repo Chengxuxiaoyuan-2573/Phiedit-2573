@@ -304,10 +304,12 @@ export function getEasingValue(easingType: EasingType, startT: number, endT: num
     if (easingType === EasingType.Linear) {
         return start + (end - start) * ((t - startT) / (endT - startT));
     }
+
     const easingFunc = easingFuncs[easingType];
     if (!easingFunc) {
         throw new Error(`未知的缓动类型: ${easingType}`);
     }
+
     const normalizedT = (t - startT) / (endT - startT);
     return start + (end - start) * easingFunc(normalizedT);
 }
@@ -321,6 +323,7 @@ export function parseBezierPoints(points: string): BezierPoints | null {
     if (!match) {
         return null;
     }
+
     const [, x1, x2, y1, y2] = match;
     return [parseFloat(x1), parseFloat(x2), parseFloat(y1), parseFloat(y2)];
 }

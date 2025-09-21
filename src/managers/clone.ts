@@ -63,6 +63,7 @@ export default class CloneManager extends Manager {
         if (selectionManager.selectedElements.length === 0) {
             throw new Error("请选择元素");
         }
+
         let minTime: Beats = [...MAX_BEATS];
         let maxTime: Beats = [...MIN_BEATS];
         for (let i = 0; i < selectionManager.selectedElements.length; i++) {
@@ -70,10 +71,12 @@ export default class CloneManager extends Manager {
             if (isLessThanBeats(element.startTime, minTime)) {
                 minTime = element.startTime;
             }
+
             if (isGreaterThanBeats(element.endTime, maxTime)) {
                 maxTime = element.endTime;
             }
         }
+
         const length = subBeats(maxTime, minTime);
         historyManager.group("连续粘贴");
         const elements: NoteOrEvent[] = [];

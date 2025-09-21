@@ -46,6 +46,7 @@ export default class SelectionManager extends Manager {
                 selectionIsChanged = true;
             }
         }
+
         if (selectionIsChanged) {
             globalEventEmitter.emit("SELECTION_UPDATE");
         }
@@ -64,6 +65,7 @@ export default class SelectionManager extends Manager {
                 console.error("取消选择的元素不存在：", element);
             }
         }
+
         if (selectionIsChanged) {
             globalEventEmitter.emit("SELECTION_UPDATE");
         }
@@ -83,6 +85,7 @@ export default class SelectionManager extends Manager {
         if (this.selectedElements.length === 0) {
             throw new Error("未选择任何元素");
         }
+
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
@@ -109,6 +112,7 @@ export default class SelectionManager extends Manager {
         for (const element of stateManager.currentJudgeLine.notes) {
             this.selectedElements.push(element);
         }
+
         const eventLayer = stateManager.currentEventLayer;
         if (eventLayer instanceof BaseEventLayer) {
             for (const type of baseEventTypes) {

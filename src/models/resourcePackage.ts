@@ -285,6 +285,7 @@ export class ResourcePackage implements IResourcePackage {
                             });
                         }
                     };
+
                     const tapSoundPromise = tapSoundFile.async("arraybuffer", meta => {
                         progress.tapSound = meta.percent;
                         _showProgress();

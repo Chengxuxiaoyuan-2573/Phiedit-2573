@@ -61,9 +61,11 @@ async function createWindow() {
         if (!fs.existsSync(userDataDir)) {
             fs.mkdirSync(userDataDir);
         }
+
         if (!fs.existsSync(chartsDir)) {
             fs.mkdirSync(chartsDir);
         }
+
         if (!fs.existsSync(chartListFile)) {
             fs.writeFileSync(chartListFile, "[]");
         }
@@ -90,6 +92,7 @@ async function createWindow() {
         if (CHARS_CANNOT_BE_USED_IN_FILE_NAME_REGEX.test(name)) {
             return false;
         }
+
         if (SYSTEM_FILE_NAMES.includes(name.toLowerCase())) {
             return false;
         }
@@ -151,26 +154,32 @@ async function createWindow() {
                 if (key === "song" || key === "music") {
                     musicPath = value;
                 }
+
                 if (key === "picture" || key === "background") {
                     backgroundPath = value;
                 }
+
                 if (key === "chart") {
                     chartPath = value;
                 }
             }
         }
+
         const texturePaths = [];
         for (const fileName in zip.files) {
             if (IMAGE_REGEX.test(fileName)) {
                 texturePaths.push(fileName);
             }
         }
+
         if (!musicPath) {
             throw new Error("Missing music name");
         }
+
         if (!backgroundPath) {
             throw new Error("Missing background name");
         }
+
         if (!chartPath) {
             throw new Error("Missing chart name");
         }
@@ -179,9 +188,11 @@ async function createWindow() {
         if (!zip.file(musicPath)) {
             throw new Error("Missing music file");
         }
+
         if (!zip.file(backgroundPath)) {
             throw new Error("Missing background file");
         }
+
         if (!zip.file(chartPath)) {
             throw new Error("Missing chart file");
         }
@@ -192,6 +203,7 @@ async function createWindow() {
             texturePaths
         };
     }
+
     async function readTextures(chartId: string) {
         const folderPath = path.join(chartsDir, chartId);
         const texturePaths = [];
@@ -203,6 +215,7 @@ async function createWindow() {
         }
         return texturePaths;
     }
+
     function createAnEmptyChart(chartName: string) {
         const lines = 24;
         const chart = new Chart(lines);
@@ -224,6 +237,7 @@ async function createWindow() {
 
         return chart;
     }
+
     async function addIdToChartList(chartId: string) {
         const chartList: string[] = JSON.parse(fs.readFileSync(chartListFile, { encoding: "utf-8" }));
 
@@ -231,6 +245,7 @@ async function createWindow() {
         chartList.splice(0, 0, chartId);
         fs.writeFileSync(chartListFile, JSON.stringify(chartList));
     }
+
     async function modifyIdInChartList(chartId: string, newChartId: string) {
         const chartList: string[] = JSON.parse(fs.readFileSync(chartListFile, { encoding: "utf-8" }));
         const index = chartList.indexOf(chartId);
@@ -242,6 +257,7 @@ async function createWindow() {
             throw new Error(`未找到谱面ID：${chartId}`);
         }
     }
+
     async function deleteIdFromChartList(chartId: string) {
         const chartList: string[] = JSON.parse(fs.readFileSync(chartListFile, { encoding: "utf-8" }));
 
@@ -255,6 +271,7 @@ async function createWindow() {
             throw new Error(`未找到谱面ID：${chartId}`);
         }
     }
+
     async function readChartInfo(chartId: string) {
         ensurePathExists();
         const folderPath = path.join(chartsDir, chartId);
@@ -289,6 +306,7 @@ async function createWindow() {
         }
         return infoObj;
     }
+
     async function writeChartInfo(chartId: string, infoObj: {
         name: string,
         charter: string,
@@ -302,6 +320,7 @@ async function createWindow() {
         const info = `#\nName: ${infoObj.name}\nCharter: ${infoObj.charter}\nComposer: ${infoObj.composer}\nIllustration: ${infoObj.illustration}\nLevel: ${infoObj.level}\nChart: ${infoObj.chart}\nSong: ${infoObj.song}\nPicture: ${infoObj.picture}\n`;
         return await fs.promises.writeFile(path.join(chartsDir, chartId, "info.txt"), info);
     }
+
     async function packageFolderToZip(chartId: string) {
         const zip = new JSZip();
         async function addFolderToZip(zip: JSZip, folderPath: string, relativePath = "") {
@@ -326,10 +345,12 @@ async function createWindow() {
                 }
             }
         }
+
         const folderPath = path.join(chartsDir, chartId);
         await addFolderToZip(zip, folderPath);
         return zip.generateAsync({ type: "uint8array" });
     }
+
     async function loadResourcePackage() {
         const resourcePackagePath = getResourcePath("DefaultResourcePackage.zip");
         const buffer = await fs.promises.readFile(resourcePackagePath);
@@ -344,6 +365,7 @@ async function createWindow() {
             if (!Array.isArray(chartList)) {
                 throw new Error("chartList 读取失败，因为 chartList 不是数组");
             }
+
             if (!chartList.every(isString)) {
                 throw new Error("chartList 读取失败，因为 chartList 中有非字符串的元素");
             }
@@ -620,6 +642,7 @@ async function createWindow() {
                 if (!IMAGE_REGEX.test(texturePath)) {
                     throw new Error(`${texturePath} 不是图片文件`);
                 }
+
                 const chartDir = path.join(chartsDir, chartId);
 
                 // 把图片文件复制到chartDir下

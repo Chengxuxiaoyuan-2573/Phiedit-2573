@@ -799,12 +799,15 @@ let cachedRect: DOMRect;
 function checkForUpdates() {
     window.electronAPI.checkForUpdates();
 }
+
 function update() {
     u.value = !u.value;
 }
+
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
 }
+
 async function exportChart() {
     const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
 
@@ -813,6 +816,7 @@ async function exportChart() {
     if (!filePath) return;
     globalEventEmitter.emit("EXPORT", filePath);
 }
+
 async function deleteChart() {
     window.electronAPI.deleteChart(store.getChartId());
     router.push("/");
@@ -823,20 +827,24 @@ async function loadResourcePackage() {
     const resourcePackage = await ResourcePackage.load(arrayBuffer);
     return resourcePackage;
 }
+
 async function addTextures() {
     const texturePaths = await window.electronAPI.showOpenImageDialog(true);
     if (!texturePaths) {
         throw new Error("操作已取消");
     }
+
     const textureArrayBuffers = await window.electronAPI.addTextures(store.getChartId(), texturePaths);
     const textures: Record<string, HTMLImageElement> = {};
     for (const [name, arrayBuffer] of Object.entries(textureArrayBuffers)) {
         const image = await MediaUtils.createImage(arrayBuffer);
         textures[name] = image;
     }
+
     const chartPackage = store.useChartPackage();
     chartPackage.textures = { ...chartPackage.textures, ...textures };
 }
+
 function canvasMouseDown(e: MouseEvent) {
     const canvas = store.useCanvas();
     const options = KeyboardUtils.createKeyOptions(e);
@@ -844,6 +852,7 @@ function canvasMouseDown(e: MouseEvent) {
     if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
         return;
     }
+
     switch (e.button) {
         case MOUSE_LEFT:
             globalEventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
@@ -853,6 +862,7 @@ function canvasMouseDown(e: MouseEvent) {
             return;
     }
 }
+
 function canvasMouseMove(e: MouseEvent) {
     const options = KeyboardUtils.createKeyOptions(e);
     const { x, y } = calculatePosition(e);
@@ -860,19 +870,23 @@ function canvasMouseMove(e: MouseEvent) {
     mouseY.value = coordinateManager.convertYToChart(mouseManager.mouseY);
     globalEventEmitter.emit("MOUSE_MOVE", x, y, options);
 }
+
 function canvasMouseUp(e: MouseEvent) {
     const options = KeyboardUtils.createKeyOptions(e);
     const { x, y } = calculatePosition(e);
     globalEventEmitter.emit("MOUSE_UP", x, y, options);
 }
+
 function canvasMouseEnter() {
     mouseIsInCanvas.value = true;
     globalEventEmitter.emit("MOUSE_ENTER");
 }
+
 function canvasMouseLeave() {
     mouseIsInCanvas.value = false;
     globalEventEmitter.emit("MOUSE_LEAVE");
 }
+
 function windowOnWheel(e: WheelEvent) {
     if (e.ctrlKey) {
         e.preventDefault();
@@ -882,39 +896,49 @@ function windowOnWheel(e: WheelEvent) {
         globalEventEmitter.emit("WHEEL", e.deltaY);
     }
 }
+
 function canvasOnResize() {
     const canvas = store.useCanvas();
     cachedRect = canvas.getBoundingClientRect();
 }
+
 async function windowOnKeyDown(e: KeyboardEvent) {
     if (e.repeat) {
         return;
     }
+
     const handler = getKeyHandler(e, "keydown");
     handler();
 }
+
 async function windowOnKeyUp(e: KeyboardEvent) {
     const handler = getKeyHandler(e, "keyup");
     handler();
 }
+
 function documentOnContextmenu(e: Event) {
     e.preventDefault();
 }
+
 function windowOnBlur() {
     const audio = store.useAudio();
     audio.pause();
     windowIsFocused = false;
 }
+
 function windowOnFocus() {
     windowIsFocused = true;
 }
+
 function audioOnTimeUpdate() {
     const audio = store.useAudio();
     time.value = audio.currentTime;
 }
+
 function audioOnPause() {
     audioIsPlaying.value = false;
 }
+
 function audioOnPlay() {
     audioIsPlaying.value = true;
 }
@@ -992,6 +1016,7 @@ onMounted(() => {
                     const chart = store.useChart();
                     chart.highlightNotes();
                 }
+
                 try {
                     globalEventEmitter.emit("RENDER_FRAME");
                     globalEventEmitter.emit("AUTOPLAY");
@@ -1005,6 +1030,7 @@ onMounted(() => {
                 catch (error) {
                     ElMessage.error(error as Error);
                 }
+
                 const now = performance.now();
                 const delta = now - renderTime;
 
@@ -1023,11 +1049,13 @@ onMounted(() => {
                 if (combo.value !== autoplayManager.combo) {
                     combo.value = autoplayManager.combo;
                 }
+
                 if (score.value !== autoplayManager.score) {
                     score.value = autoplayManager.score;
                 }
                 audio.volume = settingsManager._settings.musicVolume;
             }
+
             if (settingsManager._settings.unlimitFps) {
                 setTimeout(renderLoop);
             }
@@ -1036,6 +1064,7 @@ onMounted(() => {
             }
         }
     };
+
     const tipInterval = setInterval(() => {
         tip.value = Constants.tips[Math.floor(Math.random() * Constants.tips.length)];
     }, TIP_SHOW_TIME);

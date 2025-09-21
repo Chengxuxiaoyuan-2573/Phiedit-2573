@@ -59,6 +59,7 @@ export default class ClipboardManager extends Manager {
         if (this.clipboard.length === 0) {
             throw new Error("剪切板为空");
         }
+
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const mouseManager = store.useManager("mouseManager");

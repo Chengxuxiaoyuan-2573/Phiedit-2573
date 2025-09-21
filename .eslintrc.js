@@ -204,9 +204,14 @@ module.exports = {
             "error",
             {
                 "blankLine": "always",
-                "next": ["function", "class", "block", "block-like", "iife", "const", "let", "var"],
+                "next": ["const", "let", "var"],
                 "prev": ["function", "class", "block", "block-like", "iife"],
-            }
+            },
+            {
+                "blankLine": "always",
+                "next": ["function", "class", "block", "block-like", "iife"],
+                "prev": ["function", "class", "block", "block-like", "iife"],
+            },
         ],
 
         /**

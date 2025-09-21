@@ -36,6 +36,7 @@ export default class MediaUtils {
             if (isString(imageData)) {
                 return imageData;
             }
+
             const blob = imageData instanceof Blob ? imageData : MediaUtils.arrayBufferToBlob(imageData);
             return URL.createObjectURL(blob);
         })();
@@ -46,6 +47,7 @@ export default class MediaUtils {
                 URL.revokeObjectURL(objectUrl);
                 resolve(image);
             };
+
             image.onerror = (e) => {
                 URL.revokeObjectURL(objectUrl);
                 reject(e);
@@ -62,6 +64,7 @@ export default class MediaUtils {
                 URL.revokeObjectURL(objectUrl);
                 resolve(audio);
             };
+
             audio.onerror = (e) => {
                 URL.revokeObjectURL(objectUrl);
                 reject(e);

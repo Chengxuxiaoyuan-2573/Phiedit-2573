@@ -8,6 +8,7 @@ export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T
             return String(error);
         }
     }
+
     function _getMessage(isSucceeded: boolean, operationName: string | undefined, result: unknown) {
         if (operationName === undefined) {
             if (result !== undefined && result !== null) {
@@ -22,6 +23,7 @@ export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T
             return isSucceeded ? `${operationName}成功` : `${operationName}失败`;
         }
     }
+
     return async function (...args: T) {
         try {
             const result = await func(...args);
@@ -34,9 +36,11 @@ export function createCatchErrorByMessage<T extends unknown[]>(func: (...args: T
         }
     };
 }
+
 export async function catchErrorByMessage(func: () => void, operationName: string = "", hintWhenSucceeded = true) {
     await createCatchErrorByMessage(func, operationName, hintWhenSucceeded)();
 }
+
 export async function confirm(func: () => void, message: string, operationName: string) {
     try {
         await ElMessageBox.confirm(message, {
