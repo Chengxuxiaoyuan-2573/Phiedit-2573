@@ -200,6 +200,15 @@ module.exports = {
             switches: "never"
         }],
 
+        "padding-line-between-statements": [
+            "error",
+            {
+                "blankLine": "always",
+                "next": ["function", "class", "block", "block-like", "iife", "const", "let", "var"],
+                "prev": ["function", "class", "block", "block-like", "iife"],
+            }
+        ],
+
         /**
          * 强制使用双引号，禁止使用单引号
          */

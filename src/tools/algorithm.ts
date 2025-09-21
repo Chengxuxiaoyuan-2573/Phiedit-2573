@@ -356,24 +356,51 @@ export class ArrayedObject<K extends string | number | symbol, V> {
     constructor(object: Record<K, V>) {
         this.object = { ...object };
     }
+
+    /**
+     * 把对象中的值进行映射
+     * @param mapFunc 映射函数
+     * @returns ArrayedObject \{ k: f(v) | (k, v) ∈ A \}
+     */
     map<M>(mapFunc: (key: K, value: V) => M): ArrayedObject<K, M> {
         return ArrayedObject.fromEntries(this.entries().map(([key, value]) => [key, mapFunc(key, value)]));
     }
+
+    /**
+     * 筛选对象中的键值
+     * @param filterFunc 筛选函数
+     * @returns ArrayedObject \{ k: v | (k, v) ∈ A, f(k, v) \}
+     */
     filter(filterFunc: (key: K, value: V) => boolean): ArrayedObject<K, V> {
         return ArrayedObject.fromEntries(this.entries().filter(([key, value]) => filterFunc(key, value)));
     }
+
+    /**
+     * 判断对象中的所有键值是否都满足给定的函数
+     * @param filterFunc 判断函数
+     * @returns ∀(k, v) ∈ A, f(k, v)
+     */
     every(filterFunc: (key: K, value: V) => boolean) {
         return this.entries().every(([key, value]) => filterFunc(key, value));
     }
+
+    /**
+     * 判断对象中是否存在键值满足给定的函数
+     * @param filterFunc 判断函数
+     * @returns ∃(k, v) ∈ A, f(k, v)
+     */
     some(filterFunc: (key: K, value: V) => boolean) {
         return this.entries().some(([key, value]) => filterFunc(key, value));
     }
+
     keys(): K[] {
         return Object.keys(this.object) as K[];
     }
+
     values(): V[] {
         return Object.values(this.object) as V[];
     }
+
     entries(): [K, V][] {
         return Object.entries(this.object) as [K, V][];
     }

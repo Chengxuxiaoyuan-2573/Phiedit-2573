@@ -23,19 +23,19 @@
         </MyInputNumber>
 
         <MyDialog open-text="编辑曲线轨迹代码">
-            <MyInput
+            <Codemirror
                 v-model="stateManager.cache.eventFill.code"
                 class="code-input"
-                type="textarea"
-                spellcheck="false"
-                :rows="12"
-                resize="vertical"
+                :extensions="extensions"
+                :tab-size="4"
                 @keydown.stop
             />
             <p>
-                代码为Javascript语言，根据时间t，返回x、y、angle三个结果，将会被自动填入moveX、moveY、rotate事件的值中。
-                t的范围为0~1，0表示曲线轨迹刚开始，1表示曲线轨迹结束。
-                你可以直接使用缓动函数，例如 OutQuad(t)。注意缓动函数每个单词的首字母都要大写。
+                代码为Javascript语言，根据时间t，使用return语句返回x、y、angle三个结果，将会被自动填入moveX、moveY、rotate事件的值中。<br>
+                t的范围为0~1，0表示曲线轨迹刚开始，1表示曲线轨迹结束。<br>
+                你可以直接使用缓动函数，例如 OutQuad(t)。注意缓动函数每个单词的首字母都要大写。<br>
+                如果要使用三角函数等数学工具，请使用 Math 对象。<br>
+                本功能暂时没有对代码进行安全检查，所以请不要轻易粘贴其他人提供的曲线轨迹代码。<br>
             </p>
         </MyDialog>
         <p>
@@ -52,7 +52,7 @@
             <h3>找一个AI（例如Deepseek），复制下面的提示词，输入你想要的效果，并发送：</h3>
             <MyButton
                 type="primary"
-                @click="copyText"
+                @click="copyPromptText"
             >
                 复制提示词
             </MyButton>
@@ -71,12 +71,22 @@ import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import store from "@/store";
 import { catchErrorByMessage } from "@/tools/catchError";
 import MyButton from "@/myElements/MyButton.vue";
-import MyInput from "@/myElements/MyInput.vue";
 import { easingFuncs, EasingType } from "@/models/easing";
+
+import { Codemirror } from "vue-codemirror";
+import { autocompletion } from "@codemirror/autocomplete";
+import { javascript } from "@codemirror/lang-javascript";
+
 const props = defineProps<{
     titleTeleport: string
 }>();
 const stateManager = store.useManager("stateManager");
+
+// 更新extensions配置
+const extensions = [
+    javascript(),
+    autocompletion()
+];
 const prompt = `\
 用Javascript代码实现一个动画，让一条直线以特定的轨迹运动。
 接收一个参数t表示时间，位于0和1之间，0表示动画刚开始，1表示动画结束。
@@ -95,12 +105,7 @@ ${Object.keys(easingFuncs).map(key => EasingType[+key]).join(",")}
 不要输出函数头和末尾的大括号，仅输出中间的代码部分即可。
 请把可以调整的参数放在代码最前面，以变量的形式定义，并解释其含义。
 动画的内容是xxx（在此处描述你想生成的曲线轨迹）`;
-function copyText() {
+function copyPromptText() {
     navigator.clipboard.writeText(prompt);
 }
 </script>
-<style scoped>
-h3 {
-    margin-block: 0.8em;
-}
-</style>
