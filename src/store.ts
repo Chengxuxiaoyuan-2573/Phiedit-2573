@@ -4,7 +4,6 @@ import { ResourcePackage } from "./models/resourcePackage";
 import { INote } from "./models/note";
 import { IEvent } from "./models/event";
 import type { useRoute } from "vue-router";
-import globalEventEmitter from "./eventEmitter";
 import ChartRenderer from "./managers/render/chartRenderer";
 import EditorRenderer from "./managers/render/editorRenderer";
 import ClipboardManager from "./managers/clipboard";
@@ -83,9 +82,6 @@ class Store {
         this.canvasRef = ref(null);
         this.audioRef = ref(null);
         this.route = null;
-        globalEventEmitter.on("TOGGLE_PLAY", () => {
-            this.togglePlay();
-        });
     }
 
     /** 获取管理器 */

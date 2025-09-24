@@ -14,7 +14,7 @@
                         <ElIcon
                             class="play-icon"
                             size="30"
-                            @click="MediaUtils.togglePlay(audioRef)"
+                            @click="globalEventEmitter.emit('TOGGLE_PLAY')"
                         >
                             <VideoPlay v-if="!audioIsPlaying" />
                             <VideoPause v-else />

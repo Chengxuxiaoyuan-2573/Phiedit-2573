@@ -202,6 +202,9 @@ return {
                 audio.play();
             }
         });
+        globalEventEmitter.on("TOGGLE_PLAY", () => {
+            store.togglePlay();
+        });
     }
     get currentJudgeLine() {
         return store.getJudgeLineById(this._state.currentJudgeLineNumber);
