@@ -1,5 +1,4 @@
-import { NumberEvent, ColorEvent, TextEvent } from "./event";
-import { Note } from "./note";
+import { SelectableElement } from "./element";
 type ErrorCode = "ChartReadError.TypeError" | "ChartReadError.MissingProperty" | "ChartReadError.OutOfRange" |
     "ChartReadError.FormatError" |
     "ChartEditError.InvalidHoldTime" | "ChartEditError.InvalidNonHoldTime" | "ChartEditError.NoteOutOfRange" |
@@ -8,11 +7,11 @@ type ErrorCode = "ChartReadError.TypeError" | "ChartReadError.MissingProperty" |
     "ChartEditError.TapAfterDrag" | "ChartEditError.TapAfterFlick" | "ChartEditError.NotSupported" |
     "ChartEditError.InvalidEasingLeftRight" | "ChartEditError.EventDisabled"
 export default class ChartError {
-    objects: (NumberEvent | ColorEvent | TextEvent | Note)[];
+    objects: SelectableElement[];
     constructor(public message: string,
         public code: ErrorCode,
         public level: "error" | "warning" | "info" = "error",
-        ...objects: (Note | NumberEvent | ColorEvent | TextEvent)[]) {
+        ...objects: SelectableElement[]) {
         this.objects = objects;
     }
 }

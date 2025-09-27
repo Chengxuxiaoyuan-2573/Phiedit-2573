@@ -1,3 +1,3 @@
-export interface IObjectizable {
-    toObject(): object;
+export interface IObjectizable<T = object> {
+    toObject(): T;
 }

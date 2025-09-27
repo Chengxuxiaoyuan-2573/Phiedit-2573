@@ -1,12 +1,12 @@
 import { addBeats, Beats, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, MAX_BEATS, MIN_BEATS, subBeats } from "@/models/beats";
 import store from "@/store";
-import { Note } from "@/models/note";
+import { isNoteLike } from "@/models/note";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
-import { NoteOrEvent } from "@/models/event";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils from "@/tools/mathUtils";
 import Constants from "@/constants";
+import { SelectableElement } from "@/models/element";
 export default class CloneManager extends Manager {
     constructor() {
         super();
@@ -31,7 +31,7 @@ export default class CloneManager extends Manager {
         historyManager.group("克隆");
         while (isLessThanBeats(beats, stateManager.cache.clone.timeDuration)) {
             for (const element of selectionManager.selectedElements) {
-                if (element instanceof Note) {
+                if (isNoteLike(element)) {
                     const noteObject = element.toObject();
                     noteObject.startTime = addBeats(noteObject.startTime, beats);
                     noteObject.endTime = addBeats(noteObject.endTime, beats);
@@ -79,9 +79,9 @@ export default class CloneManager extends Manager {
 
         const length = subBeats(maxTime, minTime);
         historyManager.group("连续粘贴");
-        const elements: NoteOrEvent[] = [];
+        const elements: SelectableElement[] = [];
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 const noteObject = element.toObject();
                 noteObject.startTime = addBeats(noteObject.startTime, length);
                 noteObject.endTime = addBeats(noteObject.endTime, length);

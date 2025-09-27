@@ -1,7 +1,7 @@
 <template>
     <div class="note-panel left-inner">
         <Teleport :to="props.titleTeleport">
-            {{ model.typeString }}音符编辑
+            {{ NoteType[model.type] }}音符编辑
         </Teleport>
         音符ID： {{ model.id }}
         <MySelectNoteType
@@ -151,7 +151,7 @@
 <script setup lang='ts'>
 import { formatBeats, makeSureBeatsValid, parseBeats } from "@/models/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef, watch } from "vue";
-import { INote, Note, NoteAbove, NoteFake } from "../models/note";
+import { INote, INoteExtendedOptions, NoteAbove, NoteFake, NoteType } from "../models/note";
 import MyInput from "@/myElements/MyInput.vue";
 import MyInputNumber from "../myElements/MyInputNumber.vue";
 import MySwitch from "../myElements/MySwitch.vue";
@@ -163,7 +163,7 @@ import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 const props = defineProps<{
     titleTeleport: string
 }>();
-const model = defineModel<Note>({
+const model = defineModel<INote & INoteExtendedOptions>({
     required: true
 });
 const inputStartEndTime = useTemplateRef("inputStartEndTime");

@@ -323,22 +323,22 @@
                     title-teleport=".title-left"
                 />
                 <NoteEditPanel
-                    v-else-if="selectionManager.selectedElements[0] instanceof Note"
+                    v-else-if="isNoteLike(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <NumberEventEditPanel
-                    v-else-if="selectionManager.selectedElements[0] instanceof NumberEvent"
+                    v-else-if="isNumberEventLike(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <ColorEventEditPanel
-                    v-else-if="selectionManager.selectedElements[0] instanceof ColorEvent"
+                    v-else-if="isColorEventLike(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <TextEventEditPanel
-                    v-else-if="selectionManager.selectedElements[0] instanceof TextEvent"
+                    v-else-if="isTextEventLike (selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
@@ -563,10 +563,8 @@ import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
 import { catchErrorByMessage, confirm } from "@/tools/catchError";
 
-import { NumberEvent, ColorEvent, TextEvent } from "@/models/event";
-import { Note, NoteType } from "@/models/note";
-import { ResourcePackage } from "@/models/resourcePackage";
-import { ChartPackage } from "@/models/chartPackage";
+import { isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { isNoteLike, NoteType } from "@/models/note";
 
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";
@@ -613,25 +611,30 @@ const loadEnd = inject("loadEnd", () => {
 store.route = useRoute();
 const router = useRouter();
 
+// 先获取全局的 chartPackageLoader 和 resourcePackageLoader 管理器
+const chartPackageLoader = store.useGlobalManager("chartPackageLoader");
+const resourcePackageLoader = store.useGlobalManager("resourcePackageLoader");
+
 loadStart();
 
-// 读取chartPackage
 const chartId = store.getChartId();
+
+// 使用 chartPackageLoader 加载 chartPackage
 const readResult = await window.electronAPI.loadChart(chartId);
+store.chartPackageRef.value = await chartPackageLoader.load(readResult);
 
-store.chartPackageRef.value = await ChartPackage.loadFromChartReadResult(readResult);
+// 使用 resourcePackageLoader 加载 resourcePackage
+const respackArrayBuffer = await window.electronAPI.loadResourcePackage();
+store.resourcePackageRef.value = await resourcePackageLoader.load(respackArrayBuffer);
 
-const { chart, textures } = store.chartPackageRef.value;
+loadEnd();
 
-// 加载resourcePackage
-store.resourcePackageRef.value = await loadResourcePackage();
-
-// 创建并设置managers
+// 创建并设置非全局的 managers
 new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
     store.setManager(managerName, new managerConstructor());
 });
 
-loadEnd();
+const { chart, textures } = store.chartPackageRef.value;
 
 const stateManager = store.useManager("stateManager");
 const settingsManager = store.useManager("settingsManager");
@@ -822,12 +825,6 @@ async function deleteChart() {
     router.push("/");
 }
 
-async function loadResourcePackage() {
-    const arrayBuffer = await window.electronAPI.loadResourcePackage();
-    const resourcePackage = await ResourcePackage.load(arrayBuffer);
-    return resourcePackage;
-}
-
 async function addTextures() {
     const texturePaths = await window.electronAPI.showOpenImageDialog(true);
     if (!texturePaths) {
@@ -1013,7 +1010,6 @@ onMounted(() => {
         if (isRendering) {
             if (windowIsFocused) {
                 if (settingsManager._settings.autoHighlight) {
-                    const chart = store.useChart();
                     chart.highlightNotes();
                 }
 
@@ -1070,7 +1066,10 @@ onMounted(() => {
     }, TIP_SHOW_TIME);
     renderLoop();
     onBeforeUnmount(() => {
+        // 停止播放音乐
         audio.pause();
+
+        // 清除事件监听器
         canvas.removeEventListener("mousedown", canvasMouseDown);
         canvas.removeEventListener("mousemove", canvasMouseMove);
         canvas.removeEventListener("mouseup", canvasMouseUp);
@@ -1085,26 +1084,32 @@ onMounted(() => {
         audio.removeEventListener("timeupdate", audioOnTimeUpdate);
         audio.removeEventListener("pause", audioOnPause);
         audio.removeEventListener("play", audioOnPlay);
+
+        // 停止渲染循环
         isRendering = false;
         requestAnimationFrame(() => {
-            // 确保在下一个帧结束时停止渲染循环
             isRendering = false;
         });
 
-        // 清理canvas和document事件
+        // 移除 canvas
         canvas.remove();
+
+        // 清理 store
         store.chartPackageRef.value = null;
         store.resourcePackageRef.value = null;
         store.canvasRef.value = null;
         store.audioRef.value = null;
         store.route = null;
 
+        // 销毁所有非全局的 managers
         for (const key in store.managers) {
             store.managers[key as keyof typeof store.managers] = null;
         }
 
-        isRendering = false;
+        // 销毁发布订阅的事件监听器
         globalEventEmitter.destroy();
+
+        // 移除 tip 的计时器
         clearInterval(tipInterval);
     });
 });

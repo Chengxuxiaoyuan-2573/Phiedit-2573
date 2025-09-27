@@ -1,6 +1,6 @@
 import { easingFuncs, EasingType } from "@/models/easing";
 import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
-import { Note, NoteAbove, NoteType } from "@/models/note";
+import { INote, INoteHighlight, INoteJudgement, NoteAbove, NoteType } from "@/models/note";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
@@ -15,6 +15,7 @@ import Constants from "@/constants";
 import { ElMessage } from "element-plus";
 import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
+import { ITimeSegment } from "@/models/timeSegment";
 
 interface ShaderInfo {
     name: ShaderName;
@@ -969,16 +970,15 @@ export default class ChartRenderer extends Manager {
 
         const drawRect = canvasUtils.drawRect.bind(ctx);
 
-        enum Priority {
-            Hold,
-            Drag,
-            Tap,
-            Flick,
-            HitFx
-        }
-        type PriorityCount = UnionToTuple<keyof typeof Priority>["length"];
+        const RENDERING_LAYER = {
+            [NoteType.Hold]: 0,
+            [NoteType.Drag]: 1,
+            [NoteType.Tap]: 2,
+            [NoteType.Flick]: 3,
+            hitFx: 4
+        } as const;
+        type PriorityCount = UnionToTuple<keyof typeof RENDERING_LAYER>["length"];
 
-        // const taskQueue = new TaskQueue<void, Priority>();
         const functions: ArrayRepeat<(() => void)[], PriorityCount> = [[], [], [], [], []];
         for (let judgeLineNumber = 0; judgeLineNumber < chart.judgeLineList.length; judgeLineNumber++) {
             const judgeLine = chart.judgeLineList[judgeLineNumber];
@@ -989,7 +989,7 @@ export default class ChartRenderer extends Manager {
                 getAlpha: true
             });
             const currentPositionY = judgeLine.getFloorPositionOfSeconds(seconds);
-            const drawNote = (note: Note) => {
+            const drawNote = (note: INote & ITimeSegment & INoteJudgement & INoteHighlight) => {
                 // 把当前判定线的角度转为弧度
                 const radians = MathUtils.degToRad(judgeLineInfo.angle);
                 const missSeconds = note.getJudgementRange().bad;
@@ -1027,7 +1027,7 @@ export default class ChartRenderer extends Manager {
 
                 if (note.type === NoteType.Hold) {
                     const { type, highlight } = note;
-                    functions[Priority.Hold].push(() => {
+                    functions[RENDERING_LAYER[NoteType.Hold]].push(() => {
                         ctx.globalAlpha = note.alpha / 255;
                         const missed = seconds > startSeconds + missSeconds && note.getJudgement() === "none";
                         if (missed && !note.isFake) {
@@ -1104,7 +1104,7 @@ export default class ChartRenderer extends Manager {
                 }
                 else {
                     const { type, highlight } = note;
-                    functions[Priority[note.typeString]].push(() => {
+                    functions[RENDERING_LAYER[note.type]].push(() => {
                         ctx.globalAlpha = note.alpha / 255;
 
                         // 当前时间大于音符时间，说明音符时间到了还没有击打，显示为即将miss（不透明度降低）
@@ -1163,7 +1163,7 @@ export default class ChartRenderer extends Manager {
 
                         /** 粒子半径 */
                         const particleRadius = 256;
-                        functions[Priority.HitFx].push(() => {
+                        functions[RENDERING_LAYER.hitFx].push(() => {
                             const { x, y, angle } = this.getJudgeLineInfo(judgeLineNumber, hitSeconds, {
                                 getX: true,
                                 getY: true,
@@ -1176,12 +1176,12 @@ export default class ChartRenderer extends Manager {
                             const hash = (a: number, b: number, c: number) => a * a + b * b + c * c;
 
                             /**
-                         * 给这个音符显示打击特效，“这个”音符见外部作用域中的 `note` 变量。
-                         * @param type 判定类型
-                         * @param hitFxStartSeconds 打击特效开始出现的时间
-                         * @param n 打击特效的序号。对于非 Hold 音符或判定为 Bad 的音符，`n` 永远为 0。
-                         * `n` 仅用于计算打击特效粒子的位置
-                        */
+                             * 给这个音符显示打击特效，“这个”音符见外部作用域中的 `note` 变量。
+                             * @param type 判定类型
+                             * @param hitFxStartSeconds 打击特效开始出现的时间
+                             * @param n 打击特效的序号。对于非 Hold 音符或判定为 Bad 的音符，`n` 永远为 0。
+                             * `n` 仅用于计算打击特效粒子的位置
+                             */
                             const showHitFx = (type: "perfect" | "good" | "bad", hitFxStartSeconds: number, n: number) => {
                                 if (type === "bad") {
                                     let startPositionY = judgeLine.getFloorPositionOfSeconds(startSeconds) - judgeLine.getFloorPositionOfSeconds(hitSeconds);
@@ -1280,10 +1280,16 @@ export default class ChartRenderer extends Manager {
                                         resourcePackage.perfectHitFxFrames.length
                                     );
 
-                                    // 用判定线号、音符编号和打击特效的序号生成一个随机数作为种子，用来生成打击特效的粒子
+                                    /** 用判定线号、音符编号和打击特效的序号生成一个随机数作为种子，用来生成打击特效的粒子 */
                                     const randomSeed = hash(judgeLineNumber, noteNumber, n);
+
+                                    /** 用 `randomSeed` 生成的打击特效粒子飞出的角度 */
                                     const angles: readonly number[] = MathUtils.randomNumbers(particleCount, randomSeed, 0, 360);
+
+                                    /** 用 `angles` 计算出的各个粒子运动终点的x、y坐标 */
                                     const xys = angles.map(angle => MathUtils.pole(0, 0, angle, particleRadius));
+
+                                    /** 计算粒子飞出的进度，0表示刚开始，1表示已经结束 */
                                     const progress = (seconds - hitFxStartSeconds) / resourcePackage.config.hitFxDuration;
 
                                     const hitFxPosition = MathUtils.moveAndRotate(x, y, angle, note.positionX, note.yOffset);
@@ -1300,11 +1306,20 @@ export default class ChartRenderer extends Manager {
 
                                     ctx.save();
                                     ctx.translate(canvasX, canvasY);
-                                    if (resourcePackage.config.hitFxRotate) ctx.rotate(radians);
+
+                                    // 如果资源包的 `hitFxRotate` 配置为 `true`，则旋转对应的角度
+                                    if (resourcePackage.config.hitFxRotate) {
+                                        ctx.rotate(radians);
+                                    }
                                     ctx.globalAlpha = 1;
+
+                                    // 绘制当前帧的打击特效
                                     ctx.drawImage(frame, -frame.width / 2, -frame.height / 2);
+
+                                    // 绘制打击特效的粒子
                                     if (!resourcePackage.config.hideParticles) {
                                         xys.forEach(({ x, y }) => {
+                                            // 使用 OutSine 缓动计算打击特效粒子的运动轨迹
                                             drawRect(x * easingFuncs[EasingType.OutSine](progress) - particleSize / 2,
                                                 y * easingFuncs[EasingType.OutSine](progress) - particleSize / 2,
                                                 particleSize,
@@ -1320,23 +1335,21 @@ export default class ChartRenderer extends Manager {
 
                             if (judgement === "perfect" || judgement === "good") {
                                 if (note.type === NoteType.Hold) {
-                                    /**
-                                     * 满足下面不等式时Hold的第n个打击特效可见
-                                     *
-                                     * n >= 0
-                                     * （要是n是负数的话就没意义了）
-                                     *
-                                     * n > (seconds - hitFxDuration - hitSeconds) / hitFxFrequency
-                                     * （即 hitSeconds + n * hitFxFrequency + hitFxDuration > seconds）
-                                     * （打击特效结束时间大于当前时间，即打击特效还没结束）
-                                     *
-                                     * n <= (endSeconds - hitSeconds) / hitFxFrequency
-                                     * （用Hold的结束时间减去被击打的时间，除以打击特效频率，得到的数表示Hold可以显示多少个打击特效）
-                                     *
-                                     * n <= (seconds - hitSeconds) / hitFxFrequency
-                                     * （即 hitSeconds + n * hitFxFrequency <= seconds）
-                                     * （打击特效开始时间小于等于当前时间，即打击特效已经开始了）
-                                     */
+                                    /*
+                                    满足下面不等式时Hold的第n个打击特效可见
+
+                                    n >= 0
+                                    （要是n是负数的话就没意义了）
+
+                                    n > (seconds - hitFxDuration - hitSeconds) / hitFxFrequency（即 hitSeconds + n * hitFxFrequency + hitFxDuration > seconds）
+                                    （打击特效结束时间大于当前时间，即打击特效还没结束）
+
+                                    n <= (endSeconds - hitSeconds) / hitFxFrequency
+                                    （用Hold的结束时间减去被击打的时间，除以打击特效频率，得到的数表示Hold可以显示多少个打击特效）
+
+                                    n <= (seconds - hitSeconds) / hitFxFrequency（即 hitSeconds + n * hitFxFrequency <= seconds）
+                                    （打击特效开始时间小于等于当前时间，即打击特效已经开始了）
+                                    */
 
                                     for (
 

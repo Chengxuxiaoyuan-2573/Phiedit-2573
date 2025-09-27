@@ -1,15 +1,15 @@
-import { NoteOrEvent } from "@/models/event";
 import { reactive } from "vue";
 import globalEventEmitter from "@/eventEmitter";
-import { Note } from "@/models/note";
+import { isNoteLike } from "@/models/note";
 import store from "@/store";
 import Manager from "./abstract";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { createCatchErrorByMessage } from "@/tools/catchError";
+import { SelectableElement } from "@/models/element";
 
 export default class SelectionManager extends Manager {
     /** 被选中的元素。有时也用“selection”来代替“selectedElements”。 */
-    readonly selectedElements: NoteOrEvent[] = reactive([]);
+    readonly selectedElements: SelectableElement[] = reactive([]);
     constructor() {
         super();
         globalEventEmitter.on("DELETE", createCatchErrorByMessage(() => {
@@ -31,14 +31,14 @@ export default class SelectionManager extends Manager {
     }
 
     /** 取消选择所有元素，并选择指定的元素 */
-    select(elements: NoteOrEvent[]) {
+    select(elements: SelectableElement[]) {
         this.selectedElements.splice(0);
         this.selectedElements.push(...elements);
         globalEventEmitter.emit("SELECTION_UPDATE");
     }
 
     /** 在原有选择的基础上添加元素 */
-    addToSelection(elements: NoteOrEvent[]) {
+    addToSelection(elements: SelectableElement[]) {
         let selectionIsChanged = false;
         for (const element of elements) {
             if (!this.selectedElements.includes(element)) {
@@ -53,7 +53,7 @@ export default class SelectionManager extends Manager {
     }
 
     /** 在原有选择的基础上移除元素 */
-    removeFromSelection(elements: NoteOrEvent[]) {
+    removeFromSelection(elements: SelectableElement[]) {
         let selectionIsChanged = false;
         for (const element of elements) {
             const index = this.selectedElements.indexOf(element);
@@ -70,7 +70,7 @@ export default class SelectionManager extends Manager {
             globalEventEmitter.emit("SELECTION_UPDATE");
         }
     }
-    isSelected(element: NoteOrEvent) {
+    isSelected(element: SelectableElement) {
         return this.selectedElements.includes(element);
     }
 
@@ -91,7 +91,7 @@ export default class SelectionManager extends Manager {
         mouseManager.checkMouseUp();
         historyManager.group("删除");
         for (const element of this.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 store.removeNote(element.id);
                 historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
             }

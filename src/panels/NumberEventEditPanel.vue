@@ -185,13 +185,13 @@
 </template>
 <script setup lang="ts">
 import MyButton from "@/myElements/MyButton.vue";
-import { Bezier, IEvent, NumberEvent } from "../models/event";
+import { Bezier, IEvent, IEventExtendedOptions } from "../models/event";
 import MyInput from "../myElements/MyInput.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
 import { addBeats, beatsCompare, formatBeats, isEqualBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef } from "vue";
-import { Ref, watch } from "vue";
+import { watch } from "vue";
 import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
@@ -200,9 +200,9 @@ import { ElTooltip } from "element-plus";
 import MyInputBezier from "@/myElements/MyInputBezier.vue";
 import MyEasing from "@/myElements/MyEasing.vue";
 import MathUtils from "@/tools/mathUtils";
-const model = defineModel<NumberEvent>({
+const model = defineModel<IEvent<number> & IEventExtendedOptions>({
     required: true,
-}) as Ref<NumberEvent>;
+});
 const props = defineProps<{
     titleTeleport: string;
 }>();
@@ -247,7 +247,7 @@ watch(model, () => {
     selectEasing.value?.updateShowedValue();
     switchDisabled.value?.updateShowedValue();
 });
-const inputEvent: Required<IEvent<number>> & EventExtends = reactive({
+const inputEvent: IEvent<number> & EventExtends = reactive({
     startTime: model.value.startTime,
     endTime: model.value.endTime,
     start: model.value.start,
@@ -422,7 +422,7 @@ function swap() {
 function stick() {
     const judgeLine = store.getJudgeLineById(model.value.judgeLineNumber);
     const eventLayer = judgeLine.getEventLayerById(model.value.eventLayerId);
-    const events = eventLayer.getEventsByType(model.value.type) as NumberEvent[];
+    const events = eventLayer.getEventsByType(model.value.type) as IEvent<number>[];
     events.sort((event1, event2) => beatsCompare(event1.endTime, event2.endTime));
 
     // 找到结束时间小于model的开始时间的最大的事件

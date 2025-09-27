@@ -2,11 +2,12 @@ import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import ChartError from "@/models/error";
 import store from "@/store";
-import { Note, NoteType } from "@/models/note";
+import { isNoteLike, Note, NoteType } from "@/models/note";
 import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats } from "@/models/beats";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import Constants from "@/constants";
 import { SEC_TO_MS } from "@/tools/mathUtils";
+import { isEventLike } from "@/models/event";
 
 export default class ErrorManager extends Manager {
     errors: ChartError[] = [];
@@ -79,7 +80,7 @@ export default class ErrorManager extends Manager {
                 // 检查非Hold音符有没有结束时间不等于起始时间的
                 if (note.type !== NoteType.Hold && !isEqualBeats(note.endTime, note.startTime)) {
                     this.errors.push(new ChartError(
-                        `${note.typeString} 音符时间有误，结束时间应等于起始时间`,
+                        `${NoteType[note.type]} 音符时间有误，结束时间应等于起始时间`,
                         "ChartEditError.InvalidNonHoldTime",
                         "error",
                         note
@@ -329,7 +330,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "ChartEditError.EventOutOfRange":
-                    if (error.objects[0] instanceof Note) {
+                    if (isNoteLike(error.objects[0])) {
                         break;
                     }
 
@@ -339,7 +340,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "ChartEditError.InvalidEventTime":
-                    if (error.objects[0] instanceof Note) {
+                    if (isNoteLike(error.objects[0])) {
                         break;
                     }
 
@@ -349,7 +350,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "ChartEditError.InvalidHoldTime":
-                    if (!(error.objects[0] instanceof Note)) {
+                    if (isEventLike(error.objects[0])) {
                         break;
                     }
 

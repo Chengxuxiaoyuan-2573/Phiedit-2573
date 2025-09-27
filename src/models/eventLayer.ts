@@ -37,15 +37,38 @@ export const extendedEventTypes = [
     "text",
 
     // "incline",
-    // "shader",
     // "gif",
 ] as const;
-export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLayer {
+
+export interface IBaseEventLayerIdentifier {
+    readonly isBaseEventLayer: true;
+}
+
+export interface IExtendedEventLayerIdentifier {
+    readonly isExtendedEventLayer: true;
+}
+
+export function isBaseEventLayer(value: unknown): value is IBaseEventLayer {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isBaseEventLayer" in value;
+}
+
+export function isExtendedEventLayer(value: unknown): value is IExtendedEventLayer {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isExtendedEventLayer" in value;
+}
+
+export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLayer, IBaseEventLayerIdentifier {
     moveXEvents: NumberEvent[] = [];
     moveYEvents: NumberEvent[] = [];
     rotateEvents: NumberEvent[] = [];
     alphaEvents: NumberEvent[] = [];
     speedEvents: NumberEvent[] = [];
+    readonly isBaseEventLayer = true;
     eventNumbers = {
         moveX: 0,
         moveY: 0,
@@ -162,7 +185,9 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             if (events.length === 0) {
                 this.addEvent({
                     start: 0,
-                    end: 0
+                    end: 0,
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
                 }, type);
             }
         }
@@ -178,13 +203,14 @@ export interface IExtendedEventLayer {
 }
 
 /** 暂不支持 paint 和 incline 事件 */
-export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedEventLayer {
+export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedEventLayer, IExtendedEventLayerIdentifier {
     scaleXEvents: NumberEvent[] = [];
     scaleYEvents: NumberEvent[] = [];
     colorEvents: ColorEvent[] = [];
     paintEvents: NumberEvent[] = [];
     textEvents: TextEvent[] = [];
     inclineEvents: NumberEvent[] = [];
+    readonly isExtendedEventLayer = true;
     eventNumbers = {
         scaleX: 0,
         scaleY: 0,

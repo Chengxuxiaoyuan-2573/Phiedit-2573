@@ -1,12 +1,12 @@
 import { addBeats, subBeats } from "@/models/beats";
-import { NumberEvent } from "@/models/event";
-import { Note } from "@/models/note";
-import { NoteOrEvent } from "@/models/event";
+import { isNoteLike } from "@/models/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { ElMessageBox } from "element-plus";
+import { SelectableElement } from "@/models/element";
+import { isEventLike } from "@/models/event";
 
 export default class MoveManager extends Manager {
     constructor() {
@@ -23,8 +23,8 @@ export default class MoveManager extends Manager {
         globalEventEmitter.on("MOVE_DOWN", () => {
             this.moveDown();
         });
-        globalEventEmitter.on("MOVE_TO_JUDGE_LINE", () => {
-            this.moveToJudgeLine();
+        globalEventEmitter.on("MOVE_TO_JUDGE_LINE", (num) => {
+            this.moveToJudgeLine(num);
         });
         globalEventEmitter.on("MOVE_TO_PREVIOUS_JUDGE_LINE", createCatchErrorByMessage(() => {
             this.moveToPreviousJudgeLine();
@@ -46,7 +46,7 @@ export default class MoveManager extends Manager {
         const canvas = store.useCanvas();
         historyManager.group("左移");
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, "positionX", element.positionX - canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
                 element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
             }
@@ -66,7 +66,7 @@ export default class MoveManager extends Manager {
         const canvas = store.useCanvas();
         historyManager.group("右移");
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, "positionX", element.positionX + canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
                 element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
             }
@@ -85,7 +85,7 @@ export default class MoveManager extends Manager {
         mouseManager.checkMouseUp();
         historyManager.group("上移");
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
                 historyManager.recordModifyNote(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
@@ -110,7 +110,7 @@ export default class MoveManager extends Manager {
         mouseManager.checkMouseUp();
         historyManager.group("下移");
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
                 historyManager.recordModifyNote(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
             }
@@ -132,15 +132,15 @@ export default class MoveManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
-        const elements = new Array<NoteOrEvent>();
+        const elements = new Array<SelectableElement>();
         historyManager.group(`移到${targetJudgeLineNumber}号判定线`);
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 const note = store.addNote(element.toObject(), targetJudgeLineNumber);
                 elements.push(note);
                 historyManager.recordAddNote(element.id);
             }
-            else if (element instanceof NumberEvent) {
+            else if (isEventLike(element)) {
                 const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
                 elements.push(event);
                 historyManager.recordAddEvent(element.id);

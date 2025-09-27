@@ -26,6 +26,8 @@ import AutoplayManager from "./managers/autoplay";
 import ErrorManager from "./managers/error";
 import CoordinateManager from "./managers/coordinate";
 import MutipleEditManager from "./managers/mutipleEdit";
+import ChartPackageLoader from "./managers/chartPackageLoader";
+import ResourcePackageLoader from "./managers/resourcePackageLoader";
 
 import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
 import { ArrayedObject } from "./tools/algorithm";
@@ -34,7 +36,7 @@ import MediaUtils from "./tools/mediaUtils";
 
 /**
  * 用来存储 managers 的构造函数
- * 导入的 managers 只能在这里使用，不要直接调用构造函数！
+ * 导入的 managers 只能在这里使用，不要直接在本文件中调用构造函数！
  */
 export const managersMap = {
     chartRenderer: ChartRenderer,
@@ -73,9 +75,17 @@ class Store {
     audioRef: Ref<HTMLAudioElement | null>;
     route: ReturnType<typeof useRoute> | null;
 
-    managers: {
+    readonly audioContext = new AudioContext();
+
+    readonly managers: {
         [key in keyof ManagersMap]: ManagersMap[key] | null;
     } = new ArrayedObject(managersMap).map(() => null).toObject();
+
+    /** 全局管理器，在整个应用的生命周期中仅创建一次 */
+    readonly globalManagers = {
+        chartPackageLoader: new ChartPackageLoader(),
+        resourcePackageLoader: new ResourcePackageLoader()
+    };
     constructor() {
         this.chartPackageRef = ref(null);
         this.resourcePackageRef = ref(null);
@@ -88,7 +98,7 @@ class Store {
     useManager<T extends keyof typeof this.managers>(name: T): NonNullable<typeof this.managers[T]> {
         const manager = this.managers[name];
         if (manager === null) {
-            throw new Error(`${name}没有初始化`);
+            throw new Error(`${name} 没有初始化`);
         }
         return manager;
     }
@@ -96,6 +106,10 @@ class Store {
     /** 设置管理器 */
     setManager<T extends keyof typeof this.managers>(name: T, manager: NonNullable<typeof this.managers[T]>) {
         this.managers[name] = manager;
+    }
+
+    useGlobalManager<T extends keyof typeof this.globalManagers>(name: T) {
+        return this.globalManagers[name];
     }
 
     useChartPackage() {
@@ -213,7 +227,9 @@ class Store {
     }
     parseNoteId(id: string) {
         const split = id.split("-");
-        if (split.length !== NOTE_ID_PARTS) throw new Error(`Invalid note id: ${id}, because it has ${split.length} parts`);
+        if (split.length !== NOTE_ID_PARTS) {
+            throw new Error(`音符 id 错误：${id}`);
+        }
         return {
             judgeLineNumber: parseInt(split[0], 10),
             noteNumber: parseInt(split[2], 10)
@@ -221,7 +237,9 @@ class Store {
     }
     parseEventId(id: string) {
         const split = id.split("-");
-        if (split.length !== EVENT_ID_PARTS) throw new Error(`Invalid event id: ${id}, because it has ${split.length} parts`);
+        if (split.length !== EVENT_ID_PARTS) {
+            throw new Error(`事件 id 错误：${id}`);
+        }
         return {
             judgeLineNumber: parseInt(split[0], 10),
             eventLayerId: split[1],
@@ -231,8 +249,8 @@ class Store {
     }
 
     /**
-     * 根据id获取音符
-     * 音符id的格式为 <判定线编号>-note-<音符编号>
+     * 根据 id 获取音符
+     * 音符 id 的格式为：<判定线编号>-note-<音符编号>
      */
     getNoteById(id: string) {
         const chart = this.useChart();
@@ -242,8 +260,8 @@ class Store {
     }
 
     /**
-     * 根据id获取事件
-     * 事件id的格式为 <判定线编号>-<事件层级编号>-<事件种类>-<事件编号>
+     * 根据 id 获取事件
+     * 事件 id 的格式为：<判定线编号>-<事件层级编号>-<事件种类>-<事件编号>
      */
     getEventById(id: string) {
         const chart = this.useChart();

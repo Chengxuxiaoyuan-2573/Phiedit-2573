@@ -2,16 +2,16 @@ import Constants from "@/constants";
 import { NoteType } from "@/models/note";
 import store from "@/store";
 import { BoxWithData } from "@/tools/box";
-import { NoteOrEvent } from "@/models/event";
 import Manager from "./abstract";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { SelectableElement } from "@/models/element";
 
 export default class BoxesManager extends Manager {
     /**
      * 获取碰撞箱。使用绝对坐标。
      * 绝对坐标的上下和相对坐标是相反的，也就是说，虽然返回的碰撞箱top会比bottom小，但转换成相对坐标后top就会比bottom大了
      */
-    calculateBoxes(): BoxWithData<NoteOrEvent>[] {
+    calculateBoxes(): BoxWithData<SelectableElement>[] {
         const settingsManager = store.useManager("settingsManager");
         const stateManager = store.useManager("stateManager");
         const coordinateManager = store.useManager("coordinateManager");

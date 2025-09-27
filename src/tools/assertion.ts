@@ -1,7 +1,9 @@
 import { isString } from "lodash";
 import { Typeof } from "./typeTools";
 
-/** 用于给输入的数据进行检查 */
+/**
+ * 用于给输入的数据进行检查，类似于 Python 中的 assert 语句
+ */
 export default class Assertion {
     value: unknown;
     constructor(value: unknown) {

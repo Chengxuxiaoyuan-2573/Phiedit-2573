@@ -136,22 +136,22 @@
 </template>
 <script setup lang="ts">
 import MyButton from "@/myElements/MyButton.vue";
-import { Bezier, IEvent, TextEvent } from "../models/event";
+import { Bezier, IEvent, IEventExtendedOptions } from "../models/event";
 import MyInput from "../myElements/MyInput.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
 import { addBeats, beatsCompare, formatBeats, isEqualBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef } from "vue";
-import { Ref, watch } from "vue";
+import { watch } from "vue";
 import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import MyEasing from "@/myElements/MyEasing.vue";
 import MyInputBezier from "@/myElements/MyInputBezier.vue";
-const model = defineModel<TextEvent>({
+const model = defineModel<IEvent<string> & IEventExtendedOptions>({
     required: true,
-}) as Ref<TextEvent>;
+});
 const props = defineProps<{
     titleTeleport: string;
 }>();
@@ -196,7 +196,7 @@ watch(model, () => {
     switchDisabled.value?.updateShowedValue();
     inputBezier.value?.updateShowedValue();
 });
-const inputEvent: Required<IEvent<string>> & EventExtends = reactive({
+const inputEvent: IEvent<string> & EventExtends = reactive({
     startTime: model.value.startTime,
     endTime: model.value.endTime,
     start: model.value.start,
@@ -345,7 +345,7 @@ function swap() {
 function stick() {
     const judgeLine = store.getJudgeLineById(model.value.judgeLineNumber);
     const eventLayer = judgeLine.getEventLayerById(model.value.eventLayerId);
-    const events = eventLayer.getEventsByType(model.value.type) as TextEvent[];
+    const events = eventLayer.getEventsByType(model.value.type) as IEvent<string>[];
     events.sort((event1, event2) => beatsCompare(event1.endTime, event2.endTime));
 
     // 找到结束时间小于model的开始时间的最大的事件

@@ -37,6 +37,8 @@ export interface IChartMeta {
 
 /** 当前是 0.1.0 版本 */
 const VERSION = 10;
+
+/** 谱面元数据，是响应式的 */
 export class ChartMeta implements IChartMeta, IObjectizable {
     charter = "unknown";
     composer = "unknown";

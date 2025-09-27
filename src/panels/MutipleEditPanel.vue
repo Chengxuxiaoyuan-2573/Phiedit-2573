@@ -272,7 +272,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { Note, NoteType } from "@/models/note";
+import { isNoteLike, Note, NoteType } from "@/models/note";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyButton from "@/myElements/MyButton.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -280,7 +280,6 @@ import MyDialog from "@/myElements/MyDialog.vue";
 import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
-import { ColorEvent, NumberEvent, TextEvent } from "@/models/event";
 import MySwitch from "@/myElements/MySwitch.vue";
 import { EasingType } from "@/models/easing";
 import MySelect from "@/myElements/MySelect.vue";
@@ -293,6 +292,7 @@ import MyInput from "@/myElements/MyInput.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import { isColorEventLike, isEventLike, isNumberEventLike, isTextEventLike } from "@/models/event";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -403,13 +403,13 @@ const paramType = computed(() => {
             return "easing";
         }
         else {
-            if (selectionManager.selectedElements.every(element => element instanceof NumberEvent)) {
+            if (selectionManager.selectedElements.every(isNumberEventLike)) {
                 return "number";
             }
-            else if (selectionManager.selectedElements.every(element => element instanceof ColorEvent)) {
+            else if (selectionManager.selectedElements.every(isColorEventLike)) {
                 return "color";
             }
-            else if (selectionManager.selectedElements.every(element => element instanceof TextEvent)) {
+            else if (selectionManager.selectedElements.every(isTextEventLike)) {
                 return "text";
             }
             else {
@@ -588,10 +588,10 @@ function selectionUpdateHandler() {
         return;
     }
 
-    if (selectedElements.every(element => element instanceof Note)) {
+    if (selectedElements.every(element => isNoteLike(element))) {
         stateManager.cache.mutipleEdit.type = "note";
     }
-    else if (selectedElements.every(element => !(element instanceof Note))) {
+    else if (selectedElements.every(element => isEventLike(element))) {
         stateManager.cache.mutipleEdit.type = "event";
         stateManager.cache.mutipleEdit.eventTypes.length = 0;
         for (const event of selectedElements) {

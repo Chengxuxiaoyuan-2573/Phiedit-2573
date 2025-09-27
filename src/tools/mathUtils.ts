@@ -6,6 +6,14 @@ export const KB_TO_BYTE = 1024;
 export const HOUR_TO_MIN = 60;
 export const MIN_TO_SEC = 60;
 export const SEC_TO_MS = 1000;
+
+/**
+ * 所有与坐标计算相关的方法，角度为 0 时向右，角度为 90 时向下，
+ * 因为在 RPE 中，0 度代表判定线面向上方，此时向右为判定线的x轴正方向；
+ * 90 度代表判定线面向右方，此时向下为判定线的x轴正方向
+ *
+ * @class 数学工具类
+ */
 export default class MathUtils {
     /**
      * 求从 (x1, y1) 点往 dir 方向移动 x2，左转 90 度，再移动 y2 得到的坐标
@@ -33,8 +41,11 @@ export default class MathUtils {
     }
 
     /**
-     * 把以 (x, y) 为原点的极坐标转换为直角坐标
-     * theta 为 0 表示向右（X轴正方向），为 90 表示向下（Y轴负方向）
+     * 以直角坐标系的 (x, y) 为原点建立极坐标系，然后将极坐标转换为直角坐标
+     * @param x 极坐标原点在直角坐标系中的x坐标
+     * @param y 极坐标原点在直角坐标系中的y坐标
+     * @param theta 点在极坐标原点的方向，为 0 表示向右（X轴正方向），为 90 表示向下（Y轴负方向）
+     * @param r 点离极坐标原点的距离
      */
     static pole(x: number, y: number, theta: number, r: number) {
         return this.moveAndRotate(x, y, theta, r, 0);

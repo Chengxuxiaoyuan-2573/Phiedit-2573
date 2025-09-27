@@ -1,6 +1,6 @@
 import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { NumberEvent, interpolateNumberEventValue, findLastEvent, ColorEvent, TextEvent, interpolateColorEventValue, interpolateTextEventValue } from "@/models/event";
-import { Note, NoteType } from "@/models/note";
+import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { isNoteLike, NoteType } from "@/models/note";
 import { checkAndSort } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
@@ -11,8 +11,9 @@ import store from "@/store";
 import Manager from "../abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
 import { BottomText } from "../settings";
+import { FullEvent } from "@/models/element";
 
 export default class EditorRenderer extends Manager {
     constructor() {
@@ -147,7 +148,7 @@ export default class EditorRenderer extends Manager {
 
         const types = (() => {
             const eventLayer = stateManager.currentEventLayer;
-            if (eventLayer instanceof BaseEventLayer) {
+            if (isBaseEventLayer(eventLayer)) {
                 return baseEventTypes;
             }
             else {
@@ -261,7 +262,7 @@ export default class EditorRenderer extends Manager {
                 ctx.drawImage(body, noteX - noteWidth / 2, noteEndY, noteWidth, noteHeight);
                 ctx.drawImage(end, noteX - noteWidth / 2, noteEndY - noteEndHeight, noteWidth, noteEndHeight);
                 const box = new Box(noteEndY - noteEndHeight, noteStartY + noteHeadHeight, noteX - noteWidth / 2, noteX + noteWidth / 2);
-                if (!(note instanceof Note)) continue;
+                if (!isNoteLike(note)) continue;
                 if (selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
@@ -302,7 +303,7 @@ export default class EditorRenderer extends Manager {
                     noteWidth,
                     noteHeight);
                 const box = new Box(noteY - noteHeight / 2, noteY + noteHeight / 2, noteX - noteWidth / 2, noteX + noteWidth / 2);
-                if (!(note instanceof Note)) continue;
+                if (!isNoteLike(note)) continue;
                 if (selectionManager.isSelected(note)) {
                     drawRect(
                         noteX - noteWidth / 2,
@@ -364,7 +365,7 @@ export default class EditorRenderer extends Manager {
         const writeText = canvasUtils.writeText.bind(ctx);
         const types = (() => {
             const eventLayer = stateManager.currentEventLayer;
-            if (eventLayer instanceof BaseEventLayer) {
+            if (isBaseEventLayer(eventLayer)) {
                 return baseEventTypes;
             }
             else {
@@ -379,11 +380,11 @@ export default class EditorRenderer extends Manager {
             const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (column + 0.5) / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
 
             // 确保事件按时间顺序排列
-            checkAndSort<NumberEvent | ColorEvent | TextEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
+            checkAndSort<FullEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
 
             // 给事件分组，首尾相连的事件为一组
-            const eventGroups: (NumberEvent | ColorEvent | TextEvent)[][] = [];
-            let currentGroup: (NumberEvent | ColorEvent | TextEvent)[] = [];
+            const eventGroups: FullEvent[][] = [];
+            let currentGroup: FullEvent[] = [];
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
 
@@ -401,12 +402,12 @@ export default class EditorRenderer extends Manager {
             for (let i = 0; i < eventGroups.length; i++) {
                 const group = eventGroups[i];
                 const minValue = (() => {
-                    if (group.every(event => event instanceof NumberEvent)) {
+                    if (group.every(event => isNumberEventLike(event))) {
                         return Math.min(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
                 const maxValue = (() => {
-                    if (group.every(event => event instanceof NumberEvent)) {
+                    if (group.every(event => isNumberEventLike(event))) {
                         return Math.max(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
@@ -487,7 +488,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示数字事件的曲线
-                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && event instanceof NumberEvent) {
+                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && isNumberEventLike(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 5;
                         ctx.beginPath();
@@ -522,7 +523,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示颜色事件的渐变条
-                    else if (event instanceof ColorEvent) {
+                    else if (isColorEventLike(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 1;
                         for (let sec = startSeconds; sec <= endSeconds; sec += Constants.EDITOR_VIEW_EVENT_LINE_PRECISION) {
@@ -553,14 +554,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (event instanceof NumberEvent) {
+                        if (isNumberEventLike(event)) {
                             writeText(event.start.toFixed(2),
                                 eventX,
                                 eventStartY - 1,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (event instanceof TextEvent) {
+                        else if (isTextEventLike(event)) {
                             writeText(event.start,
                                 eventX,
                                 eventStartY - 1,
@@ -577,14 +578,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (event instanceof NumberEvent) {
+                        if (isNumberEventLike(event)) {
                             writeText(event.end.toFixed(2),
                                 eventX,
                                 eventEndY,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (event instanceof TextEvent) {
+                        else if (isTextEventLike(event)) {
                             writeText(event.end,
                                 eventX,
                                 eventEndY,
@@ -601,19 +602,19 @@ export default class EditorRenderer extends Manager {
             }
             writeText(type, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
             if (type === "color") {
-                const event = findLastEvent(events as ColorEvent[], seconds);
+                const event = findLastEvent(events as FullEvent<RGBcolor>[], seconds);
                 const color: RGBcolor = event ? interpolateColorEventValue(event, seconds) : [255, 255, 255];
                 writeText(colorToHex(color), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, color, true);
             }
             else if (type === "text") {
-                const event = findLastEvent(events as TextEvent[], seconds);
+                const event = findLastEvent(events as FullEvent<string>[], seconds);
                 const text = event ? interpolateTextEventValue(event, seconds) : "";
 
                 // writeText(text, eventX, 860, 30, "white", false);
                 writeText(text, eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
             else {
-                const event = findLastEvent(events as NumberEvent[], seconds);
+                const event = findLastEvent(events as FullEvent<number>[], seconds);
                 let currentEventValue = event ? interpolateNumberEventValue(event, seconds) : undefined;
                 switch (type) {
                     case "scaleX":

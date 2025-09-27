@@ -1,7 +1,7 @@
-import { Note, NoteAbove, NoteFake, NoteType } from "@/models/note";
+import { isNoteLike, NoteAbove, NoteFake, NoteType } from "@/models/note";
 import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
-import { Bezier, NoteOrEvent } from "@/models/event";
+import { Bezier } from "@/models/event";
 import { clamp, floor } from "lodash";
 import Constants from "../constants";
 import globalEventEmitter from "@/eventEmitter";
@@ -9,10 +9,11 @@ import { EasingType } from "@/models/easing";
 import Manager from "./abstract";
 import store from "@/store";
 import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } from "@/models/beats";
-import { ColorEvent, findLastEvent, NumberEvent, TextEvent } from "@/models/event";
+import { findLastEvent } from "@/models/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { ElMessage } from "element-plus";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
+import { FullEvent, SelectableElement } from "@/models/element";
 export enum MouseMoveMode {
     None, Drag, DragEnd, Select
 }
@@ -40,7 +41,7 @@ export default class MouseManager extends Manager {
     private oldPositionX: number = 0;
 
     // 已被添加还没有被记录的元素
-    private addedElement: NoteOrEvent | null = null;
+    private addedElement: SelectableElement | null = null;
     private wheelVelocity: number = 0;
     isHovering = false;
     constructor() {
@@ -97,7 +98,7 @@ export default class MouseManager extends Manager {
                 this.addedElement.endTime = addBeats(this.addedElement.startTime, [0, 1, stateManager.state.horizonalLineCount]);
             }
             this.addedElement.makeSureTimeValid();
-            if (this.addedElement instanceof Note) {
+            if (isNoteLike(this.addedElement)) {
                 historyManager.recordAddNote(this.addedElement.id);
             }
             else {
@@ -128,7 +129,7 @@ export default class MouseManager extends Manager {
             // Skip modification recording for newly added elements
             if (this.addedElement === null) {
                 if (this.mouseMoveMode === MouseMoveMode.Drag) {
-                    if (firstElement instanceof Note) {
+                    if (isNoteLike(firstElement)) {
                         historyManager.recordModifyNote(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
                         historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
                     }
@@ -137,7 +138,7 @@ export default class MouseManager extends Manager {
                     }
                 }
                 else {
-                    if (firstElement instanceof Note) {
+                    if (isNoteLike(firstElement)) {
                         historyManager.recordModifyNote(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
                         historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
                     }
@@ -174,7 +175,7 @@ export default class MouseManager extends Manager {
         const firstElement = selectionManager.selectedElements[0];
         switch (this.mouseMoveMode) {
             case MouseMoveMode.Drag: {
-                if (firstElement instanceof Note && firstElement.type !== NoteType.Hold) {
+                if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
                     store.setCursor("move");
                 }
                 else {
@@ -182,7 +183,7 @@ export default class MouseManager extends Manager {
                 }
 
                 const beats = coordinateManager.attatchY(y);
-                if (firstElement instanceof Note) {
+                if (isNoteLike(firstElement)) {
                     firstElement.startTime = beats;
                     firstElement.positionX = coordinateManager.attatchX(x);
                 }
@@ -199,7 +200,7 @@ export default class MouseManager extends Manager {
             }
 
             case MouseMoveMode.DragEnd: {
-                if (firstElement instanceof Note && firstElement.type !== NoteType.Hold) {
+                if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
                     store.setCursor("move");
                 }
                 else {
@@ -207,7 +208,7 @@ export default class MouseManager extends Manager {
                 }
 
                 const beats = coordinateManager.attatchY(y);
-                if (firstElement instanceof Note) {
+                if (isNoteLike(firstElement)) {
                     firstElement.endTime = beats;
                     firstElement.positionX = coordinateManager.attatchX(x);
                 }
@@ -236,7 +237,7 @@ export default class MouseManager extends Manager {
             default: {
                 const clickedBox = this.getClickedBox(x, y);
                 const clickedObject = clickedBox ? clickedBox.data : null;
-                if (clickedObject instanceof Note && clickedObject.type !== NoteType.Hold) {
+                if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold) {
                     store.setCursor("default");
                     break;
                 }
@@ -268,7 +269,7 @@ export default class MouseManager extends Manager {
         const coordinateManager = store.useManager("coordinateManager");
         const boxes = boxesManager.calculateBoxes();
         let minDistance = Infinity;
-        let clickedBox: BoxWithData<NoteOrEvent> | null = null;
+        let clickedBox: BoxWithData<SelectableElement> | null = null;
         for (const box of boxes) {
             if (box.touch(x, coordinateManager.absolute(y))) {
                 const distance = MathUtils.distance(x, y, box.middleX, box.middleY);
@@ -307,7 +308,7 @@ export default class MouseManager extends Manager {
                 // 如果是单选，就取消选择所有，只选择这个元素
                 if (selectionManager.selectedElements.includes(clickedObject)) {
                     this.oldTime = clickedObject.startTime;
-                    if (clickedObject instanceof Note) {
+                    if (isNoteLike(clickedObject)) {
                         this.oldPositionX = clickedObject.positionX;
                     }
                 }
@@ -324,7 +325,7 @@ export default class MouseManager extends Manager {
                 }
 
                 // 非Hold音符不能拖动尾部，改为拖动头部
-                if (clickedObject instanceof Note && clickedObject.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
+                if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
                     this.mouseMoveMode = MouseMoveMode.Drag;
                 }
             }
@@ -387,7 +388,7 @@ export default class MouseManager extends Manager {
             const track = floor((x - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) / (Constants.EDITOR_VIEW_EVENTS_VIEWBOX.right - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) * types.length);
             const type = types[track];
             const timeSeconds = beatsToSeconds(chart.BPMList, time);
-            const lastEvent = findLastEvent<NumberEvent | ColorEvent | TextEvent>(stateManager.currentEventLayer.getEventsByType(type), timeSeconds);
+            const lastEvent = findLastEvent<FullEvent>(stateManager.currentEventLayer.getEventsByType(type), timeSeconds);
             const eventValue = lastEvent?.end ?? (() => {
                 if (type === "scaleX" || type === "scaleY") {
                     return 1;

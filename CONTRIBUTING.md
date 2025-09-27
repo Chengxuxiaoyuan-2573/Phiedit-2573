@@ -93,7 +93,7 @@
 
 文件只能依赖比该文件依赖等级更低的文件，标星号的还可以直接依赖同级的文件。
 除了 [main.ts](src/main.ts) 以外，请不要在 Typescript 文件中直接引用 Vue 文件。
-特殊说明：[managers 下的文件](src/managers/) 内部不能相互依赖，他们必须依赖 [store.ts](src/store.ts)。
+特殊说明：[managers 下的文件](src/managers/) 不能相互依赖，他们必须通过依赖 [store.ts](src/store.ts) 来间接依赖其他 managers（详见 [数据使用规范第 1 条](#数据使用规范)。
 
 ### 单一职责
 
@@ -106,7 +106,7 @@
 
 - 函数和变量命名应该使用小驼峰命名法，例如 `myVariable`、`myFunction`。
 - 类和组件的命名应该使用大驼峰命名法，例如 `MyClass`、`MyComponent`。
-- 驼峰命名法的特殊情况：含有数字或者全大写简称时，后面的一个单词要用全小写，比如应该是 `RGBcolor` 而不是 `RGBColor`。
+- 驼峰命名法的特殊情况：含有数字或者全大写简称时，数字或简称后面的一个单词要用全小写，比如应该是 `RGBcolor` 而不是 `RGBColor`。
 - HTML 的 class 名和 id 名应该使用小写短横线命名法，例如 `.my-class`、`#my-id`。
 - 常量名称以及 [eventEmitter.ts](src/eventEmitter.ts) 中的事件名称应该使用大写下划线命名法，例如 `MY_CONSTANT`、`MY_EVENT_NAME`。
 - 变量应该以名词或名词性短语命名，例如 `store`、`judgeLineNumber`。
@@ -126,7 +126,7 @@
 
 | 正义               | 反义                 |
 | ------------------ | -------------------- |
-| `add`              | `remove` 或 `delete` |
+| `add` 或 `insert`  | `remove` 或 `delete` |
 | `push`（压入）     | `pop`（弹出）        |
 | `push`（推送）     | `pull`（拉取）       |
 | `get`              | `set`                |
@@ -281,6 +281,7 @@ method(1, 2, 3, {
 ### 数据使用规范
 
 - 如果你要在 [managers](src/managers/) 中使用其他 managers 的数据或方法，请使用 [store.useManager()](src/store.ts) 方法。
+- [store.useGlobalManager()](src/store.ts) 是用来获取全局 manager 的，生命周期为从打开软件到关闭软件，在退出谱面时不会被卸载，在进入谱面时也不会被重新加载。
 - 如果你要获取任何数据，例如谱面或资源包，必须使用 [store.ts](src/store.ts) 所提供的方法，如 `useChart()`、`useChartPackage()`、`useResourcePackage()` 等。
 - 所有添加、删除音符或事件的操作都应该使用 [store.ts](src/store.ts) 提供的方法。添加之后，请确保你使用了 [historyManager](src/managers/history.ts) 来记录该操作的历史记录。
 - [store.ts](src/store.ts) 的生命周期从打开软件开始一直到关闭软件，所以在组件卸载时，请手动把不需要的数据设为 `null`。
@@ -296,10 +297,10 @@ method(1, 2, 3, {
 - [src](src) 下的所有代码文件都应该是 Typescript 文件，Vue 组件中也应该使用 `<script setup lang="ts">`。不要出现 `.js` 文件。（当然，配置文件除外）
 - 对于AI（人工智能）写的或请他人写的代码，请确保你理解了这段代码的意思再加进项目中。
 - 对于较复杂难理解的逻辑，请添加注释，以确保他人能够理解你的代码。请尽量使用文档注释而不是普通注释，因为文档注释可以被你的代码编辑器识别，并显示在代码提示中。
-- 在 [managers](src/managers/) 中，如果发现用户传入的参数有误时，不要直接 return。请使用 `throw new Error()` 抛出一个错误，并在 [`globalEventEmitter.on()`](src/eventEmitter.ts) 中使用 [`createCatchErrorByMessage()`](src/tools/catchError.ts) 包裹住函数以捕获错误，这样该错误会在界面的顶部显示为一个弹窗。
+- 在 [managers](src/managers/) 中，如果发现用户传入的参数有误时，不要直接 `return`。请使用 `throw new Error()` 抛出一个错误，并在 [`globalEventEmitter.on()`](src/eventEmitter.ts) 中使用 [`createCatchErrorByMessage()`](src/tools/catchError.ts) 包裹住函数以捕获错误，这样该错误会在界面的顶部显示为一个弹窗。
 - 路径的拼接请使用 `path` 库中的 `path.join()` 方法，不要直接把字符串相加，也不要使用模板字符串拼接。
 - Javascript 中，对负数做取模运算仍会返回负数。如果这不合你的预期，请使用 [`MathUtils.mod`](src/tools/mathUtils.ts) 函数来处理负数的取模运算。
-- 不要用 `var` 定义变量，请使用 `let` 或 `const`。如果变量没有被修改过，必须使用 `const`。
+- 不要在 [managers](src/managers) 中直接引用 [models](src/models) 的具体实现类来判断一个对象是否属于这个类。你可以引用 `isNoteLike()` 或者 `isEventLike()` 等函数。
 
 ### UI 组件规范
 
@@ -318,14 +319,14 @@ method(1, 2, 3, {
 ## Pull Request 审核标准
 
 - Pull Request 的目标分支必须是 dev（开发分支），而非 master（主分支）。
-- Pull Request 的描述中必须包含以下内容：
+- Pull Request 的内容规定：
   
-  - 修改目的（如修复 Bug、新增功能）
-  - 关联的 Issue 编号（如 Closes #123）
-  - 测试情况（如是否通过 [build.cmd](build.cmd) 构建测试）
+  - 修改目的（如修复 Bug、新增功能，必选）
+  - 测试情况（如是否通过 [build.cmd](build.cmd) 构建测试，必选）
+  - 关联的 Issue 编号（以 # 开头，可选）
 
 - Commit 的信息需遵守 [Commit 规范](https://www.conventionalcommits.org/zh-hans/)。
-- 需通过 [build.cmd](build.cmd) 构建测试，编译后的安装包安装后可以正常运行，不能有软件打不开、功能失效等严重 bug。
+- 需通过 [build.cmd](build.cmd) 构建测试，编译后的安装包安装后可以正常运行，不能有软件打不开、功能失效等严重 bug，且必须达到修改目的。
 - 需遵循本文件 [注意事项](#注意事项) 部分的规定。
 
 <!-- 这些规则已被注释禁用
@@ -339,6 +340,8 @@ method(1, 2, 3, {
 - `feature/xxx`：新功能
 - `fix/xxx`：修复 bug
 - `hotfix/xxx`：紧急修复 bug
+- `refactor/xxx`：重构代码
+- `docs/xxx`：文档修改
 
 ## 备注
 

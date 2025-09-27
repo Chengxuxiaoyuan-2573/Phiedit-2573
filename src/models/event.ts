@@ -1,16 +1,14 @@
 import { BEZIER_POINTS_LENGTH, BezierPoints, cubicBezierEase, easingFuncs, EasingType, isEasingType } from "./easing";
-import { Beats, getBeatsValue, beatsToSeconds, makeSureBeatsValid, BPM, addBeats, isGreaterThanBeats, isLessThanBeats, isLessThanOrEqualBeats, isGreaterThanOrEqualBeats } from "./beats";
-import { isArrayOfNumbers } from "../tools/typeTools";
+import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
+import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
 import { checkAndSort } from "@/tools/algorithm";
 import ChartError from "./error";
-import { Note } from "./note";
-import { ITimeSegment } from "./timeSegment";
+import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
 import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
-export type NoteOrEvent = Note | NumberEvent | ColorEvent | TextEvent;
-export interface IEvent<T> {
+export interface IEvent<T = unknown> {
     bezier: 0 | 1;
     bezierPoints: BezierPoints;
     easingLeft: number;
@@ -22,18 +20,21 @@ export interface IEvent<T> {
     endTime: Beats;
 
     /** 暂时无用且不可编辑，RPE中代表事件的绑定组 */
-    linkgroup?: number;
+    linkgroup: number;
 
     /** 事件是否被禁用 */
-    isDisabled?: boolean;
+    isDisabled: boolean;
 }
-interface EventOptions {
+export interface IEventExtendedOptions {
     judgeLineNumber: number;
     eventLayerId: string;
     eventNumber: number;
     BPMList: BPM[];
-    type: string;
-    id?: string;
+    type: EventType;
+    id: string;
+}
+interface IEventIdentifier {
+    readonly isEvent: true
 }
 export enum Bezier {
     On = 1,
@@ -42,7 +43,36 @@ export enum Bezier {
 export function isBezier(value: unknown): value is Bezier {
     return value === Bezier.On || value === Bezier.Off;
 }
-export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text"] as const;
+
+export function isEventLike(value: unknown): value is IEvent {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isEvent" in value;
+}
+
+export function isNumberEventLike(value: unknown): value is IEvent<number> {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isNumberEvent" in value;
+}
+
+export function isColorEventLike(value: unknown): value is IEvent<RGBcolor> {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isColorEvent" in value;
+}
+
+export function isTextEventLike(value: unknown): value is IEvent<string> {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isTextEvent" in value;
+}
+export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text", "incline"] as const;
+type EventType = typeof eventTypes[number];
 export const eventAttributes = [
     "bezier",
     "bezierPoints",
@@ -55,7 +85,7 @@ export const eventAttributes = [
     "endTime",
     "linkgroup"
 ] as const;
-export abstract class EventLike<T = unknown> implements IEvent<T> {
+export abstract class AbstractEvent<T = unknown> extends TimeSegment implements IObjectizable<IEvent<T>>, IEventExtendedOptions, IEventIdentifier {
     bezier: Bezier = Bezier.Off;
     bezierPoints: BezierPoints = [0, 0, 1, 1];
     easingLeft: number = 0;
@@ -67,36 +97,7 @@ export abstract class EventLike<T = unknown> implements IEvent<T> {
     _endTime: Beats = [0, 0, 1];
     linkgroup = 0;
     isDisabled: boolean = false;
-    get startTime() {
-        return this._startTime;
-    }
-    get endTime() {
-        return this._endTime;
-    }
-    set startTime(beats: Beats) {
-        this._startTime = makeSureBeatsValid(beats);
-        this.calculateSeconds();
-    }
-    set endTime(beats: Beats) {
-        this._endTime = makeSureBeatsValid(beats);
-        this.calculateSeconds();
-    }
 
-    /** 缓存的开始时间，以秒为单位 */
-    abstract cachedStartSeconds: number;
-
-    /** 缓存的结束时间，以秒为单位 */
-    abstract cachedEndSeconds: number;
-
-    /** BPM列表，引用chart.BPMList，方便计算秒数用 */
-    abstract readonly BPMList: BPM[];
-
-    calculateSeconds() {
-        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this.startTime);
-        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this.endTime);
-    }
-}
-export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements IObjectizable, ITimeSegment {
     cachedStartSeconds: number;
     cachedEndSeconds: number;
 
@@ -108,40 +109,17 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
     /** 事件所在的判定线编号 */
     judgeLineNumber: number;
 
-    /** 事件类型 */
-    type: string;
-
     /** 事件层级号，普通事件的层级号是数字（比如"0"，但仍然是字符串类型），特殊事件的层级号是字符"X" */
     eventLayerId: string;
 
-    readonly errors: ChartError[] = [];
+    /** 事件类型 */
+    type: EventType;
 
-    /** 确保endTime大于startTime */
-    makeSureTimeValid() {
-        if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
-            const a = this.startTime, b = this.endTime;
-            this.startTime = b;
-            this.endTime = a;
-        }
-        else if (getBeatsValue(this.startTime) === getBeatsValue(this.endTime)) {
-            this.endTime = addBeats(this.endTime, [0, 0, 1]);
-        }
-    }
-    get easingLeftRight() {
-        return [this.easingLeft, this.easingRight];
-    }
-    set easingLeftRight(easingLeftRight: [number, number]) {
-        [this.easingLeft, this.easingRight] = easingLeftRight;
-    }
-    get durationBeats() {
-        return getBeatsValue(this.endTime) - getBeatsValue(this.startTime);
-    }
-    calculateSeconds() {
-        const startSeconds = beatsToSeconds(this.BPMList, this.startTime);
-        const endSeconds = beatsToSeconds(this.BPMList, this.endTime);
-        this.cachedStartSeconds = startSeconds;
-        this.cachedEndSeconds = endSeconds;
-    }
+    /** 事件编号 */
+    eventNumber: number;
+
+    readonly errors: ChartError[] = [];
+    readonly isEvent = true;
     toObject(): IEvent<T> {
         return {
             bezier: this.bezier,
@@ -157,16 +135,12 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
             isDisabled: this.isDisabled,
         };
     }
-    isOverlapped(element: NoteOrEvent, overlapWhenEqual = false) {
-        return overlapWhenEqual ?
-            isLessThanOrEqualBeats(element.startTime, this.endTime) && isGreaterThanOrEqualBeats(element.endTime, this.startTime) :
-            isLessThanBeats(element.startTime, this.endTime) && isGreaterThanBeats(element.endTime, this.startTime);
-    }
-    constructor(event: unknown, options: EventOptions) {
+    constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super();
         this.judgeLineNumber = options.judgeLineNumber;
         this.eventLayerId = options.eventLayerId;
         this.type = options.type;
+        this.eventNumber = options.eventNumber;
         this.id = options.id ?? `${options.judgeLineNumber}-${options.eventLayerId}-${options.type}-${options.eventNumber}`;
 
         if (isObject(event)) {
@@ -180,7 +154,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被替换为数字 0。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -189,7 +163,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 bezier 属性。将会被设为数字 0。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -203,7 +177,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被替换为默认值 [0, 0, 0, 0]。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -212,7 +186,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -228,7 +202,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                             `${this.id}：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
                             "ChartReadError.OutOfRange",
                             "error",
-                            this as NumberEvent | ColorEvent | TextEvent
+                            this
                         ));
                     }
                 }
@@ -237,7 +211,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -246,7 +220,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -260,7 +234,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被替换为默认值 1（线性缓动）。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -269,7 +243,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -283,7 +257,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 startTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被替换为默认值 [0, 0, 1]。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -292,7 +266,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -306,7 +280,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 endTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被替换为 startTime 的值。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                     this._endTime = [...this._startTime];
                 }
@@ -316,7 +290,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 endTime 属性。将会被设为 startTime 的值。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
                 this._endTime = [...this._startTime];
             }
@@ -331,7 +305,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被替换为数字 0。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -340,7 +314,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                     `${this.id}：事件缺少 linkgroup 属性。将会被设为数字 0。`,
                     "ChartReadError.MissingProperty",
                     "error",
-                    this as NumberEvent | ColorEvent | TextEvent
+                    this
                 ));
             }
 
@@ -354,7 +328,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                         `${this.id}：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被替换为 false。`,
                         "ChartReadError.TypeError",
                         "error",
-                        this as NumberEvent | ColorEvent | TextEvent
+                        this
                     ));
                 }
             }
@@ -371,7 +345,7 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
                 `${this.id}：事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
                 "ChartReadError.TypeError",
                 "error",
-                this as NumberEvent | ColorEvent | TextEvent
+                this
             ));
         }
 
@@ -383,8 +357,17 @@ export abstract class AbstractEvent<T = unknown> extends EventLike<T> implements
 export class NumberEvent extends AbstractEvent<number> {
     start: number = 0;
     end: number = 0;
-    constructor(event: unknown, options: EventOptions) {
+    type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline";
+    readonly isNumberEvent = true;
+    constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);
+        if (options.type === "color" || options.type === "text") {
+            throw new Error("NumberEvent 的类型不能是 color 或 text");
+        }
+        else {
+            this.type = options.type;
+        }
+
         if (isObject(event)) {
             // start
             if ("start" in event) {
@@ -445,14 +428,23 @@ export class NumberEvent extends AbstractEvent<number> {
 export class ColorEvent extends AbstractEvent<RGBcolor> {
     start: RGBcolor = [255, 255, 255];
     end: RGBcolor = [255, 255, 255];
+    type: "color";
+    readonly isColorEvent = true;
     toObject() {
         const obj = super.toObject();
         obj.start = [...this.start];
         obj.end = [...this.end];
         return obj;
     }
-    constructor(event: unknown, options: EventOptions) {
+    constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);
+        if (options.type !== "color") {
+            throw new Error("ColorEvent 的类型必须为 color");
+        }
+        else {
+            this.type = options.type;
+        }
+
         if (isObject(event)) {
             // start
             if ("start" in event) {
@@ -513,8 +505,16 @@ export class ColorEvent extends AbstractEvent<RGBcolor> {
 export class TextEvent extends AbstractEvent<string> {
     start: string = "";
     end: string = "";
-    constructor(event: unknown, options: EventOptions) {
+    type: "text";
+    readonly isTextEvent = true;
+    constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);
+        if (options.type !== "text") {
+            throw new Error("TextEvent 的类型必须为 text");
+        }
+        else {
+            this.type = options.type;
+        }
 
         if (isObject(event)) {
             // start
@@ -574,20 +574,29 @@ export class TextEvent extends AbstractEvent<string> {
     }
 }
 
-interface ShaderEventOptions {
+interface ShaderEventExtendedOptions {
     BPMList: BPM[];
     shader: ShaderName;
     varName: string;
     eventNumber: number;
 }
 
-/** ShaderVariableEvent 只是结构与事件相像，但并没有真正的判定线编号、所属事件层级、事件 id 等属性，也不能被历史记录，所以继承 EventLike 而不是 AbstractEvent */
-export class ShaderVariableEvent extends EventLike<ShaderNumberType> {
+export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNumberType>, ShaderEventExtendedOptions, IObjectizable<IEvent<ShaderNumberType>> {
+    bezier: Bezier = Bezier.Off;
+    bezierPoints: BezierPoints = [0, 0, 1, 1];
+    easingLeft: number = 0;
+    easingRight: number = 1;
+    easingType: EasingType = EasingType.Linear;
     start: ShaderNumberType = 0;
     end: ShaderNumberType = 0;
+    _startTime: Beats = [0, 0, 1];
+    _endTime: Beats = [0, 0, 1];
+    linkgroup = 0;
+    isDisabled: boolean = false;
+
     readonly errors: ChartError[] = [];
     BPMList: BPM[];
-    shader: string;
+    shader: ShaderName;
     varName: string;
     eventNumber: number;
     cachedStartSeconds: number;
@@ -603,25 +612,11 @@ export class ShaderVariableEvent extends EventLike<ShaderNumberType> {
             easingType: this.easingType,
             easingLeft: this.easingLeft,
             easingRight: this.easingRight,
+            linkgroup: this.linkgroup,
+            isDisabled: this.isDisabled,
         };
     }
-    _startTime: Beats = [0, 0, 1];
-    _endTime: Beats = [0, 0, 1];
-    get startTime() {
-        return this._startTime;
-    }
-    set startTime(beats: Beats) {
-        this._startTime = makeSureBeatsValid(beats);
-        this.calculateSeconds();
-    }
-    get endTime() {
-        return this._endTime;
-    }
-    set endTime(beats: Beats) {
-        this._endTime = makeSureBeatsValid(beats);
-        this.calculateSeconds();
-    }
-    constructor(event: unknown, options: ShaderEventOptions) {
+    constructor(event: unknown, options: ShaderEventExtendedOptions) {
         super();
         this.BPMList = options.BPMList;
         this.shader = options.shader;
@@ -1026,6 +1021,8 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
                     end: endNum!,
                     cachedStartSeconds: startSeconds,
                     cachedEndSeconds: endSeconds,
+                    linkgroup: 0,
+                    isDisabled: false,
                 }, seconds);
             }) as Exclude<ShaderNumberType, number>;
         }
@@ -1043,6 +1040,8 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
                 bezierPoints: [...bezierPoints],
                 start,
                 end,
+                linkgroup: 0,
+                isDisabled: false,
             });
 
             const easingFactor = easingFunction(sx / dx);
@@ -1054,26 +1053,18 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
     }
 }
 
-/**
- * 找到开始时间不大于seconds的最大的事件。若不存在，返回null。
- */
+/** 找到开始时间不大于seconds的最大的事件。若不存在，返回null。*/
 export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): T | null {
-    // // Filter valid events and sort by cachedStartSeconds
-    // const validEvents = events.filter(event =>
-    //     !event.isDisabled &&
-    //     typeof event.cachedStartSeconds === 'number' &&
-    //     event.cachedStartSeconds <= seconds
-    // );
-    // Sort by cachedStartSeconds in ascending order
     checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
 
+    // 筛选所有未被禁用的事件
     const validEvents = events.filter(event => !event.isDisabled);
 
     if (validEvents.length === 0) {
         return null;
     }
 
-    // Binary search for the last event with start time <= seconds
+    // 二分查找
     let left = 0;
     let right = validEvents.length - 1;
     let resultIndex = -1;

@@ -55,7 +55,7 @@
                             :key="object.id"
                             class="error-detail"
                         >
-                            {{ object instanceof Note ? `${object.typeString} 音符` : "事件" }} {{ object.id }}
+                            {{ isNoteLike(object) ? `${NoteType[object.type]} 音符` : "事件" }} {{ object.id }}
                             <MyButton
                                 type="success"
                                 @click.stop="goto(object)"
@@ -75,8 +75,9 @@
 <script setup lang="ts">
 import Constants from "@/constants";
 import globalEventEmitter from "@/eventEmitter";
-import { ColorEvent, NumberEvent, TextEvent } from "@/models/event";
-import { Note } from "@/models/note";
+import { SelectableElement } from "@/models/element";
+import { isEventLike } from "@/models/event";
+import { isNoteLike, NoteType } from "@/models/note";
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";
 import store from "@/store";
@@ -109,9 +110,9 @@ const errorTypes = [
     }
 ];
 const errorNumberShowedDetails = ref(-1);
-function goto(object: Note | NumberEvent | ColorEvent | TextEvent) {
+function goto(object: SelectableElement) {
     stateManager.state.currentJudgeLineNumber = object.judgeLineNumber;
-    if (!(object instanceof Note)) {
+    if (isEventLike(object)) {
         stateManager.state.currentEventLayerId = object.eventLayerId;
     }
 
@@ -120,8 +121,7 @@ function goto(object: Note | NumberEvent | ColorEvent | TextEvent) {
         Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom)) {
         store.gotoBeats(object.startTime);
     }
-    selectionManager.unselectAll();
-    selectionManager.addToSelection(object);
+    selectionManager.select([object]);
 }
 
 function updateErrors() {

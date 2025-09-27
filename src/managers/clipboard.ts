@@ -1,15 +1,15 @@
 import { Beats, getBeatsValue, subBeats, addBeats } from "@/models/beats";
-import { Note } from "@/models/note";
-import { NoteOrEvent } from "@/models/event";
 import globalEventEmitter from "@/eventEmitter";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import store from "@/store";
 import Manager from "./abstract";
 import { reactive } from "vue";
-import { AbstractEvent } from "@/models/event";
+import { isEventLike, isNumberEventLike } from "@/models/event";
+import { SelectableElement } from "@/models/element";
+import { isNoteLike } from "@/models/note";
 
 export default class ClipboardManager extends Manager {
-    readonly clipboard: NoteOrEvent[] = reactive([]);
+    readonly clipboard: SelectableElement[] = reactive([]);
     constructor() {
         super();
         globalEventEmitter.on("CUT", createCatchErrorByMessage(() => {
@@ -72,11 +72,11 @@ export default class ClipboardManager extends Manager {
         }, [Infinity, 0, 1]);
         const pasteTime = time ?? coordinateManager.attatchY(y);
         const delta = subBeats(pasteTime, minStartTime);
-        const elements = new Array<NoteOrEvent>();
+        const elements = new Array<SelectableElement>();
         const isSameBaseEventLayer = (() => {
-            let event: AbstractEvent | null = null;
+            let event = null;
             for (const element of this.clipboard) {
-                if (element instanceof AbstractEvent) {
+                if (isEventLike(element)) {
                     if (event !== null && element.eventLayerId !== event.eventLayerId || element.eventLayerId === "X") {
                         return false;
                     }
@@ -87,7 +87,7 @@ export default class ClipboardManager extends Manager {
         })();
         historyManager.group("粘贴");
         for (const element of this.clipboard) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 const noteObject = element.toObject();
                 noteObject.startTime = addBeats(noteObject.startTime, delta);
                 noteObject.endTime = addBeats(noteObject.endTime, delta);
@@ -113,12 +113,12 @@ export default class ClipboardManager extends Manager {
         const historyManager = store.useManager("historyManager");
         this.paste(time);
         for (const element of selectionManager.selectedElements) {
-            if (element instanceof Note) {
+            if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, "positionX", -element.positionX, element.positionX);
                 element.positionX = -element.positionX;
             }
             else {
-                if (element.type === "moveX" || element.type === "moveY" || element.type === "rotate") {
+                if (isNumberEventLike(element) && (element.type === "moveX" || element.type === "moveY" || element.type === "rotate")) {
                     historyManager.recordModifyEvent(element.id, "start", -element.start, element.start);
                     historyManager.recordModifyEvent(element.id, "end", -element.end, element.end);
                     element.start = -element.start;

@@ -43,6 +43,7 @@ export type DeepReadonly<T> = {
     readonly [P in keyof T]: DeepReadonly<T[P]>;
 };
 
+/** 深度搜索把每个属性都变为非只读 */
 export type DeepNotReadonly<T> = {
     -readonly [P in keyof T]: DeepNotReadonly<T[P]>;
 };
@@ -53,6 +54,7 @@ export type Filter<T, U> = T extends U ? T : never;
 /** 判断两个类型是否相等 */
 export type IsEqual<T, U> = [T] extends [U] ? [U] extends [T] ? true : false : false;
 
+/** 创建一个键值对象，其中所有属性都是可选的 */
 export type PartialRecord<K extends string | number | symbol, V> = { [P in K]?: V };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -70,6 +72,8 @@ export type UnionToIntersection<U> =
     : never;
 
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+export type NotEmpty = NonNullable<unknown>;
 
 /* eslint-disable no-magic-numbers, no-loss-of-precision */
 export type Infinity = 1e114514;

@@ -7,7 +7,7 @@ import { beatsCompare, BPM } from "./beats";
 import ChartError from "./error";
 import { isArrayOfNumbers } from "@/tools/typeTools";
 import { IObjectizable } from "./objectizable";
-interface JudgeLineOptions {
+export interface JudgeLineExtendedOptions {
     BPMList: BPM[],
     judgeLineNumber: number
 }
@@ -115,7 +115,7 @@ const DEFAULT_X_MIN = 0;
 const MAX_EVENT_LAYERS = 4;
 const SPEED_RATIO = 120;
 
-export class JudgeLine implements IJudgeLine, IObjectizable {
+export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine> {
     Group = DEFAULT_GROUP;
     Name = DEFAULT_NAME;
     Texture = DEFAULT_TEXTURE;
@@ -446,7 +446,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable {
         }
         return false;
     }
-    constructor(judgeLine: unknown, readonly options: JudgeLineOptions) {
+    constructor(judgeLine: unknown, readonly options: JudgeLineExtendedOptions) {
         this.id = options.judgeLineNumber;
         if (isObject(judgeLine)) {
             if ("Group" in judgeLine) {

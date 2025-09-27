@@ -1,10 +1,9 @@
-import { beatsToSeconds, BPM, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats, makeSureBeatsValid } from "./beats";
-import { isArrayOfNumbers } from "../tools/typeTools";
-import { Beats, getBeatsValue } from "./beats";
+import { beatsToSeconds, BPM, makeSureBeatsValid } from "./beats";
+import { isArrayOfNumbers,  Optional } from "../tools/typeTools";
+import { Beats } from "./beats";
 import { isObject, isNumber } from "lodash";
 import ChartError from "./error";
-import { NoteOrEvent } from "@/models/event";
-import { ITimeSegment } from "./timeSegment";
+import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
 export enum NoteAbove {
     Above = 1,
@@ -40,15 +39,39 @@ export const noteAttributes = [
     "yOffset",
     "visibleTime"
 ] as const;
-interface NoteOptions {
+export interface INoteExtendedOptions {
     judgeLineNumber: number,
     BPMList: BPM[],
     noteNumber: number
-    id?: string
+    id: string
+}
+export interface INoteJudgement {
+    hitSeconds: number | undefined
+    hit(seconds: number): string
+    unhit(): void
+    getJudgementRange(): {
+        perfect: number,
+        good: number,
+        bad: number
+    }
+    getJudgement(): "perfect" | "good" | "bad" | "none"
+}
+export interface INoteHighlight {
+    highlight: boolean;
+}
+interface INoteIdentifier {
+    readonly isNote: true
 }
 export enum NoteType { Tap = 1, Hold, Flick, Drag }
 function isNoteType(type: unknown): type is NoteType {
     return type === NoteType.Tap || type === NoteType.Hold || type === NoteType.Flick || type === NoteType.Drag;
+}
+
+export function isNoteLike(value: unknown): value is INote {
+    if (!isObject(value)) {
+        return false;
+    }
+    return "isNote" in value;
 }
 
 const
@@ -71,7 +94,7 @@ const
     DEFAULT_VISIBLETIME = 999999,
     DEFAULT_TYPE = NoteType.Tap;
 
-export class Note implements INote, ITimeSegment, IObjectizable {
+export class Note extends TimeSegment implements INote, ITimeSegment, IObjectizable<INote>, INoteExtendedOptions, INoteIdentifier, INoteHighlight {
     above = DEFAULT_ABOVE;
     alpha = DEFAULT_ALPHA;
     isFake = DEFAULT_ISFAKE;
@@ -86,56 +109,20 @@ export class Note implements INote, ITimeSegment, IObjectizable {
     cachedStartSeconds: number;
     cachedEndSeconds: number;
     cachedIsJudged: boolean = false;
+    readonly isNote = true;
     readonly BPMList: BPM[];
 
-    /** note的唯一标识符，比如 "0-note-1" 表示第0号判定线上的第1号note */
+    /** note 的唯一标识符，比如 "0-note-1" 表示第0号判定线上的第1号 note */
     readonly id: string;
+
+    /** note 所属的判定线编号 */
     judgeLineNumber: number;
-    get typeString() {
-        switch (this.type) {
-            case NoteType.Tap: return "Tap";
-            case NoteType.Drag: return "Drag";
-            case NoteType.Flick: return "Flick";
-            default: return "Hold";
-        }
-    }
+
+    /** note 的编号 */
+    noteNumber: number;
+
     highlight = false;
-    hitSeconds: number | undefined = undefined;
-    get startTime() {
-        return this._startTime;
-    }
-    get endTime() {
-        if (this.type === NoteType.Hold) {
-            return this._endTime;
-        }
-        else {
-            // note内心os:
-            // 反正也没人发现我起始时间和结束时间对不上
-            // 偷偷把时间改一下不就可以了
-            this._endTime = this._startTime;
-            return this._startTime;
-        }
-    }
-    set startTime(beats: Beats) {
-        this._startTime = makeSureBeatsValid(beats);
-
-        // 设置时间后，更新秒数
-        this.calculateSeconds();
-    }
-    set endTime(beats: Beats) {
-        this._endTime = makeSureBeatsValid(beats);
-
-        // 设置时间后，更新秒数
-        this.calculateSeconds();
-    }
     readonly errors: ChartError[] = [];
-    makeSureTimeValid() {
-        if (getBeatsValue(this.startTime) > getBeatsValue(this.endTime)) {
-            const a = this.startTime, b = this.endTime;
-            this.startTime = b;
-            this.endTime = a;
-        }
-    }
     toObject(): INote {
         return {
             startTime: [...this.startTime],
@@ -151,12 +138,7 @@ export class Note implements INote, ITimeSegment, IObjectizable {
             yOffset: this.yOffset
         };
     }
-    calculateSeconds() {
-        const startSeconds = beatsToSeconds(this.BPMList, this.startTime);
-        const endSeconds = beatsToSeconds(this.BPMList, this.endTime);
-        this.cachedStartSeconds = startSeconds;
-        this.cachedEndSeconds = endSeconds;
-    }
+    hitSeconds: number | undefined = undefined;
     hit(seconds: number) {
         if (this.isFake) {
             // 该音符是假音符，无法被击打
@@ -228,13 +210,10 @@ export class Note implements INote, ITimeSegment, IObjectizable {
         else if (delta >= -bad && delta < bad) return "bad";
         else return "none";
     }
-    isOverlapped(element: NoteOrEvent, overlapWhenEqual = false) {
-        return overlapWhenEqual ?
-            isLessThanOrEqualBeats(element.startTime, this.endTime) && isGreaterThanOrEqualBeats(element.endTime, this.startTime) :
-            isLessThanBeats(element.startTime, this.endTime) && isGreaterThanBeats(element.endTime, this.startTime);
-    }
-    constructor(note: unknown, options: NoteOptions) {
+    constructor(note: unknown, options: Optional<INoteExtendedOptions, "id">) {
+        super();
         this.judgeLineNumber = options.judgeLineNumber;
+        this.noteNumber = options.noteNumber;
         this.id = options.id ?? `${options.judgeLineNumber}-note-${options.noteNumber}`;
         if (isObject(note)) {
             // startTime
