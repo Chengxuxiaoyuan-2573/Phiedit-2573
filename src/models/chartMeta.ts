@@ -35,8 +35,8 @@ export interface IChartMeta {
     song?: string,
 }
 
-/** 当前是 0.1.0 版本 */
-const VERSION = 10;
+/** 当前是 0.2.0 版本 */
+const VERSION = 20;
 
 /** 谱面元数据，是响应式的 */
 export class ChartMeta implements IChartMeta, IObjectizable {

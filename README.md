@@ -1,4 +1,4 @@
-# Phiedit 2573（Made by [@程序小袁_2573](https://space.bilibili.com/522248560)，目前最新版为v0.1.0）
+# Phiedit 2573（Made by [@程序小袁_2573](https://space.bilibili.com/522248560)，目前最新版为v0.2.0）
 
 ## 项目介绍
 
