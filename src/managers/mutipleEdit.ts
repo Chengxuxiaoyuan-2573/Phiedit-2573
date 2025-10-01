@@ -208,7 +208,8 @@ export default class MutipleEditManager extends Manager {
                                 const start = stateManager.cache.mutipleEdit.paramStartColor[num];
                                 const end = stateManager.cache.mutipleEdit.paramEndColor[num];
                                 return easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start;
-                            }) as RGBcolor : param;
+                            }) as RGBcolor :
+                            param;
 
                         modifyEventWithColor(event, attrName, value, stateManager.cache.mutipleEdit.mode);
                     }

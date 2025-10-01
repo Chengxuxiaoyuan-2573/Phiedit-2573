@@ -242,10 +242,10 @@
         >
             <div
                 v-if="selectionManager.selectedElements.length == 0"
-                class="left-inner default-panel"
+                class="left-inner default-panel flex-container"
                 style="justify-content: space-between;"
             >
-                <div style="display: flex;flex-direction: column;gap: 10px;">
+                <div class="flex-container">
                     <h1>Phiedit 2573</h1>
                     <MyButton
                         type="primary"
@@ -290,13 +290,117 @@
                     >
                         检查更新
                     </MyButton>
-                    <!-- <p style="overflow-y: auto;">
-                        A和[：切换到上一条判定线<br>
-                        D和]：切换到下一条判定线<br>
-                        T、U、I：预览谱面<br>
-                    </p> -->
+                    <MyDialog
+                        type="primary"
+                        open-text="渲染为视频"
+                        :close-on-click-modal="!isRenderingVideo"
+                        :close-on-press-escape="!isRenderingVideo"
+                        :show-close="!isRenderingVideo"
+                        draggable
+                    >
+                        <template #default="{ close }">
+                            <div
+                                v-if="isRenderingVideo"
+                                class="export-options"
+                            >
+                                <span>{{ exportProgress.message }}（预计 {{ MathUtils.addTime(new Date(), exportProgress.remainingTime).toLocaleString() }} 完成）</span>
+                                <ElProgress :percentage="clamp(MathUtils.round(exportProgress.percent, 2), 0, 100)" />
+                                <MyButton
+                                    type="warning"
+                                    @click="cancelVideoRendering"
+                                >
+                                    取消渲染
+                                </MyButton>
+                            </div>
+                            <div
+                                v-else-if="exportProgress.done"
+                                class="export-options"
+                            >
+                                渲染完成！
+                                <MyButton
+                                    type="primary"
+                                    @click="exportProgress.done = false, close()"
+                                >
+                                    确定
+                                </MyButton>
+                            </div>
+                            <div
+                                v-else
+                                class="export-options"
+                            >
+                                <h2>渲染选项</h2>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.backgroundDarkness"
+                                    :min="0"
+                                    :max="100"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        背景黑暗度
+                                    </template>
+                                    <template #append>
+                                        %
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.noteSize"
+                                    :min="0"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        音符大小
+                                    </template>
+                                    <template #append>
+                                        像素
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.lineThickness"
+                                    :min="0"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        判定线粗细
+                                    </template>
+                                    <template #append>
+                                        像素
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.lineLength"
+                                    :min="0"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        判定线长度
+                                    </template>
+                                    <template #append>
+                                        像素
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.textSize"
+                                    :min="0"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        文字大小
+                                    </template>
+                                    <template #append>
+                                        像素
+                                    </template>
+                                </MyInputNumber>
+                                <MyButton
+                                    type="primary"
+                                    @click="catchErrorByMessage(renderVideo, '导出视频')"
+                                >
+                                    开始渲染
+                                </MyButton>
+                            </div>
+                        </template>
+                    </MyDialog>
                 </div>
-                <div style="display: flex;flex-direction: column;gap: 10px;">
+                <div class="flex-container">
                     <MyButton
                         type="warning"
                         class="exit-button"
@@ -338,7 +442,7 @@
                     title-teleport=".title-left"
                 />
                 <TextEventEditPanel
-                    v-else-if="isTextEventLike (selectionManager.selectedElements[0])"
+                    v-else-if="isTextEventLike(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
@@ -554,10 +658,11 @@ import {
     ElRadioButton,
     ElRadioGroup,
     ElMessage,
+    ElProgress,
 } from "element-plus";
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { isNumber, mean, min } from "lodash";
+import { clamp, isNumber, mean, min } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
@@ -592,22 +697,29 @@ import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
 
 import globalEventEmitter from "@/eventEmitter";
-import store, { audioRef, canvasRef, managersMap, resourcePackageRef } from "@/store";
+import store, { managersMap } from "@/store";
 import Constants from "@/constants";
 import ShaderPanel from "@/panels/ShaderPanel.vue";
 import MyLink from "@/myElements/MyLink.vue";
 import MyInput from "@/myElements/MyInput.vue";
 import { ArrayedObject } from "@/tools/algorithm";
 import { RightPanelState } from "@/managers/state";
-import { SEC_TO_MS } from "@/tools/mathUtils";
+import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import getKeyHandler from "@/keyHandlers";
+import MyDialog from "@/myElements/MyDialog.vue";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
 });
+
 const loadEnd = inject("loadEnd", () => {
     throw new Error("loadEnd is not defined");
 });
+
+const showUpdateDialog = inject("showUpdateDialog", () => {
+    throw new Error("showUpdateDialog is not defined");
+});
+
 store.route = useRoute();
 const router = useRouter();
 
@@ -633,6 +745,8 @@ loadEnd();
 new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
     store.setManager(managerName, new managerConstructor());
 });
+
+const { audioRef, canvasRef, resourcePackageRef, isRenderingVideo } = store;
 
 const { chart, textures } = store.chartPackageRef.value;
 
@@ -795,11 +909,19 @@ const fpsColor = computed(() => {
         return "#ff0000";
     }
 });
+const exportProgress = reactive({
+    message: "",
+    percent: 0,
+    done: false,
+    remainingTime: 0
+});
 
 let windowIsFocused = true;
 let cachedRect: DOMRect;
+let isRendering = true;
 
 function checkForUpdates() {
+    showUpdateDialog();
     window.electronAPI.checkForUpdates();
 }
 
@@ -809,6 +931,116 @@ function update() {
 
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
+}
+
+async function renderVideo() {
+    const audio = store.useAudio();
+    const duration = audio.duration;
+    const fps = 60;
+    const totalFrames = Math.ceil(duration * fps);
+    const cachedSettings = { ...settingsManager._settings };
+
+    try {
+        const filePath = await window.electronAPI.showSaveVideoDialog(`output.mp4`);
+        if (!filePath) {
+            throw new Error("未选择导出视频的路径");
+        }
+
+        // 分批处理帧，避免UI线程阻塞
+        const canvas = store.useCanvas();
+
+        // 递归处理函数
+        const processFrames = async () => {
+            for (let frame = 0; frame < totalFrames; frame++) {
+                if (!isRenderingVideo.value) {
+                    throw new Error("已取消渲染");
+                }
+
+                const time = frame / fps;
+                store.setTime(time);
+                globalEventEmitter.emit("AUTOPLAY");
+                globalEventEmitter.emit("RENDER_FRAME");
+                globalEventEmitter.emit("RENDER_CHART");
+
+                const dataUrl = canvas.toDataURL("image/jpeg");
+                await window.electronAPI.sendFrameData(dataUrl, frame, totalFrames);
+            }
+            return;
+        };
+
+        const finish = async () => {
+            // 完成导出
+            exportProgress.done = true;
+            await window.electronAPI.finishVideoRendering(filePath);
+        };
+
+        // 开始处理
+
+        // 关闭一些选项，这些选项在渲染谱面到视频中时不需要使用
+        settingsManager.setSettings({
+            showJudgeLineNumber: false,
+            markCurrentJudgeLine: false,
+        });
+
+        // 开始渲染
+        isRenderingVideo.value = true;
+        pauseRenderLoop();
+
+        await window.electronAPI.startVideoRendering(
+            chartId,
+            fps,
+            filePath,
+        );
+
+        videoRenderingCount = 0;
+        videoRenderingTotalTime = 0;
+
+        await window.electronAPI.addHitSounds(chart
+            .getAllNotes()
+            .filter(note => !note.isFake)
+            .map(note => ({
+                type: note.type,
+                time: note.cachedStartSeconds + chart.META.offset / SEC_TO_MS
+            })));
+
+        videoRenderingCount = 0;
+        videoRenderingTotalTime = 0;
+
+        await processFrames();
+
+        await finish();
+    }
+    finally {
+        // 结束渲染
+        isRenderingVideo.value = false;
+
+        // 设置回原来的设置
+        settingsManager.setSettings(cachedSettings);
+
+        // 恢复渲染循环
+        resumeRenderLoop();
+    }
+}
+
+let videoRenderingTotalTime = 0;
+let videoRenderingCount = 0;
+
+window.electronAPI.onVideoRenderingProgress(progress => {
+    videoRenderingTotalTime += progress.time;
+    videoRenderingCount++;
+
+    const percent = progress.processed / progress.total * 100;
+    const avgTimePerFrame = videoRenderingTotalTime / videoRenderingCount;
+    const remainingTime = avgTimePerFrame * (progress.total - progress.processed);
+
+    exportProgress.percent = percent;
+    exportProgress.message = progress.status;
+    exportProgress.remainingTime = remainingTime;
+});
+
+async function cancelVideoRendering() {
+    store.isRenderingVideo.value = false;
+    await window.electronAPI.cancelVideoRendering();
 }
 
 async function exportChart() {
@@ -845,7 +1077,7 @@ async function addTextures() {
 function canvasMouseDown(e: MouseEvent) {
     const canvas = store.useCanvas();
     const options = KeyboardUtils.createKeyOptions(e);
-    const { x, y } = calculatePosition(e);
+    const { x, y } = coordinateManager.calculatePositionOfObjectFitContainCanvas(e, cachedRect);
     if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
         return;
     }
@@ -862,7 +1094,7 @@ function canvasMouseDown(e: MouseEvent) {
 
 function canvasMouseMove(e: MouseEvent) {
     const options = KeyboardUtils.createKeyOptions(e);
-    const { x, y } = calculatePosition(e);
+    const { x, y } = coordinateManager.calculatePositionOfObjectFitContainCanvas(e, cachedRect);
     mouseX.value = coordinateManager.convertXToChart(mouseManager.mouseX);
     mouseY.value = coordinateManager.convertYToChart(mouseManager.mouseY);
     globalEventEmitter.emit("MOUSE_MOVE", x, y, options);
@@ -870,7 +1102,7 @@ function canvasMouseMove(e: MouseEvent) {
 
 function canvasMouseUp(e: MouseEvent) {
     const options = KeyboardUtils.createKeyOptions(e);
-    const { x, y } = calculatePosition(e);
+    const { x, y } = coordinateManager.calculatePositionOfObjectFitContainCanvas(e, cachedRect);
     globalEventEmitter.emit("MOUSE_UP", x, y, options);
 }
 
@@ -940,45 +1172,76 @@ function audioOnPlay() {
     audioIsPlaying.value = true;
 }
 
-/**
- * 该函数用于在含有 object-fit:contain 样式的 canvas 上，
- * 根据MouseEvent对象计算出点击位置在canvas绘制上下文中的坐标
- * 解决了由于canvas外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
- */
-function calculatePosition({ offsetX: x, offsetY: y }: MouseEvent) {
-    const canvas = store.useCanvas();
-    if (!canvas) throw new Error("canvas is null");
+function pauseRenderLoop() {
+    isRendering = false;
+}
 
-    const innerWidth = canvas.width;
-    const innerHeight = canvas.height;
-    const innerRatio = innerWidth / innerHeight;
+function resumeRenderLoop() {
+    isRendering = true;
+    renderLoop();
+}
 
-    const outerWidth = cachedRect.width;
-    const outerHeight = cachedRect.height;
-    const outerRatio = outerWidth / outerHeight;
+/** 上一次渲染的时间 */
+let renderTime = performance.now();
 
-    // 计算缩放比和边距
-    const { ratio, padding } = (() => {
-        if (innerRatio > outerRatio) {
-            const width = outerWidth;
-            const height = width / innerRatio;
-            const padding = (outerHeight - height) / 2;
-            return { padding, ratio: innerWidth / width };
+/** 显示 FPS 的间隔，以帧为单位 */
+const showFpsFrequency = 20;
+
+/** 缓存最近的 FPS 数据 */
+const fpsList: number[] = [];
+function renderLoop() {
+    if (isRendering) {
+        const audio = store.useAudio();
+        if (windowIsFocused) {
+            if (settingsManager._settings.autoHighlight) {
+                chart.highlightNotes();
+            }
+
+            try {
+                globalEventEmitter.emit("RENDER_FRAME");
+                globalEventEmitter.emit("AUTOPLAY");
+                if (stateManager.state.isPreviewing) {
+                    globalEventEmitter.emit("RENDER_CHART");
+                }
+                else {
+                    globalEventEmitter.emit("RENDER_EDITOR");
+                }
+            }
+            catch (error) {
+                ElMessage.error(error as Error);
+            }
+
+            const now = performance.now();
+            const delta = now - renderTime;
+
+            if (delta > 0) {
+                const currentFPS = SEC_TO_MS / delta;
+                fpsList.push(currentFPS);
+                if (fpsList.length >= showFpsFrequency) {
+                    fps.value = mean(fpsList);
+                    fpsList.length = 0;
+                }
+            }
+            else {
+                fps.value = 0;
+            }
+            renderTime = now;
+            if (combo.value !== autoplayManager.combo) {
+                combo.value = autoplayManager.combo;
+            }
+
+            if (score.value !== autoplayManager.score) {
+                score.value = autoplayManager.score;
+            }
+            audio.volume = settingsManager._settings.musicVolume;
+        }
+
+        if (settingsManager._settings.unlimitFps) {
+            setTimeout(renderLoop);
         }
         else {
-            const height = outerHeight;
-            const width = height * innerRatio;
-            const padding = (outerWidth - width) / 2;
-            return { padding, ratio: innerHeight / height };
+            requestAnimationFrame(renderLoop);
         }
-    })();
-
-    // 根据宽高比返回调整后的坐标
-    if (innerRatio > outerRatio) {
-        return { x: x * ratio, y: (y - padding) * ratio };
-    }
-    else {
-        return { y: y * ratio, x: (x - padding) * ratio };
     }
 }
 onMounted(() => {
@@ -1002,72 +1265,19 @@ onMounted(() => {
     audio.addEventListener("timeupdate", audioOnTimeUpdate);
     audio.addEventListener("pause", audioOnPause);
     audio.addEventListener("play", audioOnPlay);
-    let renderTime = performance.now();
-    let isRendering = true;
-    const showFpsFrequency = 20;
-    const fpsList: number[] = [];
-    const renderLoop = () => {
-        if (isRendering) {
-            if (windowIsFocused) {
-                if (settingsManager._settings.autoHighlight) {
-                    chart.highlightNotes();
-                }
-
-                try {
-                    globalEventEmitter.emit("RENDER_FRAME");
-                    globalEventEmitter.emit("AUTOPLAY");
-                    if (stateManager.state.isPreviewing) {
-                        globalEventEmitter.emit("RENDER_CHART");
-                    }
-                    else {
-                        globalEventEmitter.emit("RENDER_EDITOR");
-                    }
-                }
-                catch (error) {
-                    ElMessage.error(error as Error);
-                }
-
-                const now = performance.now();
-                const delta = now - renderTime;
-
-                if (delta > 0) {
-                    const currentFPS = SEC_TO_MS / delta;
-                    fpsList.push(currentFPS);
-                    if (fpsList.length >= showFpsFrequency) {
-                        fps.value = mean(fpsList);
-                        fpsList.length = 0;
-                    }
-                }
-                else {
-                    fps.value = 0;
-                }
-                renderTime = now;
-                if (combo.value !== autoplayManager.combo) {
-                    combo.value = autoplayManager.combo;
-                }
-
-                if (score.value !== autoplayManager.score) {
-                    score.value = autoplayManager.score;
-                }
-                audio.volume = settingsManager._settings.musicVolume;
-            }
-
-            if (settingsManager._settings.unlimitFps) {
-                setTimeout(renderLoop);
-            }
-            else {
-                requestAnimationFrame(renderLoop);
-            }
-        }
-    };
 
     const tipInterval = setInterval(() => {
         tip.value = Constants.tips[Math.floor(Math.random() * Constants.tips.length)];
     }, TIP_SHOW_TIME);
+
     renderLoop();
+
     onBeforeUnmount(() => {
         // 停止播放音乐
         audio.pause();
+
+        // 取消视频导出
+        cancelVideoRendering();
 
         // 清除事件监听器
         canvas.removeEventListener("mousedown", canvasMouseDown);
@@ -1086,10 +1296,7 @@ onMounted(() => {
         audio.removeEventListener("play", audioOnPlay);
 
         // 停止渲染循环
-        isRendering = false;
-        requestAnimationFrame(() => {
-            isRendering = false;
-        });
+        pauseRenderLoop();
 
         // 移除 canvas
         canvas.remove();
@@ -1115,6 +1322,11 @@ onMounted(() => {
 });
 </script>
 <style>
+.flex-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 .el-button+.el-button {
     margin-left: 0;
     margin-right: 0;
@@ -1311,5 +1523,11 @@ onMounted(() => {
 
 .footer-right {
     max-width: 65vw;
+}
+
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 </style>

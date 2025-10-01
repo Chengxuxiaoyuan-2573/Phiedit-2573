@@ -99,7 +99,11 @@ X轴正方向朝向右侧，Y轴正方向朝向上方。
 只能使用原生Javascript，不能使用第三方库。
 但已经提供了一些缓动函数，它们接收一个0~1之间的参数，返回一个0~1之间的结果，可直接使用。
 可用缓动函数列表：
-${Object.keys(easingFuncs).map(key => EasingType[+key]).join(",")}
+${
+    Object.keys(easingFuncs)
+        .map(key => EasingType[+key])
+        .join(",")
+}
 只输出Javascript代码，不要混入任何HTML、CSS以及Typescript的类型标注等内容。
 本需求与canvas无关，请忘记关于canvas的所有内容。
 不要输出函数头和末尾的大括号，仅输出中间的代码部分即可。

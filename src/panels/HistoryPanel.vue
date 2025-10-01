@@ -52,7 +52,11 @@ function update() {
 }
 
 function padStart<T>(arr: T[], padLength: number, padding?: T): T[] {
-    return padLength > arr.length ? Array(padLength - arr.length).fill(padding).concat(arr) : [...arr];
+    return padLength > arr.length ?
+        Array(padLength - arr.length)
+            .fill(padding)
+            .concat(arr) :
+        [...arr];
 }
 
 function padEnd<T>(arr: T[], padLength: number, padding?: T): T[] {
@@ -75,12 +79,13 @@ function getData() {
             description: "",
             isCurrent: true
         },
-        ...padEnd(historyManager.redoStack.slice(-num).reverse().map(command => {
-            return {
-                description: command.getDescription(),
-                isCurrent: false
-            };
-        }), num, {
+        ...padEnd(historyManager.redoStack.slice(-num).reverse()
+            .map(command => {
+                return {
+                    description: command.getDescription(),
+                    isCurrent: false
+                };
+            }), num, {
             description: "-",
             isCurrent: false
         }),

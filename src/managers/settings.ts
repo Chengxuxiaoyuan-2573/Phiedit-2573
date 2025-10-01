@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { reactive } from "vue";
 import Manager from "./abstract";
 import { NotReadonly } from "@/tools/typeTools";
@@ -9,7 +8,7 @@ export enum BottomText {
     None,
     Hint,
     Info
-};
+}
 export const defaultSettings = {
     hitSoundVolume: 1,
     musicVolume: 1,
@@ -29,7 +28,7 @@ export const defaultSettings = {
 };
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };
-    settings = reactive(this._settings)
+    settings = reactive(this._settings);
     constructor() {
         super();
         this.loadSettings();
@@ -43,18 +42,25 @@ export default class SettingsManager extends Manager {
             if (!settings) return;
             for (const key in settings) {
                 if (key in this.settings) {
-                    (this.settings[key as keyof typeof this.settings]) = settings[key as keyof typeof settings];
+                    this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings];
                 }
             }
-        })
+        });
     }
     setToDefault() {
         for (const key in defaultSettings) {
-            (this.settings[key as keyof typeof this.settings] as any) = defaultSettings[key as keyof typeof defaultSettings];
+            this.settings[key as keyof typeof this.settings] = defaultSettings[key as keyof typeof defaultSettings] as never;
         }
     }
     saveSettings() {
         const settingsManager = store.useManager("settingsManager");
         window.electronAPI.saveSettings(settingsManager._settings);
+    }
+    setSettings(settings: Partial<typeof defaultSettings>) {
+        for (const key in settings) {
+            if (key in this.settings) {
+                this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings] as never;
+            }
+        }
     }
 }

@@ -9,35 +9,31 @@ import type { defaultSettings } from "./managers/settings";
 import type { ChartReadResult } from "./models/chartPackage";
 import { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
 import { Replace } from "./tools/typeTools";
+import { NoteType } from "./models/note";
 
 const electronAPI: ElectronAPI = {
-    importChart: (chartPackagePath: string) => ipcRenderer.invoke("import-chart", chartPackagePath),
-    addChart: (musicPath: string, backgroundPath: string, name: string) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
-    saveChart: (chartId: string, chartContent: string, extraContent: string) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
-    deleteChart: (chartId: string) => ipcRenderer.invoke("delete-chart", chartId),
+    importChart: (chartPackagePath) => ipcRenderer.invoke("import-chart", chartPackagePath),
+    addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
+    saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
+    deleteChart: (chartId) => ipcRenderer.invoke("delete-chart", chartId),
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
-    loadChart: (chartId: string) => ipcRenderer.invoke("load-chart", chartId),
-    exportChart: (chartId: string, targetPath: string) => ipcRenderer.invoke("export-chart", chartId, targetPath),
-    showSaveDialog: (name: string) => ipcRenderer.invoke("show-save-dialog", name),
-    showOpenChartDialog: (multiple?: boolean) => ipcRenderer.invoke("show-open-chart-dialog", multiple),
-    showOpenMusicDialog: (multiple?: boolean) => ipcRenderer.invoke("show-open-music-dialog", multiple),
-    showOpenImageDialog: (multiple?: boolean) => ipcRenderer.invoke("show-open-image-dialog", multiple),
-    readChartInfo: (chartId: string) => ipcRenderer.invoke("read-chart-info", chartId),
-    writeChartInfo: (chartId: string, infoObj: {
-        name: string,
-        charter: string,
-        composer: string,
-        illustration: string,
-        level: string
-    }) => ipcRenderer.invoke("write-chart-info", chartId, infoObj),
+    loadChart: (chartId) => ipcRenderer.invoke("load-chart", chartId),
+    exportChart: (chartId, targetPath) => ipcRenderer.invoke("export-chart", chartId, targetPath),
+    showSaveDialog: (name) => ipcRenderer.invoke("show-save-dialog", name),
+    showOpenChartDialog: (multiple?) => ipcRenderer.invoke("show-open-chart-dialog", multiple),
+    showOpenMusicDialog: (multiple?) => ipcRenderer.invoke("show-open-music-dialog", multiple),
+    showOpenImageDialog: (multiple?) => ipcRenderer.invoke("show-open-image-dialog", multiple),
+    showSaveVideoDialog: (name) => ipcRenderer.invoke("show-save-video-dialog", name),
+    readChartInfo: (chartId) => ipcRenderer.invoke("read-chart-info", chartId),
+    writeChartInfo: (chartId, infoObj) => ipcRenderer.invoke("write-chart-info", chartId, infoObj),
     loadResourcePackage: () => ipcRenderer.invoke("load-resource-package"),
     loadSettings: () => ipcRenderer.invoke("load-settings"),
     saveSettings: (settings: typeof defaultSettings) => ipcRenderer.invoke("save-settings", settings),
-    addTextures: (chartId: string, texturePaths: string[]) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
-    openChartFolder: (path: string) => ipcRenderer.invoke("open-chart-folder", path),
-    renameChartId: (chartId: string, newChartId: string) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
-    loadShaderFile: (shaderName: string) => ipcRenderer.invoke("load-shader-file", shaderName),
-    openExternalLink: (url: string) => ipcRenderer.invoke("open-external-link", url),
+    addTextures: (chartId, texturePaths) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
+    openChartFolder: (path) => ipcRenderer.invoke("open-chart-folder", path),
+    renameChartId: (chartId, newChartId) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
+    loadShaderFile: (shaderName) => ipcRenderer.invoke("load-shader-file", shaderName),
+    openExternalLink: (url) => ipcRenderer.invoke("open-external-link", url),
     checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
     downloadUpdate: () => ipcRenderer.invoke("download-update"),
     quitAndInstall: () => ipcRenderer.invoke("quit-and-install"),
@@ -58,7 +54,15 @@ const electronAPI: ElectronAPI = {
     },
     onUpdateError(callback) {
         ipcRenderer.on("update-error", (event, error) => callback(error));
-    }
+    },
+    startVideoRendering: (chartId, fps, outputPath) => ipcRenderer.invoke("start-video-rendering", chartId, fps, outputPath),
+    sendFrameData: (frameDataUrl, currentFrame, totalFrames) => ipcRenderer.invoke("send-frame-data", frameDataUrl, currentFrame, totalFrames),
+    finishVideoRendering: (outputPath) => ipcRenderer.invoke("finish-video-rendering", outputPath),
+    addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
+    cancelVideoRendering: () => ipcRenderer.invoke("cancel-video-rendering"),
+    onVideoRenderingProgress(callback) {
+        ipcRenderer.on("video-rendering-progress", (event, progress) => callback(progress));
+    },
 };
 
 interface ElectronAPI {
@@ -84,17 +88,20 @@ interface ElectronAPI {
     /** 导出谱面 */
     exportChart: (chartId: string, targetPath: string) => Promise<void>
 
-    /** 显示保存文件的对话框 */
-    showSaveDialog: (name: string) => Promise<string>
+    /** 显示保存谱面（pez/zip）文件的对话框 */
+    showSaveDialog: (name: string) => Promise<string | null>
 
     /** 显示打开谱面（json）文件的对话框 */
-    showOpenChartDialog: () => Promise<string[] | null>
+    showOpenChartDialog: (multiple?: boolean) => Promise<string[] | null>
 
     /** 显示打开音乐文件的对话框 */
-    showOpenMusicDialog: () => Promise<string[] | null>
+    showOpenMusicDialog: (multiple?: boolean) => Promise<string[] | null>
 
     /** 显示打开图片文件的对话框 */
     showOpenImageDialog: (multiple?: boolean) => Promise<string[] | null>
+
+    /** 显示保存视频文件的对话框 */
+    showSaveVideoDialog: (name: string) => Promise<string | null>
 
     /** 读取谱面的 info.txt */
     readChartInfo: (chartId: string) => Promise<{
@@ -156,6 +163,44 @@ interface ElectronAPI {
     onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => void
     onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => void
     onUpdateError: (callback: (error: Error) => void) => void
+
+    /** Start video export session */
+    startVideoRendering: (chartId: string, fps: number, outputPath: string) => Promise<void>
+
+    /** Send frame data to video export session */
+    sendFrameData: (frameDataUrl: string, currentFrame: number, totalFrames: number) => Promise<void>
+
+    /** Finish video export and save to file */
+    finishVideoRendering: (outputPath: string) => Promise<void>
+
+    addHitSounds: (sounds: HitSoundInfo[]) => Promise<void>
+
+    cancelVideoRendering: () => Promise<void>
+
+    onVideoRenderingProgress: (callback: (progress: VideoRenderingProgress) => void) => void
+}
+
+export interface HitSoundInfo {
+    type: NoteType;
+    time: number;
+}
+
+export interface VideoRenderingProgress {
+
+    /** 渲染状态信息 */
+    status: string;
+
+    /** 已经处理的数量 */
+    processed: number;
+
+    /** 总数量 */
+    total: number;
+
+    /** 处理时所花费的时间 */
+    time: number;
+
+    /** 状态码 */
+    code: "MERGING_HITSOUNDS" | "RENDERING_FRAMES"
 }
 
 declare global {

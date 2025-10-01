@@ -26,11 +26,12 @@
     ```
 
 6. 双击运行根目录下的 [install.cmd](install.cmd) ，**直接回车**安装依赖。
-   或者你也可以使用 `npm install` 安装依赖。
+   或者你也可以双击 [command.cmd](command.cmd)，输入 `npm install` 或 `install` 安装依赖。
 7. 双击运行根目录下的 [dev.cmd](dev.cmd) 启动项目。
-   或者你也可以手动输入命令 `npm run electron:dev`。
+   或者你也可以双击 [command.cmd](command.cmd)，输入 `npm run electron:dev` 或 `dev` 启动项目。
 8. **开始你的开发**
 9. 给你的功能起一个名字（详见[功能分支命名规则](#功能分支命名规则)），并基于 dev 分支创建功能分支（你开发完的代码会被推送到这个分支里）。
+   如果你使用的是 Visual Studio Code（以下简称 VSCode），你也可以点击**界面左下角**的树枝形状的图标，点击“Create new branch”，输入你的功能名并回车。
 
     ```bash
     git checkout -b 你的功能名 dev
@@ -39,12 +40,20 @@
 10. 提交代码并推送至你的 Fork 仓库（要推送到功能分支里）。
 
     ```bash
+    # 第1步：把修改添加到暂存区
     git add .
+    # 第2步：提交暂存区
     git commit -m "你的提交信息，对你做的修改进行描述"
+    # 第3步：将修改推送到远程仓库
     git push origin 你的功能名
     ```
 
-11. 在 GitHub 上提交 Pull Request，在 Pull Request 的信息中关联对应 Issue（就是向我申请，要把你的修改合并到 dev 分支里的意思）。
+    如果你使用的是 VSCode，你也可以按下面的步骤操作：
+    1. 点击**界面左侧的**树枝形状的图标，点击“Changes”右侧的加号图标（第1步）
+    2. 在输入框内输入提交信息，然后点击“Commit”按钮（第2步）
+    3. 再点击“Sync Changes”按钮（第3步）。
+
+11. 根据 [Pull Request 审核标准](#pull-request-审核标准) 在 GitHub 上提交 Pull Request（就是向我申请，要把你的修改合并到 dev 分支里的意思）。
 12. 等待审核。审核通过后，恭喜你，你已经给这个项目的开发做出了贡献！
 
 ## 文件目录结构解释
@@ -165,7 +174,7 @@
 
 ### 代码格式
 
-- 请经常使用代码编辑器的格式化功能统一代码格式。Visual Studio Code（以下简称 VSCode）中，格式化代码的快捷键为 Shift+Alt+F。
+- 请经常使用代码编辑器的格式化功能统一代码格式。VSCode 中，格式化代码的快捷键为 Shift+Alt+F。
 - 缩进使用 4 个空格。如果你用的也是 VSCode，请点击界面下方的“Tab Size: 4”或类似的文字，并点击“Indent Using Spaces”，点击数字 4，那个文字应该会变为“Spaces: 4”。设置完成后，请按 Shift+Alt+F 重新格式化代码。
 - 使用 Vue 组件时，每个属性都要换一行。如果超过 2 个属性，或者一个属性占了多行，则第一个属性和开头的尖括号之间要换行，最后一个属性和结尾的尖括号之间也要换行。如果你用的也是 VSCode，请打开设置，并把 `html.format.wrapAttributes` 设置为 `force-expand-multiline`。
 - 大多数代码格式规则都在 eslint 配置中设置了，在编写时，如果出现了错误，你应该能收到错误提示。下列均为 eslint 中没有配置的规则，请自行遵守。
@@ -291,7 +300,7 @@ method(1, 2, 3, {
 - 请遵循 eslint 中的规则。你可以使用 `npm run lint` 检查你是否有 eslint 错误。如果有，应该是会有错误提示的。
 - 实在无法避免的 eslint 错误，请使用 eslint 禁用注释、`ts-ignore`、忽略类型检查或 `as any` 等手段。
 - 但只有在你 100% 确定代码不会有运行时错误的情况下，才能使用上述的方法，且应尽量避免。
-- 如果你认为某些 eslint 规则不符合你的要求，请修改 `.eslintrc.js` 文件。
+- 如果你认为某些 eslint 规则不符合你的要求，请修改 [eslint 的配置文件](.eslintrc.js)。
 - 下列规则均为 eslint 中没有配置的规则：
 - 普通对象只能含有属性，不能含有方法。方法只能在类中定义。
 - [src](src) 下的所有代码文件都应该是 Typescript 文件，Vue 组件中也应该使用 `<script setup lang="ts">`。不要出现 `.js` 文件。（当然，配置文件除外）

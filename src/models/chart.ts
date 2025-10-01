@@ -9,20 +9,22 @@ import ChartError from "./error";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
 import { IObjectizable } from "./objectizable";
 
+/** RPEJSON 格式谱面 */
 export interface IChart {
 
-    /** BPM列表，控制曲谱的BPM */
+    /** BPM 列表，控制曲谱的 BPM */
     BPMList: IBPM[]
 
     /** 存储谱面的名称、谱师、曲师等元数据 */
     META: IChartMeta
 
-    /** 没用的属性，可以不用 */
+    /** 判定线组，暂时无用 */
     judgeLineGroup: string[]
 
     /** 判定线列表 */
     judgeLineList: IJudgeLine[]
 }
+
 export class Chart implements IChart, IObjectizable {
     readonly BPMList: BPM[];
     readonly META: ChartMeta;

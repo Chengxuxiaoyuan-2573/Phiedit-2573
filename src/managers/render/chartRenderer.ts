@@ -460,7 +460,11 @@ export default class ChartRenderer extends Manager {
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
-        const shownScore = isNaN(score) ? perfectScoreString : Math.round(score).toString().padStart(perfectScoreString.length, "0");
+        const shownScore = isNaN(score) ?
+            perfectScoreString :
+            Math.round(score)
+                .toString()
+                .padStart(perfectScoreString.length, "0");
 
         const drawLine = canvasUtils.drawLine.bind(ctx);
         const writeText = canvasUtils.writeText.bind(ctx);
@@ -786,7 +790,11 @@ export default class ChartRenderer extends Manager {
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
-        const shownScore = isNaN(score) ? perfectScoreString : Math.round(score).toString().padStart(perfectScoreString.length, "0");
+        const shownScore = isNaN(score) ?
+            perfectScoreString :
+            Math.round(score)
+                .toString()
+                .padStart(perfectScoreString.length, "0");
 
         const drawLine = canvasUtils.drawLine.bind(ctx);
         const writeText = canvasUtils.writeText.bind(ctx);

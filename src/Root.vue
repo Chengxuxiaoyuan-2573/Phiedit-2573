@@ -125,6 +125,7 @@ function loadEnd() {
 
 provide("loadStart", loadStart);
 provide("loadEnd", loadEnd);
+provide("showUpdateDialog", showUpdateDialog);
 
 enum UpdateState {
     IDLE = "idle",
@@ -141,6 +142,10 @@ const updateInfo = ref<Replace<UpdateInfo, "releaseNotes", string> | null>(null)
 const downloadProgress = ref<ProgressInfo | null>(null);
 const error = ref<Error | null>(null);
 
+function showUpdateDialog() {
+    isShow.value = true;
+}
+
 function checkForUpdates() {
     window.electronAPI.checkForUpdates();
 }
@@ -155,12 +160,12 @@ function quitAndInstall() {
 
 window.electronAPI.onUpdateChecking(() => {
     updateState.value = UpdateState.CHECKING;
-    isShow.value = true;
 });
 
 window.electronAPI.onUpdateAvailable((info) => {
     updateState.value = UpdateState.AVAILABLE;
     updateInfo.value = info;
+    showUpdateDialog();
 });
 
 window.electronAPI.onUpdateNotAvailable((info) => {
@@ -171,16 +176,19 @@ window.electronAPI.onUpdateNotAvailable((info) => {
 window.electronAPI.onUpdateDownloadProgress((progress) => {
     updateState.value = UpdateState.DOWNLOADING;
     downloadProgress.value = progress;
+    showUpdateDialog();
 });
 
 window.electronAPI.onUpdateDownloaded((info) => {
     updateState.value = UpdateState.DOWNLOADED;
     updateInfo.value = info;
+    showUpdateDialog();
 });
 
 window.electronAPI.onUpdateError((err) => {
     updateState.value = UpdateState.ERROR;
     error.value = err;
+    showUpdateDialog();
 });
 </script>
 <style scoped>

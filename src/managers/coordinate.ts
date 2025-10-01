@@ -146,4 +146,46 @@ export default class CoordinateManager extends Manager {
         const canvas = store.useCanvas();
         return canvas.height / 2 - y;
     }
+
+    /**
+     * 该函数用于在含有 object-fit:contain 样式的 canvas 上，
+     * 根据 MouseEvent 对象计算出点击位置在 canvas 绘制上下文中的坐标
+     * 解决了由于 canvas 外部尺寸与内部绘制尺寸不一致导致的坐标偏移问题
+     */
+    calculatePositionOfObjectFitContainCanvas({ offsetX: x, offsetY: y }: MouseEvent, rect: DOMRect) {
+        const canvas = store.useCanvas();
+        if (!canvas) throw new Error("canvas is null");
+
+        const innerWidth = canvas.width;
+        const innerHeight = canvas.height;
+        const innerRatio = innerWidth / innerHeight;
+
+        const outerWidth = rect.width;
+        const outerHeight = rect.height;
+        const outerRatio = outerWidth / outerHeight;
+
+        // 计算缩放比和边距
+        const { ratio, padding } = (() => {
+            if (innerRatio > outerRatio) {
+                const width = outerWidth;
+                const height = width / innerRatio;
+                const padding = (outerHeight - height) / 2;
+                return { padding, ratio: innerWidth / width };
+            }
+            else {
+                const height = outerHeight;
+                const width = height * innerRatio;
+                const padding = (outerWidth - width) / 2;
+                return { padding, ratio: innerHeight / height };
+            }
+        })();
+
+        // 根据宽高比返回调整后的坐标
+        if (innerRatio > outerRatio) {
+            return { x: x * ratio, y: (y - padding) * ratio };
+        }
+        else {
+            return { y: y * ratio, x: (x - padding) * ratio };
+        }
+    }
 }

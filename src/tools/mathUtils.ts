@@ -1,8 +1,8 @@
 import { isString } from "lodash";
-import Assertion from "./assertion";
 
 export const DEG_TO_RAD = Math.PI / 180;
 export const KB_TO_BYTE = 1024;
+export const DAY_TO_HOUR = 24;
 export const HOUR_TO_MIN = 60;
 export const MIN_TO_SEC = 60;
 export const SEC_TO_MS = 1000;
@@ -66,9 +66,6 @@ export default class MathUtils {
         return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
     }
     static gcd(a: number, b: number): number {
-        new Assertion(a).is("number").integer();
-        new Assertion(b).is("number").integer();
-
         a = Math.abs(a);
         b = Math.abs(b);
         while (b !== 0) {
@@ -77,9 +74,6 @@ export default class MathUtils {
         return a === 0 && b === 0 ? 0 : a;
     }
     static lcm(a: number, b: number) {
-        new Assertion(a).is("number").integer();
-        new Assertion(b).is("number").integer();
-
         a = Math.abs(a);
         b = Math.abs(b);
         if (a === 0 || b === 0) {
@@ -107,6 +101,10 @@ export default class MathUtils {
         }
         return result;
     }
+    static round(value: number, digits = 0) {
+        const base = this.pow(10, digits);
+        return Math.round(value * base) / base;
+    }
     static randomNumbers(count: number, seed?: number | string, min = 0, max = 1): number[] {
         const LCG_MULTIPLIER = 9301;
         const LCG_INCREMENT = 49297;
@@ -123,11 +121,6 @@ export default class MathUtils {
         if (isString(seed)) {
             seed = MathUtils.hashCode(seed);
         }
-
-        new Assertion(count).is("number").integer().positive();
-        new Assertion(seed).is("number").finite().notNaN();
-        new Assertion(min).is("number").finite().notNaN().max(max);
-        new Assertion(max).is("number").finite().notNaN().min(min);
 
         // 种子值更新函数
         function updateSeed(seed: number): number {
@@ -162,6 +155,25 @@ export default class MathUtils {
     }
     static formatData(bytes: number, p = 2) {
         return this.format(["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"], KB_TO_BYTE, bytes, p);
+    }
+    static formatTime(seconds: number) {
+        if (seconds < 1) {
+            return `${Math.floor(seconds * SEC_TO_MS)}ms`;
+        }
+
+        if (seconds < MIN_TO_SEC) {
+            return `${Math.floor(seconds)}s`;
+        }
+
+        if (seconds < HOUR_TO_MIN * MIN_TO_SEC) {
+            return `${Math.floor(seconds / MIN_TO_SEC)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
+        }
+
+        if (seconds < DAY_TO_HOUR * HOUR_TO_MIN * MIN_TO_SEC) {
+            return `${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC)}hr ${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
+        }
+
+        return `${Math.floor(seconds / DAY_TO_HOUR / HOUR_TO_MIN / MIN_TO_SEC)}d ${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC % DAY_TO_HOUR)}hr ${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
     }
 
     // staticformatTime(seconds: number) {
@@ -275,6 +287,9 @@ export default class MathUtils {
 
         const finalNumerator = isNegative ? -numerator : numerator;
         return [finalNumerator, denominator];
+    }
+    static addTime(time: Date, addedSeconds: number) {
+        return new Date(time.getTime() + addedSeconds * SEC_TO_MS);
     }
 }
 

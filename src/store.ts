@@ -79,13 +79,17 @@ class Store {
 
     readonly managers: {
         [key in keyof ManagersMap]: ManagersMap[key] | null;
-    } = new ArrayedObject(managersMap).map(() => null).toObject();
+    } = new ArrayedObject(managersMap)
+            .map(() => null)
+            .toObject();
 
     /** 全局管理器，在整个应用的生命周期中仅创建一次 */
     readonly globalManagers = {
         chartPackageLoader: new ChartPackageLoader(),
         resourcePackageLoader: new ResourcePackageLoader()
     };
+
+    isRenderingVideo = ref(false);
     constructor() {
         this.chartPackageRef = ref(null);
         this.resourcePackageRef = ref(null);
@@ -303,10 +307,3 @@ const EVENT_ID_PARTS = 4;
 
 const store = new Store();
 export default store;
-const { chartPackageRef, resourcePackageRef, audioRef, canvasRef } = store;
-export {
-    chartPackageRef,
-    resourcePackageRef,
-    audioRef,
-    canvasRef
-};

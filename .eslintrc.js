@@ -112,6 +112,12 @@ module.exports = {
             // allowInterfaceStart: true,
         }],
 
+        /** 三元运算符换行 */
+        "multiline-ternary": ["error", "always-multiline"],
+
+        /** 链式调用必须换行 */
+        "newline-per-chained-call": "error",
+
         /** 禁止不必要的括号 */
         "no-extra-parens": "error",
 
@@ -140,11 +146,14 @@ module.exports = {
                 // 有些时候要取数组的最后一项，要用到 arr[arr.length - 1]
                 1,
 
-                // 需要把某些东西除以 2 或乘以 0.5 来获取 canvas 的中心点等
+                // 需要把某些东西除以 2 或乘以 0.5 来获取某些东西的中点
                 2, 0.5,
 
                 // shader 中要用到 vec3 和 vec4 型的值
                 3, 4,
+
+                // 用于计算 10 的幂
+                10,
 
                 // 用于把小数和百分数进行转换
                 100,
@@ -248,8 +257,19 @@ module.exports = {
             int32Hint: false
         }],
 
+        "space-unary-ops": [2, {
+            "nonwords": false,
+            "words": true,
+        }],
+
         /** 注释的 // 或 /* 后面必须至少有一个空格 */
         "spaced-comment": ["error", "always"],
+
+        "switch-colon-spacing": ["error", {
+            "after": true, "before": false
+        }],
+
+        "template-curly-spacing": ["error", "never"],
 
         /**
          * 设置 Vue 文件中组件名称为 PascalCase

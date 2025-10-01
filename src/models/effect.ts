@@ -167,14 +167,16 @@ export class Effect implements IEffect, IObjectizable {
             end: this.end,
             shader: this.shader,
             global: this.global,
-            vars: new ArrayedObject(this.vars).map((key, value) => {
-                if (isNumberOrVector(value)) {
-                    return value;
-                }
-                else {
-                    return value.map(event => event.toObject());
-                }
-            }).toObject(),
+            vars: new ArrayedObject(this.vars)
+                .map((key, value) => {
+                    if (isNumberOrVector(value)) {
+                        return value;
+                    }
+                    else {
+                        return value.map(event => event.toObject());
+                    }
+                })
+                .toObject(),
             description: this.description,
         };
     }
@@ -288,7 +290,8 @@ export class Effect implements IEffect, IObjectizable {
                 }
                 else {
                     this.errors.push(new ChartError(
-                        `Effect：effect.shader 必须为${Object.keys(DEFAULT_VARS).map(str => `"${str}"`).join("、")}中的一个，但读取到了 ${JSON.stringify(effect.shader)}。将会被替换为默认值 "chromatic"。`,
+                        `Effect：effect.shader 必须为${Object.keys(DEFAULT_VARS).map(str => `"${str}"`)
+                            .join("、")}中的一个，但读取到了 ${JSON.stringify(effect.shader)}。将会被替换为默认值 "chromatic"。`,
                         "ChartReadError.TypeError",
                         "error"
                     ));
