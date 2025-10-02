@@ -378,6 +378,7 @@ export default class EditorRenderer extends Manager {
                 return extendedEventTypes;
             }
         })();
+
         for (let column = 0; column < types.length; column++) {
             const type = types[column];
             const events = stateManager.currentEventLayer.getEventsByType(type);
@@ -465,23 +466,6 @@ export default class EditorRenderer extends Manager {
 
                     // 显示鼠标悬停的效果
                     if (mouseManager.mouseX >= eventX - Constants.EDITOR_VIEW_EVENT_WIDTH / 2 && mouseManager.mouseX <= eventX + Constants.EDITOR_VIEW_EVENT_WIDTH / 2) {
-                        /* if (mouseManager.mouseY >= eventStartY - Constants.selectPadding && mouseManager.mouseY <= eventStartY)
-                            drawRect(
-                                eventX - Constants.eventWidth / 2,
-                                eventStartY - Constants.selectPadding,
-                                Constants.eventWidth,
-                                Constants.selectPadding,
-                                Constants.hoverColor,
-                                true);
-                        else if (mouseManager.mouseY >= eventEndY && mouseManager.mouseY <= eventEndY + Constants.selectPadding)
-                            drawRect(
-                                eventX - Constants.eventWidth / 2,
-                                eventEndY,
-                                Constants.eventWidth,
-                                Constants.selectPadding,
-                                Constants.hoverColor,
-                                true);
-                        else */
                         if (box.touch(mouseManager.mouseX, mouseManager.mouseY)) {
                             drawRect(
                                 eventX - Constants.EDITOR_VIEW_EVENT_WIDTH / 2,
@@ -516,7 +500,11 @@ export default class EditorRenderer extends Manager {
                                 }
 
                                 const y = coordinateManager.getRelativePositionYOfSeconds(sec);
-                                if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top || y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
+                                if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top) {
+                                    break;
+                                }
+
+                                if (y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                                     continue;
                                 }
 
@@ -540,8 +528,12 @@ export default class EditorRenderer extends Manager {
                             }
 
                             const y = coordinateManager.getRelativePositionYOfSeconds(sec);
-                            if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top || y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
+                            if (y > Constants.EDITOR_VIEW_EVENTS_VIEWBOX.bottom) {
                                 continue;
+                            }
+
+                            if (y < Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top) {
+                                break;
                             }
 
                             const nextY = coordinateManager.getRelativePositionYOfSeconds(nextSec);
