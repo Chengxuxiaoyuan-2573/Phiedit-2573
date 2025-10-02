@@ -205,6 +205,16 @@ return {
         globalEventEmitter.on("TOGGLE_PLAY", () => {
             store.togglePlay();
         });
+        globalEventEmitter.on("ADD_JUDGE_LINE", () => {
+            const chart = store.useChart();
+            chart.addNewJudgeLine();
+            globalEventEmitter.emit("JUDGE_LINE_COUNT_CHANGED", this.judgeLinesCount);
+        });
+        globalEventEmitter.on("DELETE_JUDGE_LINE", (num) => {
+            const chart = store.useChart();
+            chart.deleteJudgeLine(num);
+            globalEventEmitter.emit("JUDGE_LINE_COUNT_CHANGED", this.judgeLinesCount);
+        });
     }
     get currentJudgeLine() {
         return store.getJudgeLineById(this._state.currentJudgeLineNumber);

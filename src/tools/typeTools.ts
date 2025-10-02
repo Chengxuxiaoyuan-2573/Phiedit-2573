@@ -48,6 +48,11 @@ export type DeepNotReadonly<T> = {
     -readonly [P in keyof T]: DeepNotReadonly<T[P]>;
 };
 
+/** 深度搜索把每个属性都变为必填 */
+export type DeepRequired<T> = {
+    [P in keyof T]-?: DeepRequired<T[P]>;
+};
+
 /** 从联合类型 T 中筛选出与 U 兼容的类型 */
 export type Filter<T, U> = T extends U ? T : never;
 

@@ -239,7 +239,7 @@ function handleDeleteJudgeLine() {
     if (stateManager.judgeLinesCount <= 1) {
         throw new Error("无法删除最后一条判定线");
     }
-    chart.deleteJudgeLine(stateManager.state.currentJudgeLineNumber);
+    globalEventEmitter.emit("DELETE_JUDGE_LINE", stateManager.state.currentJudgeLineNumber);
     if (currentLine >= stateManager.judgeLinesCount) {
         stateManager.state.currentJudgeLineNumber = stateManager.judgeLinesCount - 1;
     }

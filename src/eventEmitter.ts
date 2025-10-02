@@ -76,11 +76,14 @@ export interface GlobalEventMap {
     AUTO_FIX_ERRORS: []
     MUTIPLE_EDIT: []
     SAVE_SETTINGS: []
+    ADD_JUDGE_LINE: []
+    DELETE_JUDGE_LINE: [number]
 
     SELECTION_UPDATE: []
     HISTORY_UPDATE: [HistoryType]
     ERRORS_FIXED: [number]
     ELEMENT_DRAGGED: []
+    JUDGE_LINE_COUNT_CHANGED: [number]
 }
 class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
 

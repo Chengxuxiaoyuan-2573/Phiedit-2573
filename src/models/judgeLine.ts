@@ -115,7 +115,7 @@ const DEFAULT_X_MIN = 0;
 const MAX_EVENT_LAYERS = 4;
 const SPEED_RATIO = 120;
 
-export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine> {
+export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLineExtendedOptions {
     Group = DEFAULT_GROUP;
     Name = DEFAULT_NAME;
     Texture = DEFAULT_TEXTURE;
@@ -189,7 +189,12 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine> {
     }];
     zOrder: number = DEFAULT_Z_ORDER;
     attachUI: "none" | "pause" | "combonumber" | "combo" | "score" | "bar" | "name" | "level" = "none";
+
+    readonly BPMList: BPM[];
     id: number;
+    get judgeLineNumber() {
+        return this.id;
+    }
 
     /** 当前的音符编号排到第几号了，表示下一个被添加的音符的noteNumber */
     private noteNumber = 0;
@@ -447,6 +452,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine> {
         return false;
     }
     constructor(judgeLine: unknown, readonly options: JudgeLineExtendedOptions) {
+        this.BPMList = options.BPMList;
         this.id = options.judgeLineNumber;
         if (isObject(judgeLine)) {
             if ("Group" in judgeLine) {

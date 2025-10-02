@@ -276,7 +276,31 @@ export function checkAndSort<T>(arr: T[], compare: (a: T, b: T) => number) {
     }
 }
 
-export function unique<T>(array: T[]) {
+/**
+ * 移除数组中的连续重复项。
+ * 注意：本函数仅处理相邻重复项，若需完全去重，输入数组必须已排序。
+ * @param array - 待处理的数组（原地修改）
+ */
+export function unique<T>(array: T[]): void {
+    if (array.length === 0) return;
+
+    let writeIndex = 1;
+    for (let readIndex = 1; readIndex < array.length; readIndex++) {
+        if (array[readIndex] !== array[readIndex - 1]) {
+            array[writeIndex] = array[readIndex];
+            writeIndex++;
+        }
+    }
+
+    array.length = writeIndex;
+}
+
+/**
+ * 对数组进行去重。不会修改原数组。
+ * @param array 待去重的数组
+ * @returns 新的已经去重的数组
+ */
+export function toUnique<T>(array: T[]) {
     return [...new Set(array)];
 }
 
@@ -476,4 +500,11 @@ export class ArrayedObject<K extends string | number | symbol, V> {
 /** 与 Object.fromEntries 相同，只是做了一下类型标注 */
 export function fromEntries<K extends string | number | symbol, V>(entries: [K, V][]): Record<K, V> {
     return Object.fromEntries(entries) as Record<K, V>;
+}
+
+export function useless(...args: unknown[]) {
+    if (args) {
+        return;
+    }
+    return;
 }

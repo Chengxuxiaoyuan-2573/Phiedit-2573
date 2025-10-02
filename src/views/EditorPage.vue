@@ -205,18 +205,18 @@
                     :gap="5"
                 >
                     <MyButton
-                        v-for="i in min([stateManager.eventLayersCount, 4])"
-                        :key="i - 1 + (u ? 0 : 0)"
+                        v-for="i in Math.min(stateManager.eventLayersCount, 4)"
+                        :key="i - 1"
                         type="primary"
                         :plain="i - 1 != parseInt(stateManager.state.currentEventLayerId)"
-                        @click="stateManager.state.currentEventLayerId = (i - 1).toString(), update()"
+                        @click="stateManager.state.currentEventLayerId = (i - 1).toString()"
                     >
                         {{ i - 1 }}
                     </MyButton>
                     <MyButton
                         type="warning"
                         :plain="stateManager.state.currentEventLayerId != 'X'"
-                        @click="stateManager.state.currentEventLayerId = 'X', update()"
+                        @click="stateManager.state.currentEventLayerId = 'X'"
                     >
                         特殊
                     </MyButton>
@@ -541,9 +541,6 @@
                         shader编辑
                     </MyButton>
                 </MyGridContainer>
-                <h3>
-                    快速切换判定线
-                </h3>
                 <MyInput
                     v-model="judgeLineFilter"
                     class="judge-line-filter-input"
@@ -556,17 +553,17 @@
                 >
                     <MyButton
                         v-for="judgeLine in filteredJudgeLines"
-                        :key="judgeLine.id + (u ? 0 : 0)"
-                        :type="(['primary', 'warning', 'danger', 'success', 'info'] as const)[Math.floor((judgeLine.id) / 10) % 5]"
-                        :plain="judgeLine.id != stateManager.state.currentJudgeLineNumber"
+                        :key="judgeLine.judgeLineNumber"
+                        :type="(['primary', 'warning', 'danger', 'success', 'info'] as const)[Math.floor((judgeLine.judgeLineNumber) / 10) % 5]"
+                        :plain="judgeLine.judgeLineNumber != stateManager.state.currentJudgeLineNumber"
                         flex
-                        @click="stateManager.state.currentJudgeLineNumber = judgeLine.id, update()"
+                        @click="stateManager.state.currentJudgeLineNumber = judgeLine.judgeLineNumber"
                     >
-                        {{ judgeLine.id }}
+                        {{ judgeLine.judgeLineNumber }}
                     </MyButton>
                     <MyButton
                         type="success"
-                        @click="chart.addNewJudgeLine(), update()"
+                        @click="globalEventEmitter.emit('ADD_JUDGE_LINE')"
                     >
                         +
                     </MyButton>
@@ -662,14 +659,17 @@ import {
 } from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { clamp, isNumber, mean, min } from "lodash";
+import { clamp, isNumber, mean } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
 import { catchErrorByMessage, confirm } from "@/tools/catchError";
+import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
+import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
 import { isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
+import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/judgeLine";
 
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";
@@ -678,6 +678,9 @@ import MyBackHeader from "@/myElements/MyBackHeader.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import MyImage from "@/myElements/MyImage.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
+import MyLink from "@/myElements/MyLink.vue";
+import MyInput from "@/myElements/MyInput.vue";
+import MyDialog from "@/myElements/MyDialog.vue";
 
 import BPMListPanel from "@/panels/BPMListPanel.vue";
 import ChartMetaPanel from "@/panels/ChartMetaPanel.vue";
@@ -695,18 +698,14 @@ import FastBindPanel from "@/panels/FastBindPanel.vue";
 import ColorEventEditPanel from "@/panels/ColorEventEditPanel.vue";
 import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
+import ShaderPanel from "@/panels/ShaderPanel.vue";
 
 import globalEventEmitter from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import Constants from "@/constants";
-import ShaderPanel from "@/panels/ShaderPanel.vue";
-import MyLink from "@/myElements/MyLink.vue";
-import MyInput from "@/myElements/MyInput.vue";
-import { ArrayedObject } from "@/tools/algorithm";
 import { RightPanelState } from "@/managers/state";
-import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import getKeyHandler from "@/keyHandlers";
-import MyDialog from "@/myElements/MyDialog.vue";
+import { DeepRequired } from "@/tools/typeTools";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -761,7 +760,6 @@ const fps = ref(0);
 const time = ref(0);
 const combo = ref(0);
 const score = ref(0);
-const u = ref(false);
 const audioIsPlaying = ref(false);
 const tip = ref(Constants.tips[Math.floor(Math.random() * Constants.tips.length)]);
 const mouseIsInCanvas = ref(false);
@@ -769,14 +767,29 @@ const mouseX = ref(0);
 const mouseY = ref(0);
 const judgeLineFilter = ref("");
 
+const judgeLineList = reactive<DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]>>([]);
+
+onMounted(() => {
+    globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
+});
+onBeforeUnmount(() => {
+    globalEventEmitter.off("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
+});
+
+function updateJudgeLineList() {
+    judgeLineList.length = 0;
+    judgeLineList.push(...chart.judgeLineList);
+}
+updateJudgeLineList();
+
 const filteredJudgeLines = computed(() => {
     // 如果过滤条件为空，就直接返回所有的判定线
     if (judgeLineFilter.value === "") {
-        return [...chart.judgeLineList];
+        return [...judgeLineList];
     }
 
-    const result = chart.judgeLineList.filter(judgeLine => {
-        return judgeLine.id
+    const result = judgeLineList.filter(judgeLine => {
+        return judgeLine.judgeLineNumber
             .toString()
             .toLowerCase()
             .includes(
@@ -814,13 +827,13 @@ const filteredJudgeLines = computed(() => {
 
     // 处理范围匹配
     if (ranges.length > 0) {
-        result.push(...chart.judgeLineList.filter(judgeLine =>
+        result.push(...judgeLineList.filter(judgeLine =>
             ranges.some(range => {
                 if (isNumber(range)) {
-                    return range === judgeLine.id;
+                    return range === judgeLine.judgeLineNumber;
                 }
                 else {
-                    return judgeLine.id >= range.start && judgeLine.id <= range.end;
+                    return judgeLine.judgeLineNumber >= range.start && judgeLine.judgeLineNumber <= range.end;
                 }
             })
         ));
@@ -829,13 +842,13 @@ const filteredJudgeLines = computed(() => {
     // 根据父线筛选
     const fatherMatch = judgeLineFilter.value.match(/^(father|parent|dad|daddy):(\d+)/);
     if (fatherMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => judgeLine.father === +fatherMatch[2]));
+        result.push(...judgeLineList.filter(judgeLine => judgeLine.father === +fatherMatch[2]));
     }
 
     // 根据绑定的 UI 筛选
     const uiMatch = judgeLineFilter.value.match(/^ui(:(.*))?/);
     if (uiMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => {
+        result.push(...judgeLineList.filter(judgeLine => {
             if (uiMatch[2]) {
                 return judgeLine.attachUI.includes(uiMatch[2]);
             }
@@ -848,7 +861,7 @@ const filteredJudgeLines = computed(() => {
     // 根据贴图筛选
     const textureMatch = judgeLineFilter.value.match(/^(texture|picture|image)(:(.*))?/);
     if (textureMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => {
+        result.push(...judgeLineList.filter(judgeLine => {
             if (textureMatch[3]) {
                 return judgeLine.Texture.includes(textureMatch[3]);
             }
@@ -861,7 +874,7 @@ const filteredJudgeLines = computed(() => {
     // 根据是否有文字事件筛选
     const textMatch = judgeLineFilter.value.match(/^text/);
     if (textMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => {
+        result.push(...judgeLineList.filter(judgeLine => {
             return judgeLine.extended.textEvents.length > 0;
         }));
     }
@@ -869,7 +882,7 @@ const filteredJudgeLines = computed(() => {
     // 根据是否有颜色事件筛选
     const colorMatch = judgeLineFilter.value.match(/^color/);
     if (colorMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => {
+        result.push(...judgeLineList.filter(judgeLine => {
             return judgeLine.extended.colorEvents.length > 0;
         }));
     }
@@ -877,10 +890,12 @@ const filteredJudgeLines = computed(() => {
     // 根据是否有音符筛选
     const noteMatch = judgeLineFilter.value.match(/^note/);
     if (noteMatch) {
-        result.push(...chart.judgeLineList.filter(judgeLine => {
+        result.push(...judgeLineList.filter(judgeLine => {
             return judgeLine.notes.length > 0;
         }));
     }
+    checkAndSort(result, (a, b) => a.judgeLineNumber - b.judgeLineNumber);
+    unique(result);
     return result;
 });
 
@@ -923,10 +938,6 @@ let isRendering = true;
 function checkForUpdates() {
     showUpdateDialog();
     window.electronAPI.checkForUpdates();
-}
-
-function update() {
-    u.value = !u.value;
 }
 
 function openChartFolder() {

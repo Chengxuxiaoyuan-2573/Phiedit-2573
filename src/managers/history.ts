@@ -4,7 +4,7 @@ import { INote, noteAttributes } from "@/models/note";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";
-import { unique } from "@/tools/algorithm";
+import { toUnique } from "@/tools/algorithm";
 
 const NAME_MAP = {
     addNote: "ADD_NOTE",
@@ -107,7 +107,7 @@ export default class HistoryManager extends Manager {
             return;
         }
         this.grouped = false;
-        globalEventEmitter.emit("HISTORY_UPDATE", unique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
+        globalEventEmitter.emit("HISTORY_UPDATE", toUnique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
     }
     undo() {
         const record = this.undoStack.pop();
