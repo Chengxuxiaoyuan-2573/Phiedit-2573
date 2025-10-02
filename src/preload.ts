@@ -42,22 +42,46 @@ const electronAPI: ElectronAPI = {
     downloadUpdate: () => ipcRenderer.invoke("download-update"),
     quitAndInstall: () => ipcRenderer.invoke("quit-and-install"),
     onUpdateChecking(callback) {
-        ipcRenderer.on("update-checking", () => callback());
+        const listener = () => callback();
+        ipcRenderer.on("update-checking", listener);
+        return () => {
+            ipcRenderer.off("update-checking", listener);
+        };
     },
     onUpdateAvailable(callback) {
-        ipcRenderer.on("update-available", (event, info) => callback(info));
+        const listener = (event: unknown, info: typeof callback extends (arg: infer T) => void ? T : never) => callback(info);
+        ipcRenderer.on("update-available", listener);
+        return () => {
+            ipcRenderer.off("update-available", listener);
+        };
     },
     onUpdateNotAvailable(callback) {
-        ipcRenderer.on("update-not-available", (event, info) => callback(info));
+        const listener = (event: unknown, info: typeof callback extends (arg: infer T) => void ? T : never) => callback(info);
+        ipcRenderer.on("update-not-available", listener);
+        return () => {
+            ipcRenderer.off("update-not-available", listener);
+        };
     },
     onUpdateDownloadProgress(callback) {
-        ipcRenderer.on("update-download-progress", (event, progress) => callback(progress));
+        const listener = (event: unknown, progress: typeof callback extends (arg: infer T) => void ? T : never) => callback(progress);
+        ipcRenderer.on("update-download-progress", listener);
+        return () => {
+            ipcRenderer.off("update-download-progress", listener);
+        };
     },
     onUpdateDownloaded(callback) {
-        ipcRenderer.on("update-downloaded", (event, info) => callback(info));
+        const listener = (event: unknown, info: typeof callback extends (arg: infer T) => void ? T : never) => callback(info);
+        ipcRenderer.on("update-downloaded", listener);
+        return () => {
+            ipcRenderer.off("update-downloaded", listener);
+        };
     },
     onUpdateError(callback) {
-        ipcRenderer.on("update-error", (event, error) => callback(error));
+        const listener = (event: unknown, error: typeof callback extends (arg: infer T) => void ? T : never) => callback(error);
+        ipcRenderer.on("update-error", listener);
+        return () => {
+            ipcRenderer.off("update-error", listener);
+        };
     },
     startVideoRendering: (chartId, fps, outputPath) => ipcRenderer.invoke("start-video-rendering", chartId, fps, outputPath),
     sendFrameData: (frameDataUrl, currentFrame, totalFrames) => ipcRenderer.invoke("send-frame-data", frameDataUrl, currentFrame, totalFrames),
@@ -65,7 +89,25 @@ const electronAPI: ElectronAPI = {
     addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
     cancelVideoRendering: () => ipcRenderer.invoke("cancel-video-rendering"),
     onVideoRenderingProgress(callback) {
-        ipcRenderer.on("video-rendering-progress", (event, progress) => callback(progress));
+        const listener = (event: unknown, progress: typeof callback extends (arg: infer T) => void ? T : never) => callback(progress);
+        ipcRenderer.on("video-rendering-progress", listener);
+        return () => {
+            ipcRenderer.off("video-rendering-progress", listener);
+        };
+    },
+    onWindowFocus(callback) {
+        const listener = () => callback();
+        ipcRenderer.on("window-focus", listener);
+        return () => {
+            ipcRenderer.off("window-focus", listener);
+        };
+    },
+    onWindowBlur(callback) {
+        const listener = () => callback();
+        ipcRenderer.on("window-blur", listener);
+        return () => {
+            ipcRenderer.off("window-blur", listener);
+        };
     },
 };
 
@@ -161,12 +203,12 @@ interface ElectronAPI {
     /** 退出并安装更新 */
     quitAndInstall: () => Promise<void>
 
-    onUpdateChecking: (callback: () => void) => void
-    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => void
-    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => void
-    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => void
-    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => void
-    onUpdateError: (callback: (error: Error) => void) => void
+    onUpdateChecking: (callback: () => void) => ()=>void
+    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
+    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
+    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => ()=>void
+    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => ()=>void
+    onUpdateError: (callback: (error: Error) => void) => ()=>void
 
     /** Start video export session */
     startVideoRendering: (chartId: string, fps: number, outputPath: string) => Promise<void>
@@ -181,7 +223,11 @@ interface ElectronAPI {
 
     cancelVideoRendering: () => Promise<void>
 
-    onVideoRenderingProgress: (callback: (progress: VideoRenderingProgress) => void) => void
+    onVideoRenderingProgress: (callback: (progress: VideoRenderingProgress) => void) => ()=>void
+
+    onWindowFocus: (callback: () => void) => ()=>void
+
+    onWindowBlur: (callback: () => void) => ()=>void
 }
 
 export interface HitSoundInfo {

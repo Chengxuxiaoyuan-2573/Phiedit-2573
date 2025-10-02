@@ -657,7 +657,6 @@ import {
     ElTooltip,
     ElRadioButton,
     ElRadioGroup,
-    ElMessage,
     ElProgress,
 } from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
@@ -666,7 +665,7 @@ import { clamp, isNumber, mean } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
-import { catchErrorByMessage, confirm } from "@/tools/catchError";
+import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
@@ -940,7 +939,7 @@ const videoRenderingProgress = reactive({
 
 let windowIsFocused = true;
 let cachedRect: DOMRect;
-let isRendering = true;
+let canvasIsRendering = true;
 
 /** 检查更新 */
 function checkForUpdates() {
@@ -960,8 +959,33 @@ async function renderVideo() {
     const fps = 60;
     const totalFrames = Math.ceil(duration * fps);
     const cachedSettings = { ...settingsManager._settings };
+    console.log(cachedSettings);
+
+    let videoRenderingTotalTime = 0;
+    let videoRenderingCount = 0;
+
+    // 用于更新进度和预测剩余时间
+    const removeListener = window.electronAPI.onVideoRenderingProgress(progress => {
+        if (!isRenderingVideo.value) {
+            window.electronAPI.cancelVideoRendering();
+            throw new Error("已取消渲染");
+        }
+
+        videoRenderingTotalTime += progress.time;
+        videoRenderingCount++;
+
+        const percent = progress.processed / progress.total * 100;
+        const avgTimePerFrame = videoRenderingTotalTime / videoRenderingCount;
+        const remainingTime = avgTimePerFrame * (progress.total - progress.processed);
+
+        videoRenderingProgress.percent = percent;
+        videoRenderingProgress.message = progress.status;
+        videoRenderingProgress.remainingTime = remainingTime;
+    });
 
     try {
+        pauseRenderLoop();
+
         const filePath = await window.electronAPI.showSaveVideoDialog(`output.mp4`);
         if (!filePath) {
             throw new Error("未选择导出视频的路径");
@@ -974,7 +998,7 @@ async function renderVideo() {
         const processFrames = async () => {
             for (let frame = 0; frame < totalFrames; frame++) {
                 if (!isRenderingVideo.value) {
-                    throw new Error("已取消渲染");
+                    return;
                 }
 
                 const time = frame / fps;
@@ -989,11 +1013,17 @@ async function renderVideo() {
             return;
         };
 
-        const finish = async () => {
-            // 完成导出
+        const TIMEOUT = 30;
+
+        const finish = createCatchErrorByMessage(async () => {
             videoRenderingProgress.done = true;
-            await window.electronAPI.finishVideoRendering(filePath);
-        };
+            await Promise.race([
+                window.electronAPI.finishVideoRendering(filePath),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("视频渲染完成超时")), TIMEOUT * SEC_TO_MS)
+                )
+            ]);
+        }, undefined, false);
 
         // 开始处理
 
@@ -1005,7 +1035,6 @@ async function renderVideo() {
 
         // 开始渲染
         isRenderingVideo.value = true;
-        pauseRenderLoop();
 
         await window.electronAPI.startVideoRendering(
             chartId,
@@ -1040,25 +1069,11 @@ async function renderVideo() {
 
         // 恢复渲染循环
         resumeRenderLoop();
+
+        // 移除监听器
+        removeListener();
     }
 }
-
-let videoRenderingTotalTime = 0;
-let videoRenderingCount = 0;
-
-// 用于更新进度和预测剩余时间
-window.electronAPI.onVideoRenderingProgress(progress => {
-    videoRenderingTotalTime += progress.time;
-    videoRenderingCount++;
-
-    const percent = progress.processed / progress.total * 100;
-    const avgTimePerFrame = videoRenderingTotalTime / videoRenderingCount;
-    const remainingTime = avgTimePerFrame * (progress.total - progress.processed);
-
-    videoRenderingProgress.percent = percent;
-    videoRenderingProgress.message = progress.status;
-    videoRenderingProgress.remainingTime = remainingTime;
-});
 
 /** 取消渲染 */
 async function cancelVideoRendering() {
@@ -1179,10 +1194,12 @@ function windowOnBlur() {
     const audio = store.useAudio();
     audio.pause();
     windowIsFocused = false;
+    console.log("blur");
 }
 
 function windowOnFocus() {
     windowIsFocused = true;
+    console.log("focus");
 }
 
 function audioOnTimeUpdate() {
@@ -1199,12 +1216,12 @@ function audioOnPlay() {
 }
 
 function pauseRenderLoop() {
-    isRendering = false;
+    canvasIsRendering = false;
 }
 
 function resumeRenderLoop() {
-    isRendering = true;
-    renderLoop();
+    canvasIsRendering = true;
+    requestAnimationFrame(renderLoop);
 }
 
 /** 上一次渲染的时间 */
@@ -1216,14 +1233,14 @@ const showFpsFrequency = 20;
 /** 缓存最近的 FPS 数据 */
 const fpsList: number[] = [];
 function renderLoop() {
-    if (isRendering) {
+    if (canvasIsRendering) {
         const audio = store.useAudio();
         if (windowIsFocused) {
             if (settingsManager._settings.autoHighlight) {
                 chart.highlightNotes();
             }
 
-            try {
+            catchErrorByMessage(() => {
                 globalEventEmitter.emit("RENDER_FRAME");
                 globalEventEmitter.emit("AUTOPLAY");
                 if (stateManager.state.isPreviewing) {
@@ -1232,10 +1249,7 @@ function renderLoop() {
                 else {
                     globalEventEmitter.emit("RENDER_EDITOR");
                 }
-            }
-            catch (error) {
-                ElMessage.error(error as Error);
-            }
+            }, "渲染画面", false);
 
             const now = performance.now();
             const delta = now - renderTime;
@@ -1285,8 +1299,8 @@ onMounted(() => {
     window.addEventListener("wheel", windowOnWheel);
     window.addEventListener("keydown", windowOnKeyDown);
     window.addEventListener("keyup", windowOnKeyUp);
-    window.addEventListener("blur", windowOnBlur);
-    window.addEventListener("focus", windowOnFocus);
+    const removeWindowFocusListener = window.electronAPI.onWindowFocus(windowOnFocus);
+    const removeWindowBlurListener = window.electronAPI.onWindowBlur(windowOnBlur);
     document.oncontextmenu = documentOnContextmenu;
     audio.addEventListener("timeupdate", audioOnTimeUpdate);
     audio.addEventListener("pause", audioOnPause);
@@ -1315,8 +1329,8 @@ onMounted(() => {
         resizeObserver.disconnect();
         window.removeEventListener("wheel", windowOnWheel);
         window.removeEventListener("keydown", windowOnKeyDown);
-        window.removeEventListener("blur", windowOnBlur);
-        window.removeEventListener("focus", windowOnFocus);
+        removeWindowFocusListener();
+        removeWindowBlurListener();
         audio.removeEventListener("timeupdate", audioOnTimeUpdate);
         audio.removeEventListener("pause", audioOnPause);
         audio.removeEventListener("play", audioOnPlay);

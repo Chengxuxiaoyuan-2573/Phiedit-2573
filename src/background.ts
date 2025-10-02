@@ -917,7 +917,7 @@ async function createWindow() {
             processed: currentFrame + 1,
             total: totalFrames,
             code: "RENDERING_FRAMES",
-            time: endTime - startTime,
+            time: (endTime - startTime) / SEC_TO_MS,
         });
     });
 
@@ -960,7 +960,7 @@ async function createWindow() {
                 status: `正在合成打击音效`,
                 processed: num + 1,
                 total: loopTimes,
-                time: endTime - startTime,
+                time: (endTime - startTime) / SEC_TO_MS,
                 code: "MERGING_HITSOUNDS"
             });
         }
@@ -1041,15 +1041,68 @@ async function createWindow() {
         }
     });
 
-    async function clearDir(dir: string) {
-        const promises: Promise<void>[] = [];
-        for (const file of await fs.promises.readdir(dir)) {
-            const filePath = path.join(dir, file);
-            if ((await fs.promises.stat(filePath)).isFile()) {
-                promises.push(fs.promises.unlink(filePath));
+    /**
+     * 安全删除文件，支持重试机制
+     * @param filePath 文件路径
+     * @param maxAttempts 最大重试次数
+     * @param delayMs 重试间隔（毫秒）
+     */
+    async function safeUnlink(filePath: string, maxAttempts = 5, delayMs = 500): Promise<void> {
+        let attempts = 0;
+
+        const promiseExecutor = (resolve: (value: unknown) => void) => setTimeout(resolve, delayMs * attempts);
+        while (attempts < maxAttempts) {
+            try {
+                await fs.promises.unlink(filePath);
+                return;
+            }
+            catch (error) {
+                if (error instanceof Error && "code" in error && (error.code === "EBUSY" || error.code === "EPERM")) {
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        throw new Error(`无法删除文件 ${filePath}，已达到最大重试次数`);
+                    }
+                    await new Promise(promiseExecutor);
+                }
+                else {
+                    throw error;
+                }
             }
         }
-        await Promise.all(promises);
+    }
+
+    /**
+     * 清空目录，即使某些文件被锁定也能继续处理
+     * @param dir 目录路径
+     */
+    async function clearDir(dir: string) {
+        try {
+            const files = await fs.promises.readdir(dir);
+            const promises = files.map(async file => {
+                const filePath = path.join(dir, file);
+                try {
+                    const stat = await fs.promises.stat(filePath);
+                    if (stat.isFile()) {
+                        try {
+                            await safeUnlink(filePath);
+                            console.log(`成功删除文件：${filePath}`);
+                        }
+                        catch (unlinkError) {
+                            console.warn(`无法删除文件 ${filePath}，即使多次重试：${unlinkError}`);
+                        }
+                    }
+                }
+                catch (statError) {
+                    console.warn(`无法获取文件 ${filePath} 的状态：${statError}`);
+                }
+            });
+
+            await Promise.all(promises);
+        }
+        catch (error) {
+            console.error(`无法读取目录 ${dir}：${error}`);
+            throw error;
+        }
     }
 
     /** 每次合成多少个打击音效 */
@@ -1262,7 +1315,6 @@ async function createWindow() {
     const win = new BrowserWindow({
         width: 1000,
         height: 700,
-        show: false,
 
         // fullscreenable: true,
         // fullscreen: true,
@@ -1288,6 +1340,14 @@ async function createWindow() {
     win.on("ready-to-show", () => {
         win.maximize();
         win.show();
+    });
+
+    win.on("blur", () => {
+        win.webContents.send("window-blur");
+    });
+
+    win.on("focus", () => {
+        win.webContents.send("window-focus");
     });
 
     if (process.env.WEBPACK_DEV_SERVER_URL) {
