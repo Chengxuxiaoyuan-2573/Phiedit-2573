@@ -146,7 +146,9 @@ const downloadProgress = ref<ProgressInfo | null>(null);
 const error = ref<Error | null>(null);
 
 function showUpdateDialog() {
-    isShow.value = true;
+    if (!isShow.value) {
+        isShow.value = true;
+    }
 }
 
 function checkForUpdates() {
@@ -191,7 +193,7 @@ window.electronAPI.onUpdateDownloaded((info) => {
 window.electronAPI.onUpdateError((err) => {
     updateState.value = UpdateState.ERROR;
     error.value = err;
-    showUpdateDialog();
+    console.error(err);
 });
 </script>
 <style scoped>
