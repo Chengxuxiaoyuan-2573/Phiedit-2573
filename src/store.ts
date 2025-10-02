@@ -74,22 +74,32 @@ class Store {
     canvasRef: Ref<HTMLCanvasElement | null>;
     audioRef: Ref<HTMLAudioElement | null>;
     route: ReturnType<typeof useRoute> | null;
+    isRenderingVideo = ref(false);
 
+    /** 音频上下文（全局可用） */
     readonly audioContext = new AudioContext();
 
+    /**
+     * 非全局管理器，生命周期为从进入谱面开始，到退出谱面结束。
+     *
+     * 不在生命周期内时，他们会为 `null`。
+     */
     readonly managers: {
         [key in keyof ManagersMap]: ManagersMap[key] | null;
     } = new ArrayedObject(managersMap)
             .map(() => null)
             .toObject();
 
-    /** 全局管理器，在整个应用的生命周期中仅创建一次 */
+    /**
+     * 全局管理器，与非全局管理器不同，它们是全局可用的，永远不会为 `null`。
+     *
+     * 这些管理器不依赖于具体的谱面数据，所以不必在每次进入谱面时都实例化，在整个应用的生命周期中仅创建一次。
+    */
     readonly globalManagers = {
         chartPackageLoader: new ChartPackageLoader(),
         resourcePackageLoader: new ResourcePackageLoader()
     };
 
-    isRenderingVideo = ref(false);
     constructor() {
         this.chartPackageRef = ref(null);
         this.resourcePackageRef = ref(null);
@@ -112,6 +122,7 @@ class Store {
         this.managers[name] = manager;
     }
 
+    /** 获取全局管理器 */
     useGlobalManager<T extends keyof typeof this.globalManagers>(name: T) {
         return this.globalManagers[name];
     }

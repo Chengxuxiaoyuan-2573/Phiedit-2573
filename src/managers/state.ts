@@ -109,8 +109,13 @@ export default class StateManager extends Manager {
             paramNoteType: NoteType.Drag,
         },
         noteFill: {
+            /** 曲线填充使用的音符类型 */
             type: NoteType.Drag,
+
+            /** 曲线的缓动类型 */
             easingType: EasingType.Linear,
+
+            /** 填充密度 */
             density: 4
         },
         eventFill: {

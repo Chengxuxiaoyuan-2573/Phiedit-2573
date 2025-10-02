@@ -2,7 +2,7 @@
     "name": "phiedit2573",
     "version": "0.2.0",
     "private": true,
-    "description": "Phiedit 2573 是一款基于 Vue-Electron 框架开发的 Phigros 谱面编辑器、渲染器二合一的软件，编程语言为 Typescript，使用了 npm 包管理器，界面采用 Element Plus 组件库，使用 ffmpeg 进行谱面渲染。",
+    "description": "一款 Phigros 谱面编辑器、渲染器二合一的软件",
     "author": {
         "name": "程序小袁_2573"
     },

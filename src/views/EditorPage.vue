@@ -303,8 +303,8 @@
                                 v-if="isRenderingVideo"
                                 class="export-options"
                             >
-                                <span>{{ exportProgress.message }}（预计 {{ MathUtils.addTime(new Date(), exportProgress.remainingTime).toLocaleString() }} 完成）</span>
-                                <ElProgress :percentage="clamp(MathUtils.round(exportProgress.percent, 2), 0, 100)" />
+                                <span>{{ videoRenderingProgress.message }}（预计 {{ MathUtils.addTime(new Date(), videoRenderingProgress.remainingTime).toLocaleString() }} 完成）</span>
+                                <ElProgress :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)" />
                                 <MyButton
                                     type="warning"
                                     @click="cancelVideoRendering"
@@ -313,13 +313,13 @@
                                 </MyButton>
                             </div>
                             <div
-                                v-else-if="exportProgress.done"
+                                v-else-if="videoRenderingProgress.done"
                                 class="export-options"
                             >
                                 渲染完成！
                                 <MyButton
                                     type="primary"
-                                    @click="exportProgress.done = false, close()"
+                                    @click="videoRenderingProgress.done = false, close()"
                                 >
                                     确定
                                 </MyButton>
@@ -767,6 +767,7 @@ const mouseX = ref(0);
 const mouseY = ref(0);
 const judgeLineFilter = ref("");
 
+// eslint-disable-next-line no-extra-parens
 const judgeLineList = reactive<DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]>>([]);
 
 onMounted(() => {
@@ -910,6 +911,7 @@ const MOUSE_RIGHT = 2;
 /** 每条 tip 显示 10 秒 */
 const TIP_SHOW_TIME = 10000;
 
+/** FPS 的颜色 */
 const fpsColor = computed(() => {
     if (fps.value >= FPS_THRESHOLDS.HIGH) {
         return "#00dd00";
@@ -924,7 +926,9 @@ const fpsColor = computed(() => {
         return "#ff0000";
     }
 });
-const exportProgress = reactive({
+
+/** 视频渲染的进度 */
+const videoRenderingProgress = reactive({
     message: "",
     percent: 0,
     done: false,
@@ -935,15 +939,18 @@ let windowIsFocused = true;
 let cachedRect: DOMRect;
 let isRendering = true;
 
+/** 检查更新 */
 function checkForUpdates() {
     showUpdateDialog();
     window.electronAPI.checkForUpdates();
 }
 
+/** 打开谱面文件夹 */
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
 }
 
+/** 渲染为视频 */
 async function renderVideo() {
     const audio = store.useAudio();
     const duration = audio.duration;
@@ -981,7 +988,7 @@ async function renderVideo() {
 
         const finish = async () => {
             // 完成导出
-            exportProgress.done = true;
+            videoRenderingProgress.done = true;
             await window.electronAPI.finishVideoRendering(filePath);
         };
 
@@ -1036,6 +1043,7 @@ async function renderVideo() {
 let videoRenderingTotalTime = 0;
 let videoRenderingCount = 0;
 
+// 用于更新进度和预测剩余时间
 window.electronAPI.onVideoRenderingProgress(progress => {
     videoRenderingTotalTime += progress.time;
     videoRenderingCount++;
@@ -1044,16 +1052,18 @@ window.electronAPI.onVideoRenderingProgress(progress => {
     const avgTimePerFrame = videoRenderingTotalTime / videoRenderingCount;
     const remainingTime = avgTimePerFrame * (progress.total - progress.processed);
 
-    exportProgress.percent = percent;
-    exportProgress.message = progress.status;
-    exportProgress.remainingTime = remainingTime;
+    videoRenderingProgress.percent = percent;
+    videoRenderingProgress.message = progress.status;
+    videoRenderingProgress.remainingTime = remainingTime;
 });
 
+/** 取消渲染 */
 async function cancelVideoRendering() {
     store.isRenderingVideo.value = false;
     await window.electronAPI.cancelVideoRendering();
 }
 
+/** 导出谱面 */
 async function exportChart() {
     const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
 
@@ -1063,11 +1073,13 @@ async function exportChart() {
     globalEventEmitter.emit("EXPORT", filePath);
 }
 
+/** 删除谱面 */
 async function deleteChart() {
     window.electronAPI.deleteChart(store.getChartId());
     router.push("/");
 }
 
+/** 添加判定线贴图 */
 async function addTextures() {
     const texturePaths = await window.electronAPI.showOpenImageDialog(true);
     if (!texturePaths) {
