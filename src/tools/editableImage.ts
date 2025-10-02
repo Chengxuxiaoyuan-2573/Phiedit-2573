@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import canvasUtils from "./canvasUtils";
 import { RGBcolor, RGBAcolor, RGBA_LENGTH } from "./color";
 export default class EditableImage {

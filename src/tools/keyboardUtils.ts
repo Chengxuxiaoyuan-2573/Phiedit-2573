@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 export default class KeyboardUtils {
     static createKeyOptions(e: KeyboardEvent | MouseEvent) {
         return {

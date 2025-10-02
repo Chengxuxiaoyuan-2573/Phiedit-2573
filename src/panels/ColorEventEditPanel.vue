@@ -1,3 +1,6 @@
+<!-- Copyright © 2025 程序小袁_2573. All rights reserved. -->
+<!-- Licensed under MIT (https://opensource.org/licenses/MIT) -->
+
 <template>
     <div class="number-event-panel left-inner">
         <Teleport :to="props.titleTeleport">

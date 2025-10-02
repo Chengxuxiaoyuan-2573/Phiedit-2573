@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { addBeats, Beats, beatsToSeconds, BPM, getBeatsValue, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats, makeSureBeatsValid } from "./beats";
 
 /** 时间段，只要有开始和结束时间就可以 */

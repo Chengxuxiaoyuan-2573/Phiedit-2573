@@ -1,4 +1,8 @@
 /**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ *
  * 这个文件是预加载脚本文件，把 background.ts 提供的 API 暴露给渲染进程使用。
  * 渲染进程可以直接使用 window.electronAPI 访问到这些 API。
  * 如果要查看 API 的具体代码实现，请查看 background.ts 文件。

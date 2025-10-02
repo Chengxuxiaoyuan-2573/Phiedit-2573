@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { ChartReadResult, ChartPackage, SYMBOL_CHART_JSON_ERROR, SYMBOL_EXTRA_JSON_ERROR } from "@/models/chartPackage";
 import { ArrayedObject } from "@/tools/algorithm";
 import MediaUtils from "@/tools/mediaUtils";

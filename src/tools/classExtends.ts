@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 export class FileReaderExtends extends FileReader {
     async readAsync(blob: Blob, type: "arraybuffer", progressHandler: typeof this.onprogress): Promise<ArrayBuffer>;
     async readAsync(blob: Blob, type: "dataurl", progressHandler: typeof this.onprogress): Promise<string>;

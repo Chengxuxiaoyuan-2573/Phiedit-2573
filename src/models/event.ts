@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { BEZIER_POINTS_LENGTH, BezierPoints, cubicBezierEase, easingFuncs, EasingType, isEasingType } from "./easing";
 import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
 import { isArrayOfNumbers, Optional } from "../tools/typeTools";

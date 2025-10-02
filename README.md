@@ -6,6 +6,11 @@ Phiedit 2573 是 [@程序小袁_2573](https://space.bilibili.com/522248560) 开�
 本软件从 2024 年的暑假开始开发，设计方面参考了 [@cmdysj](https://space.bilibili.com/252635690) 开发的制谱软件 Re:PhiEdit（以下简称 RPE），所以有很多功能都与 RPE 相同。本项目也含有一些 [通义灵码](https://lingma.aliyun.com/) 和 [Deepseek](https://deepseek.com) 生成的代码。
 **本软件不能代表包括 Phigros 在内的任何官方，仅为个人项目！**
 
+## 版权声明
+
+Copyright © 2025 程序小袁_2573. All rights reserved.
+本项目所有源代码均采用 [MIT](https://opensource.org/licenses/MIT) 协议授权，详细信息请查看根目录的 [LICENSE](LICENSE) 文件。。
+
 ## 使用方法
 
 1. 下载最新的 release

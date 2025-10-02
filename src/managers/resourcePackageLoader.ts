@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { ResourcePackage } from "@/models/resourcePackage";
 import { FileReaderExtends } from "@/tools/classExtends";
 import { RGBAcolor, parseRGBAfromNumber } from "@/tools/color";

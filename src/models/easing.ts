@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import MathUtils, { Point } from "@/tools/mathUtils";
 import { clamp, isNumber } from "lodash";
 export type BezierPoints = [number, number, number, number]

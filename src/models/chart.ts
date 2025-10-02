@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { isObject, isArray, isNumber, isString } from "lodash";
 import { beatsToSeconds, BPM, getBeatsValue, IBPM } from "./beats";
 import { ChartMeta, IChartMeta } from "./chartMeta";

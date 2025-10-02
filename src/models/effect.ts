@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { isArray, isBoolean, isNumber, isObject, isString } from "lodash";
 import { Beats, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSureBeatsValid } from "./beats";
 import ChartError from "./error";

@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { Box } from "@/tools/box";
 import { RGBAcolor, RGBcolor } from "@/tools/color";
 import { Point } from "@/tools/mathUtils";

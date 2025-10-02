@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { beatsToSeconds, BPM, makeSureBeatsValid } from "./beats";
 import { isArrayOfNumbers,  Optional } from "../tools/typeTools";
 import { Beats } from "./beats";

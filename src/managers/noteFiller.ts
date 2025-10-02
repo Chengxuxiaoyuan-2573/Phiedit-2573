@@ -1,3 +1,9 @@
+/**
+ * @license MIT
+ * Copyright © 2025 程序小袁_2573. All rights reserved.
+ * Licensed under MIT (https://opensource.org/licenses/MIT)
+ */
+
 import { addBeats, Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
 import { getEasingValue } from "@/models/easing";
 import { Note, NoteAbove, NoteFake, NoteType } from "@/models/note";
