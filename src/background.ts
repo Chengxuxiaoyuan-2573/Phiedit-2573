@@ -808,13 +808,12 @@ async function createWindow() {
         return ffmpegPath;
     }
 
-    ipcMain.handle("start-video-rendering", async (event, chartId: string, fps: number, outputPath: string) => {
+    ipcMain.handle("start-video-rendering", async (event, { chartId, fps, outputPath, startTime, endTime }: RenderingConfig) => {
         const chartPath = path.join(chartsDir, chartId);
         const { song: musicPath } = await readChartInfo(chartId);
         const musicWholePath = path.join(chartPath, musicPath);
 
-        // 创建临时音频文件用于动态混合
-        const dynamicAudioPath = path.join(tempDir, hitSoundFileName);
+        const hitSoundAudioPath = path.join(tempDir, hitSoundFileName);
 
         return new Promise<void>((resolve, reject) => {
             const ffmpegPath = getFFmpegPath();
@@ -826,13 +825,15 @@ async function createWindow() {
                 "-framerate", fps.toString(),
                 "-i", "-",
                 "-i", musicWholePath,
-                "-i", dynamicAudioPath,
+                "-i", hitSoundAudioPath,
                 "-filter_complex",
-                `[1:a]aformat=sample_fmts=fltp:sample_rates=${SAMPLE_RATE}:channel_layouts=${CHANNEL_LAYOUT}[main];` +
-                `[2:a]aformat=sample_fmts=fltp:sample_rates=${SAMPLE_RATE}:channel_layouts=${CHANNEL_LAYOUT}[hit];` +
+                `[0:v]setpts=PTS-STARTPTS[v];` +
+                `[1:a]atrim=start=${startTime}:end=${endTime},asetpts=PTS-STARTPTS[main];` +
+                `[2:a]atrim=start=${startTime}:end=${endTime},asetpts=PTS-STARTPTS[hit];` +
                 `[main][hit]amix=inputs=2:duration=longest[aout]`,
-                "-map", "0:v",
+                "-map", "[v]",
                 "-map", "[aout]",
+                "-t", (endTime - startTime).toString(),
                 "-c:v", "libx264",
                 "-preset", "slow",
                 "-crf", "22",
@@ -842,9 +843,8 @@ async function createWindow() {
                 "-movflags", "+faststart",
                 "-ar", SAMPLE_RATE.toString(),
                 "-ac", "2",
-                "-async", "1",
-                "-vsync", "cfr",
-                "-copyts",
+                "-async", "10",
+                "-vsync", "vfr",
                 outputPath
             ];
 
@@ -1160,7 +1160,7 @@ async function createWindow() {
             ]),
 
             // 添加同步参数
-            "-async", "1",
+            "-async", "10",
 
             // 添加采样率参数
             "-ar", SAMPLE_RATE.toString(),

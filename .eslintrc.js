@@ -167,7 +167,8 @@ module.exports = {
                 // 用于检测是否超出 32 位无符号/有符号整数
                 0xffffffff, 0x100000000, -0xffffffff, -0x100000000,
                 0x7fffffff, 0x80000000, -0x7fffffff, -0x80000000,
-            ]
+            ],
+            "ignoreDefaultValues": true
         }],
 
         "no-multiple-empty-lines": ["error", {

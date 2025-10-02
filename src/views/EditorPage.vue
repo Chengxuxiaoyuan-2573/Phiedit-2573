@@ -1036,11 +1036,13 @@ async function renderVideo() {
         // 开始渲染
         isRenderingVideo.value = true;
 
-        await window.electronAPI.startVideoRendering(
+        await window.electronAPI.startVideoRendering({
             chartId,
             fps,
-            filePath,
-        );
+            outputPath: filePath,
+            startTime: settingsManager._settings.renderTimeStart,
+            endTime: settingsManager._settings.renderTimeEnd,
+        });
 
         videoRenderingCount = 0;
         videoRenderingTotalTime = 0;
@@ -1074,6 +1076,22 @@ async function renderVideo() {
         removeListener();
     }
 }
+
+onMounted(() => {
+    const audio = store.useAudio();
+    audio.addEventListener("oncanplay", () => {
+        if (!settingsManager._settings.renderTimeEnd) {
+            settingsManager._settings.renderTimeStart = 0;
+            settingsManager._settings.renderTimeEnd = audio.duration;
+        }
+    }, {
+        once: true
+    });
+});
+
+onBeforeUnmount(() => {
+    settingsManager.saveSettings();
+});
 
 /** 取消渲染 */
 async function cancelVideoRendering() {

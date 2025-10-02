@@ -83,7 +83,7 @@ const electronAPI: ElectronAPI = {
             ipcRenderer.off("update-error", listener);
         };
     },
-    startVideoRendering: (chartId, fps, outputPath) => ipcRenderer.invoke("start-video-rendering", chartId, fps, outputPath),
+    startVideoRendering: (config) => ipcRenderer.invoke("start-video-rendering", config),
     sendFrameData: (frameDataUrl, currentFrame, totalFrames) => ipcRenderer.invoke("send-frame-data", frameDataUrl, currentFrame, totalFrames),
     finishVideoRendering: (outputPath) => ipcRenderer.invoke("finish-video-rendering", outputPath),
     addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
@@ -211,7 +211,7 @@ interface ElectronAPI {
     onUpdateError: (callback: (error: Error) => void) => ()=>void
 
     /** Start video export session */
-    startVideoRendering: (chartId: string, fps: number, outputPath: string) => Promise<void>
+    startVideoRendering: (config: RenderingConfig) => Promise<void>
 
     /** Send frame data to video export session */
     sendFrameData: (frameDataUrl: string, currentFrame: number, totalFrames: number) => Promise<void>
@@ -251,6 +251,14 @@ export interface VideoRenderingProgress {
 
     /** 状态码 */
     code: "MERGING_HITSOUNDS" | "RENDERING_FRAMES"
+}
+
+export interface RenderingConfig {
+    chartId: string;
+    fps: number;
+    outputPath: string;
+    startTime: number;
+    endTime: number;
 }
 
 declare global {

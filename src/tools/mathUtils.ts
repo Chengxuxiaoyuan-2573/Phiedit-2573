@@ -88,27 +88,8 @@ export default class MathUtils {
 
         return a / this.gcd(a, b) * b;
     }
-    static pow(base: number, exponent: number): number {
-        if (!Number.isInteger(exponent)) {
-            return base ** exponent;
-        }
-
-        let result = 1;
-        if (exponent < 0) {
-            return this.pow(1 / base, -exponent);
-        }
-
-        while (exponent > 0) {
-            if (exponent & 1) {
-                result *= base;
-            }
-            exponent >>= 1;
-            base *= base;
-        }
-        return result;
-    }
     static round(value: number, digits = 0) {
-        const base = this.pow(10, digits);
+        const base = 10 ** digits;
         return Math.round(value * base) / base;
     }
     static randomNumbers(count: number, seed?: number | string, min = 0, max = 1): number[] {
@@ -163,23 +144,19 @@ export default class MathUtils {
         return this.format(["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"], KB_TO_BYTE, bytes, p);
     }
     static formatTime(seconds: number) {
-        if (seconds < 1) {
-            return `${Math.floor(seconds * SEC_TO_MS)}ms`;
-        }
-
         if (seconds < MIN_TO_SEC) {
-            return `${Math.floor(seconds)}s`;
+            return `${this.round(seconds, 3)}秒`;
         }
 
         if (seconds < HOUR_TO_MIN * MIN_TO_SEC) {
-            return `${Math.floor(seconds / MIN_TO_SEC)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
+            return `${Math.floor(seconds / MIN_TO_SEC)}分钟${Math.floor(seconds % MIN_TO_SEC)}秒`;
         }
 
         if (seconds < DAY_TO_HOUR * HOUR_TO_MIN * MIN_TO_SEC) {
-            return `${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC)}hr ${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
+            return `${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC)}小时${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}分钟${Math.floor(seconds % MIN_TO_SEC)}s`;
         }
 
-        return `${Math.floor(seconds / DAY_TO_HOUR / HOUR_TO_MIN / MIN_TO_SEC)}d ${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC % DAY_TO_HOUR)}hr ${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}min ${Math.floor(seconds % MIN_TO_SEC)}s`;
+        return `${Math.floor(seconds / DAY_TO_HOUR / HOUR_TO_MIN / MIN_TO_SEC)}天${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC % DAY_TO_HOUR)}小时${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}分钟${Math.floor(seconds % MIN_TO_SEC)}秒`;
     }
 
     // staticformatTime(seconds: number) {

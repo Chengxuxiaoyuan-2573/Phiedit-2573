@@ -24,13 +24,14 @@ export const defaultSettings = {
     textSize: 50,
     noteSize: 175,
     wheelSpeed: 0.2,
-    judgeLineNumberRadix: 10,
     showJudgeLineNumber: true,
     bottomText: BottomText.Hint,
     markCurrentJudgeLine: true,
     autoCheckErrors: false,
     autoHighlight: true,
     unlimitFps: false,
+    renderTimeStart: 0,
+    renderTimeEnd: 0,
 };
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };
