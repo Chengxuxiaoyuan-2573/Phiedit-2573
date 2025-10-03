@@ -9,7 +9,7 @@ export default class EventEmitter<T extends Record<keyof T, unknown[]>> {
     constructor() {
         this.listeners = {};
     }
-    on<K extends keyof T>(event: K, handler: (...args: T[K]) => void, priority = 0) {
+    on<K extends keyof T>(event: K, handler: (...args: T[K]) => void | Promise<void>, priority = 0) {
         if (!this.listeners[event]) {
             this.listeners[event] = [];
         }
@@ -18,7 +18,7 @@ export default class EventEmitter<T extends Record<keyof T, unknown[]>> {
             priority
         });
     }
-    off<K extends keyof T>(event: K, listener: (...args: T[K]) => void) {
+    off<K extends keyof T>(event: K, listener: (...args: T[K]) => void | Promise<void>) {
         if (this.listeners[event]) {
             this.listeners[event] = this.listeners[event].filter(l => l.handler !== listener);
         }
@@ -37,6 +37,19 @@ export default class EventEmitter<T extends Record<keyof T, unknown[]>> {
             }
         }
     }
+    async emitAsync<K extends keyof T>(event: K, ...args: T[K]) {
+        if (this.listeners[event]) {
+            if (this.listeners[event].length === 0) {
+                console.error(`${String(event)} 事件没有被任何监听器监听`);
+            }
+            else {
+                const listeners = this.listeners[event].toSorted((a, b) => a.priority - b.priority);
+                for (const listener of listeners) {
+                    await listener.handler(...args);
+                }
+            }
+        }
+    }
     destroy() {
         this.listeners = {};
     }
@@ -46,7 +59,7 @@ type Listeners<T extends Record<keyof T, unknown[]>> = {
     [K in keyof T]?: {
 
         /** 监听器函数 */
-        handler: (...args: T[K]) => void,
+        handler: (...args: T[K]) => void | Promise<void>,
 
         /** 优先级，数字越小优先级越高 */
         priority: number

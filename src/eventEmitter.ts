@@ -85,7 +85,7 @@ export interface GlobalEventMap {
     UNDO: []
     REDO: []
     SAVE: []
-    EXPORT: [string]
+    EXPORT: [string | null]
     REPEAT_PARAGRAPH: []
     REVERSE: []
     SWAP: []

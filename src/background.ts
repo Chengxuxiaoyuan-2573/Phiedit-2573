@@ -710,7 +710,8 @@ async function createWindow() {
     ipcMain.handle("export-chart", async (event, chartId: string, targetPath: string) => {
         try {
             const data = await packageFolderToZip(chartId);
-            return fs.promises.writeFile(targetPath, data);
+            await fs.promises.writeFile(targetPath, data);
+            return;
         }
         catch (error) {
             throw new Error(`导出谱面失败：${error}`);

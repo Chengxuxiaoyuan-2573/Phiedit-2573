@@ -261,7 +261,7 @@
                         <template #default>
                             <MyButton
                                 type="primary"
-                                @click="catchErrorByMessage(exportChart, '导出')"
+                                @click="exportChart"
                             >
                                 导出谱面
                             </MyButton>
@@ -283,7 +283,7 @@
                     </MyButton>
                     <MyButton
                         type="primary"
-                        @click="catchErrorByMessage(openChartFolder, '打开谱面文件夹')"
+                        @click="openChartFolder"
                     >
                         打开谱面文件夹
                     </MyButton>
@@ -1148,8 +1148,7 @@ async function exportChart() {
 
     // 使用预加载的 API 替代直接导入
     const filePath = await window.electronAPI.showSaveDialog(chartName);
-    if (!filePath) return;
-    globalEventEmitter.emit("EXPORT", filePath);
+    await globalEventEmitter.emitAsync("EXPORT", filePath);
 }
 
 /** 删除谱面 */

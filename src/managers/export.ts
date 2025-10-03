@@ -12,12 +12,13 @@ import store from "@/store";
 export default class ExportManager extends Manager {
     constructor() {
         super();
-        globalEventEmitter.on("EXPORT", createCatchErrorByMessage((targetPath) => {
-            this.export(targetPath);
+        globalEventEmitter.on("EXPORT", createCatchErrorByMessage(async (targetPath) => {
+            if (!targetPath) throw new Error("未选择保存路径");
+            await this.export(targetPath);
         }, "导出"));
     }
     export(targetPath: string) {
         const chartId = store.getChartId();
-        window.electronAPI.exportChart(chartId, targetPath);
+        return window.electronAPI.exportChart(chartId, targetPath);
     }
 }
