@@ -18,6 +18,8 @@ export const SEC_TO_MS = 1000;
  * 因为在 RPE 中，0 度代表判定线面向上方，此时向右为判定线的x轴正方向；
  * 90 度代表判定线面向右方，此时向下为判定线的x轴正方向
  *
+ * 为了提升性能，方法中不做有效性检查
+ *
  * @class 数学工具类
  */
 export default class MathUtils {
@@ -145,7 +147,7 @@ export default class MathUtils {
     }
     static formatTime(seconds: number) {
         if (seconds < MIN_TO_SEC) {
-            return `${this.round(seconds, 3)}秒`;
+            return `${this.round(seconds, 1)}秒`;
         }
 
         if (seconds < HOUR_TO_MIN * MIN_TO_SEC) {
@@ -153,35 +155,12 @@ export default class MathUtils {
         }
 
         if (seconds < DAY_TO_HOUR * HOUR_TO_MIN * MIN_TO_SEC) {
-            return `${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC)}小时${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}分钟${Math.floor(seconds % MIN_TO_SEC)}s`;
+            return `${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC)}小时${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}分钟${Math.floor(seconds % MIN_TO_SEC)}秒`;
         }
 
         return `${Math.floor(seconds / DAY_TO_HOUR / HOUR_TO_MIN / MIN_TO_SEC)}天${Math.floor(seconds / HOUR_TO_MIN / MIN_TO_SEC % DAY_TO_HOUR)}小时${Math.floor(seconds / MIN_TO_SEC % HOUR_TO_MIN)}分钟${Math.floor(seconds % MIN_TO_SEC)}秒`;
     }
-
-    // staticformatTime(seconds: number) {
-    //     const min = Math.floor(seconds / 60).toString().padStart(2, '0');
-    //     const sec = Math.floor(seconds % 60).toString().padStart(2, '0');
-    //     return `${min}:${sec}`;
-    // }
     static format(units: string[], base: number, num: number, p = 2): string {
-        // 输入参数有效性检查
-        if (!Array.isArray(units) || units.length === 0) {
-            throw new Error("Invalid units array");
-        }
-
-        if (typeof base !== "number" || base <= 0) {
-            throw new Error("Invalid base: " + base);
-        }
-
-        if (!isFinite(num) || isNaN(num)) {
-            throw new Error("Invalid number: " + num);
-        }
-
-        if (typeof p !== "number" || p < 0 || !Number.isInteger(p)) {
-            throw new Error("Invalid precision: " + p);
-        }
-
         let result = "";
         for (let i = 0; i < units.length; i++) {
             if (num < base || i === units.length - 1) {

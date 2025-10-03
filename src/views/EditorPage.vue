@@ -306,7 +306,7 @@
                                 v-if="isRenderingVideo"
                                 class="export-options"
                             >
-                                <span>{{ videoRenderingProgress.message }}（预计 {{ MathUtils.addTime(new Date(), videoRenderingProgress.remainingTime).toLocaleString() }} 完成）</span>
+                                <span>{{ videoRenderingProgress.message }}（剩余{{ MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）</span>
                                 <ElProgress :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)" />
                                 <MyButton
                                     type="warning"
@@ -391,6 +391,32 @@
                                     </template>
                                     <template #append>
                                         像素
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.renderTimeStart"
+                                    :min="0"
+                                    :max="audioRef?.duration"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        渲染开始时间
+                                    </template>
+                                    <template #append>
+                                        秒
+                                    </template>
+                                </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.renderTimeEnd"
+                                    :min="0"
+                                    :max="audioRef?.duration"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        渲染结束时间
+                                    </template>
+                                    <template #append>
+                                        秒
                                     </template>
                                 </MyInputNumber>
                                 <MyButton
@@ -702,7 +728,7 @@ import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
 import ShaderPanel from "@/panels/ShaderPanel.vue";
 
-import globalEventEmitter from "@/eventEmitter";
+import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import Constants from "@/constants";
 import { RightPanelState } from "@/managers/state";
@@ -931,7 +957,7 @@ const fpsColor = computed(() => {
 
 /** 视频渲染的进度 */
 const videoRenderingProgress = reactive({
-    message: "",
+    message: "正在加载……",
     percent: 0,
     done: false,
     remainingTime: 0
@@ -954,18 +980,14 @@ function openChartFolder() {
 
 /** 渲染为视频 */
 async function renderVideo() {
-    const audio = store.useAudio();
-    const duration = audio.duration;
     const fps = 60;
-    const totalFrames = Math.ceil(duration * fps);
     const cachedSettings = { ...settingsManager._settings };
-    console.log(cachedSettings);
 
     let videoRenderingTotalTime = 0;
     let videoRenderingCount = 0;
 
     // 用于更新进度和预测剩余时间
-    const removeListener = window.electronAPI.onVideoRenderingProgress(progress => {
+    const videoProgressHandler = (progress: VideoRenderingProgress) => {
         if (!isRenderingVideo.value) {
             window.electronAPI.cancelVideoRendering();
             throw new Error("已取消渲染");
@@ -981,12 +1003,14 @@ async function renderVideo() {
         videoRenderingProgress.percent = percent;
         videoRenderingProgress.message = progress.status;
         videoRenderingProgress.remainingTime = remainingTime;
-    });
+    };
+
+    globalEventEmitter.onIpc("VIDEO_RENDERING_PROGRESS", videoProgressHandler);
 
     try {
         pauseRenderLoop();
-
-        const filePath = await window.electronAPI.showSaveVideoDialog(`output.mp4`);
+        const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
+        const filePath = await window.electronAPI.showSaveVideoDialog(`${chartName}.mp4`);
         if (!filePath) {
             throw new Error("未选择导出视频的路径");
         }
@@ -996,19 +1020,34 @@ async function renderVideo() {
 
         // 递归处理函数
         const processFrames = async () => {
+            const duration = settingsManager._settings.renderTimeEnd - settingsManager._settings.renderTimeStart;
+            const totalFrames = Math.ceil(duration * fps);
             for (let frame = 0; frame < totalFrames; frame++) {
                 if (!isRenderingVideo.value) {
                     return;
                 }
 
-                const time = frame / fps;
+                const frameStartTime = Date.now();
+
+                const time = frame / fps + settingsManager._settings.renderTimeStart;
                 store.setTime(time);
                 globalEventEmitter.emit("AUTOPLAY");
                 globalEventEmitter.emit("RENDER_FRAME");
                 globalEventEmitter.emit("RENDER_CHART");
 
                 const dataUrl = canvas.toDataURL("image/jpeg");
-                await window.electronAPI.sendFrameData(dataUrl, frame, totalFrames);
+                await window.electronAPI.sendFrameData(dataUrl);
+
+                const frameEndTime = Date.now();
+                const frameProcessingTime = frameEndTime - frameStartTime;
+
+                globalEventEmitter.emit("VIDEO_RENDERING_PROGRESS", {
+                    status: `正在生成视频画面（${frame + 1} / ${totalFrames}）……`,
+                    processed: frame + 1,
+                    total: totalFrames,
+                    time: frameProcessingTime / SEC_TO_MS,
+                    code: "RENDERING_FRAMES"
+                });
             }
             return;
         };
@@ -1073,23 +1112,27 @@ async function renderVideo() {
         resumeRenderLoop();
 
         // 移除监听器
-        removeListener();
+        globalEventEmitter.off("VIDEO_RENDERING_PROGRESS", videoProgressHandler);
     }
 }
 
-onMounted(() => {
+function onSettingsLoaded() {
     const audio = store.useAudio();
-    audio.addEventListener("oncanplay", () => {
-        if (!settingsManager._settings.renderTimeEnd) {
-            settingsManager._settings.renderTimeStart = 0;
-            settingsManager._settings.renderTimeEnd = audio.duration;
-        }
+    audio.addEventListener("canplay", () => {
+        settingsManager.settings.renderTimeStart = 0;
+        settingsManager.settings.renderTimeEnd = audio.duration;
+        settingsManager.saveSettings();
     }, {
         once: true
     });
+}
+
+onMounted(() => {
+    globalEventEmitter.on("SETTINGS_LOADED", onSettingsLoaded);
 });
 
 onBeforeUnmount(() => {
+    globalEventEmitter.off("SETTINGS_LOADED", onSettingsLoaded);
     settingsManager.saveSettings();
 });
 

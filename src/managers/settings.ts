@@ -45,14 +45,17 @@ export default class SettingsManager extends Manager {
         }));
     }
     private loadSettings() {
-        window.electronAPI.loadSettings().then((settings) => {
-            if (!settings) return;
-            for (const key in settings) {
-                if (key in this.settings) {
-                    this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings];
+        window.electronAPI
+            .loadSettings()
+            .then((settings) => {
+                if (!settings) return;
+                for (const key in settings) {
+                    if (key in this.settings) {
+                        this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings];
+                    }
                 }
-            }
-        });
+                globalEventEmitter.emit("SETTINGS_LOADED");
+            });
     }
     setToDefault() {
         for (const key in defaultSettings) {

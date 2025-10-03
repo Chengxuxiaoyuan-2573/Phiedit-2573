@@ -8,6 +8,8 @@
  * 如果要查看 API 的具体代码实现，请查看 background.ts 文件。
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { contextBridge, ipcRenderer } from "electron";
 import type { defaultSettings } from "./managers/settings";
 import type { ChartReadResult } from "./models/chartPackage";
@@ -84,17 +86,10 @@ const electronAPI: ElectronAPI = {
         };
     },
     startVideoRendering: (config) => ipcRenderer.invoke("start-video-rendering", config),
-    sendFrameData: (frameDataUrl, currentFrame, totalFrames) => ipcRenderer.invoke("send-frame-data", frameDataUrl, currentFrame, totalFrames),
+    sendFrameData: (frameDataUrl) => ipcRenderer.invoke("send-frame-data", frameDataUrl),
     finishVideoRendering: (outputPath) => ipcRenderer.invoke("finish-video-rendering", outputPath),
     addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
     cancelVideoRendering: () => ipcRenderer.invoke("cancel-video-rendering"),
-    onVideoRenderingProgress(callback) {
-        const listener = (event: unknown, progress: typeof callback extends (arg: infer T) => void ? T : never) => callback(progress);
-        ipcRenderer.on("video-rendering-progress", listener);
-        return () => {
-            ipcRenderer.off("video-rendering-progress", listener);
-        };
-    },
     onWindowFocus(callback) {
         const listener = () => callback();
         ipcRenderer.on("window-focus", listener);
@@ -109,6 +104,12 @@ const electronAPI: ElectronAPI = {
             ipcRenderer.off("window-blur", listener);
         };
     },
+    on(name, callback) {
+        ipcRenderer.on(name, callback);
+    },
+    off(name, callback) {
+        ipcRenderer.off(name, callback);
+    }
 };
 
 interface ElectronAPI {
@@ -214,7 +215,7 @@ interface ElectronAPI {
     startVideoRendering: (config: RenderingConfig) => Promise<void>
 
     /** Send frame data to video export session */
-    sendFrameData: (frameDataUrl: string, currentFrame: number, totalFrames: number) => Promise<void>
+    sendFrameData: (frameDataUrl: string) => Promise<void>
 
     /** Finish video export and save to file */
     finishVideoRendering: (outputPath: string) => Promise<void>
@@ -223,34 +224,17 @@ interface ElectronAPI {
 
     cancelVideoRendering: () => Promise<void>
 
-    onVideoRenderingProgress: (callback: (progress: VideoRenderingProgress) => void) => ()=>void
-
     onWindowFocus: (callback: () => void) => ()=>void
 
     onWindowBlur: (callback: () => void) => ()=>void
+
+    on: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
+    off: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
 }
 
 export interface HitSoundInfo {
     type: NoteType;
     time: number;
-}
-
-export interface VideoRenderingProgress {
-
-    /** 渲染状态信息 */
-    status: string;
-
-    /** 已经处理的数量 */
-    processed: number;
-
-    /** 总数量 */
-    total: number;
-
-    /** 处理时所花费的时间 */
-    time: number;
-
-    /** 状态码 */
-    code: "MERGING_HITSOUNDS" | "RENDERING_FRAMES"
 }
 
 export interface RenderingConfig {

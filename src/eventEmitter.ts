@@ -23,6 +23,24 @@ export type KeyOptions = {
  */
 export type HistoryType = ("ADD_NOTE" | "MODIFY_NOTE" | "REMOVE_NOTE" | "ADD_EVENT" | "MODIFY_EVENT" | "REMOVE_EVENT")[] | "UNDO" | "REDO" | "CLEAR";
 
+export interface VideoRenderingProgress {
+
+    /** 渲染状态信息 */
+    status: string;
+
+    /** 已经处理的音效或画面数量 */
+    processed: number;
+
+    /** 总的音效或画面数量 */
+    total: number;
+
+    /** 处理时所花费的时间，以秒为单位 */
+    time: number;
+
+    /** 状态码 */
+    code: "MERGING_HITSOUNDS" | "RENDERING_FRAMES"
+}
+
 /**
  * 事件名称列表
  * 如要添加新事件，请在此添加，并在数组中规定每个参数的类型
@@ -90,8 +108,27 @@ export interface GlobalEventMap {
     ERRORS_FIXED: [number]
     ELEMENT_DRAGGED: []
     JUDGE_LINE_COUNT_CHANGED: [number]
+    SETTINGS_LOADED: []
+    VIDEO_RENDERING_PROGRESS: [VideoRenderingProgress]
 }
-class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {}
+
+class GlobalEventEmitter extends EventEmitter<GlobalEventMap> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly map = new Map<(...args: any[]) => void, (...args: any[]) => void>();
+    onIpc<K extends keyof GlobalEventMap>(event: K, handler: (...args: GlobalEventMap[K]) => void, priority = 0) {
+        const wrapper = (event: unknown, ...args: GlobalEventMap[K]) => handler(...args);
+        window.electronAPI.on(event, wrapper);
+        this.map.set(handler, wrapper);
+        super.on(event, handler, priority);
+    }
+    offIpc<K extends keyof GlobalEventMap>(event: K, handler: (...args: GlobalEventMap[K]) => void) {
+        const wrapper = this.map.get(handler);
+        if (wrapper) {
+            window.electronAPI.off(event, wrapper);
+        }
+        super.off(event, handler);
+    }
+}
 
 const globalEventEmitter = new GlobalEventEmitter();
 export default globalEventEmitter;

@@ -18,7 +18,7 @@ import { BPM } from "./models/beats";
 import { autoUpdater } from "electron-updater";
 import { HOUR_TO_MIN, MIN_TO_SEC, SEC_TO_MS } from "./tools/mathUtils";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { HitSoundInfo } from "./preload";
+import { HitSoundInfo, RenderingConfig } from "./preload";
 import { NoteType } from "./models/note";
 
 // import installExtension, { VUEJS3_DEVTOOLS } from "electron-devtools-installer";
@@ -896,12 +896,10 @@ async function createWindow() {
         });
     });
 
-    ipcMain.handle("send-frame-data", async (event, frameDataUrl: string, currentFrame: number, totalFrames: number) => {
+    ipcMain.handle("send-frame-data", async (event, frameDataUrl: string) => {
         if (!ffmpegProcess) {
             throw new Error("FFmpeg 进程未启动");
         }
-
-        const startTime = Date.now();
 
         // Convert data URL to buffer
         const base64Data = frameDataUrl.split(",")[1];
@@ -909,16 +907,6 @@ async function createWindow() {
 
         // Write frame to FFmpeg stdin
         ffmpegProcess.stdin.write(buffer);
-
-        const endTime = Date.now();
-
-        win.webContents.send("video-rendering-progress", {
-            status: `正在生成视频画面（${currentFrame + 1} / ${totalFrames}）`,
-            processed: currentFrame + 1,
-            total: totalFrames,
-            code: "RENDERING_FRAMES",
-            time: (endTime - startTime) / SEC_TO_MS,
-        });
     });
 
     ipcMain.handle("add-hit-sounds", async (event, sounds: readonly HitSoundInfo[]) => {
@@ -936,7 +924,7 @@ async function createWindow() {
         let num = 0;
 
         /** 循环的次数 */
-        const loopTimes = arr.length / (BATCH_SIZE - 1);
+        const loopTimes = Math.ceil(arr.length / (BATCH_SIZE - 1));
 
         // 循环合成音频
         while (arr.length > 1) {
@@ -956,12 +944,12 @@ async function createWindow() {
 
             const endTime = Date.now();
 
-            win.webContents.send("video-rendering-progress", {
-                status: `正在合成打击音效`,
+            win.webContents.send("VIDEO_RENDERING_PROGRESS", {
                 processed: num + 1,
                 total: loopTimes,
                 time: (endTime - startTime) / SEC_TO_MS,
-                code: "MERGING_HITSOUNDS"
+                code: "MERGING_HITSOUNDS",
+                status: "音频合成中……"
             });
         }
 
