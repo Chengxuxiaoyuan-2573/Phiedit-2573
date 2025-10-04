@@ -32,6 +32,7 @@ export const defaultSettings = {
     unlimitFps: false,
     renderTimeStart: 0,
     renderTimeEnd: 0,
+    renderFPS: 60
 };
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };

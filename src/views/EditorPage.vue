@@ -117,48 +117,7 @@
                     v-if="audioRef"
                     v-model="audioRef.playbackRate"
                     class="speed-select"
-                    :options="[
-                        {
-                            label: '1.0x',
-                            value: 1,
-                            text: '1.0x',
-                        },
-                        {
-                            label: '0.5x',
-                            value: 0.5,
-                            text: '0.5x',
-                        },
-                        {
-                            label: '0.25x',
-                            value: 0.25,
-                            text: '0.25x',
-                        },
-                        {
-                            label: '0.125x',
-                            value: 0.125,
-                            text: '0.125x',
-                        },
-                        {
-                            label: '0.0x',
-                            value: 0,
-                            text: '0.0x',
-                        },
-                        {
-                            label: '1.5x',
-                            value: 1.5,
-                            text: '1.5x',
-                        },
-                        {
-                            label: '2.0x',
-                            value: 2,
-                            text: '2.0x',
-                        },
-                        {
-                            label: '3.0x',
-                            value: 3,
-                            text: '3.0x',
-                        },
-                    ]"
+                    :options="speedOptions"
                 >
                     倍速
                 </MySelect>
@@ -419,6 +378,19 @@
                                         秒
                                     </template>
                                 </MyInputNumber>
+                                <MyInputNumber
+                                    v-model="settingsManager.settings.renderFPS"
+                                    :min="0"
+                                    :min-inclusive="false"
+                                    @change="settingsManager.saveSettings()"
+                                >
+                                    <template #prepend>
+                                        FPS
+                                    </template>
+                                    <template #append>
+                                        帧/秒
+                                    </template>
+                                </MyInputNumber>
                                 <MyButton
                                     type="primary"
                                     @click="catchErrorByMessage(renderVideo, '导出视频')"
@@ -671,20 +643,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ElAside,
-    ElScrollbar,
-    ElContainer,
-    ElHeader,
-    ElIcon,
-    ElMain,
-    ElSlider,
-    ElFooter,
-    ElTooltip,
-    ElRadioButton,
-    ElRadioGroup,
-    ElProgress,
-} from "element-plus";
+import {ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElTooltip, ElRadioButton, ElRadioGroup, ElProgress} from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { clamp, isNumber, mean } from "lodash";
@@ -955,6 +914,49 @@ const fpsColor = computed(() => {
     }
 });
 
+const speedOptions = [
+    {
+        label: "1.0x",
+        value: 1,
+        text: "1.0x",
+    },
+    {
+        label: "0.5x",
+        value: 0.5,
+        text: "0.5x",
+    },
+    {
+        label: "0.25x",
+        value: 0.25,
+        text: "0.25x",
+    },
+    {
+        label: "0.125x",
+        value: 0.125,
+        text: "0.125x",
+    },
+    {
+        label: "0.0x",
+        value: 0,
+        text: "0.0x",
+    },
+    {
+        label: "1.5x",
+        value: 1.5,
+        text: "1.5x",
+    },
+    {
+        label: "2.0x",
+        value: 2,
+        text: "2.0x",
+    },
+    {
+        label: "3.0x",
+        value: 3,
+        text: "3.0x",
+    },
+] as const;
+
 /** 视频渲染的进度 */
 const videoRenderingProgress = reactive({
     message: "正在加载……",
@@ -980,7 +982,7 @@ function openChartFolder() {
 
 /** 渲染为视频 */
 async function renderVideo() {
-    const fps = 60;
+    const fps = settingsManager._settings.renderFPS;
     const cachedSettings = { ...settingsManager._settings };
 
     let videoRenderingTotalTime = 0;
@@ -1254,12 +1256,10 @@ function windowOnBlur() {
     const audio = store.useAudio();
     audio.pause();
     windowIsFocused = false;
-    console.log("blur");
 }
 
 function windowOnFocus() {
     windowIsFocused = true;
-    console.log("focus");
 }
 
 function audioOnTimeUpdate() {

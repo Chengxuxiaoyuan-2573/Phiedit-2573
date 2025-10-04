@@ -57,12 +57,16 @@ const slots: ReturnType<typeof useSlots> = useSlots();
 const props = withDefaults(defineProps<{
     min?: number,
     max?: number,
+    minInclusive?: boolean,
+    maxInclusive?: boolean,
     step?: number,
     controls?: boolean,
     class?: string,
 }>(), {
     min: -Infinity,
     max: Infinity,
+    minInclusive: true,
+    maxInclusive: true,
     step: 0,
     controls: false,
     class: "",
@@ -89,16 +93,32 @@ function inputStringHandler() {
         // 根据min, max, step把inputData赋值给v-model
         const min = +props.min;
         const max = +props.max;
+        const minInclusive = props.minInclusive ?? true;
+        const maxInclusive = props.maxInclusive ?? true;
         const step = +props.step;
 
-        if (inputNum < min) {
-            errorMessage.value = `数值不能小于${min}`;
-        }
-        else if (inputNum > max) {
-            errorMessage.value = `数值不能大于${max}`;
+        errorMessage.value = "";
+
+        if (minInclusive) {
+            if (inputNum < min) {
+                errorMessage.value = `数值不能小于${min}`;
+            }
         }
         else {
-            errorMessage.value = "";
+            if (inputNum <= min) {
+                errorMessage.value = `数值必须大于${min}`;
+            }
+        }
+
+        if (maxInclusive) {
+            if (inputNum > max) {
+                errorMessage.value = `数值不能大于${max}`;
+            }
+        }
+        else {
+            if (inputNum >= max) {
+                errorMessage.value = `数值必须小于${max}`;
+            }
         }
 
         if (step === 0) {

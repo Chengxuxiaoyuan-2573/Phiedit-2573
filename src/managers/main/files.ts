@@ -72,67 +72,23 @@ class FilesManager extends Manager {
     }
 
     /**
-     * 安全删除文件，支持重试机制
-     * @param filePath 文件路径
-     * @param maxAttempts 最大重试次数
-     * @param delayMs 重试间隔（毫秒）
-     */
-    async safeUnlink(filePath: string, maxAttempts = 5, delayMs = 500): Promise<void> {
-        let attempts = 0;
-
-        const promiseExecutor = (resolve: (value: unknown) => void) => setTimeout(resolve, delayMs * attempts);
-        while (attempts < maxAttempts) {
-            try {
-                await fs.promises.unlink(filePath);
-                return;
-            }
-            catch (error) {
-                if (error instanceof Error && "code" in error && (error.code === "EBUSY" || error.code === "EPERM")) {
-                    attempts++;
-                    if (attempts >= maxAttempts) {
-                        throw new Error(`无法删除文件 ${filePath}，已达到最大重试次数`);
-                    }
-                    await new Promise(promiseExecutor);
-                }
-                else {
-                    throw error;
-                }
-            }
-        }
-    }
-
-    /**
-     * 清空目录，即使某些文件被锁定也能继续处理
+     * 清空目录
      * @param dir 目录路径
      */
     async clearDir(dir: string) {
-        try {
-            const files = await fs.promises.readdir(dir);
-            const promises = files.map(async file => {
-                const filePath = path.join(dir, file);
-                try {
-                    const stat = await fs.promises.stat(filePath);
-                    if (stat.isFile()) {
-                        try {
-                            await this.safeUnlink(filePath);
-                            console.log(`成功删除文件：${filePath}`);
-                        }
-                        catch (unlinkError) {
-                            console.warn(`无法删除文件 ${filePath}，即使多次重试：${unlinkError}`);
-                        }
-                    }
-                }
-                catch (statError) {
-                    console.warn(`无法获取文件 ${filePath} 的状态：${statError}`);
-                }
-            });
+        const files = await fs.promises.readdir(dir);
+        const promises = files.map(async file => {
+            const filePath = path.join(dir, file);
+            const stat = await fs.promises.stat(filePath);
+            if (stat.isFile()) {
+                await fs.promises.rm(filePath)
+                    .catch(error => {
+                        console.error(`无法删除文件 ${filePath}：${error}`);
+                    });
+            }
+        });
 
-            await Promise.all(promises);
-        }
-        catch (error) {
-            console.error(`无法读取目录 ${dir}：${error}`);
-            throw error;
-        }
+        return await Promise.allSettled(promises);
     }
 
     createTempFile(fileContent: Uint8Array, ...relativePaths: string[]) {
