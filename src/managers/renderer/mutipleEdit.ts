@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { getBeatsValue } from "@/models/beats";
+import { addBeats, Beats, getBeatsValue } from "@/models/beats";
 import { easingFuncs } from "@/models/easing";
 import { baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { NoteFake, NoteAbove, INote, INoteExtendedOptions, isNoteLike } from "@/models/note";
@@ -122,6 +122,34 @@ export default class MutipleEditManager extends Manager {
             historyManager.recordModifyEvent(event.id, attr, newValue, event[attr]);
             event[attr] = newValue;
         }
+
+        function modifyWithBeats(element: INote & INoteExtendedOptions | IEvent<unknown> & IEventExtendedOptions, attr: "startTime" | "endTime" | "bothTime", value: Beats, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+            if (attr === "bothTime") {
+                modifyWithBeats(element, "startTime", value, mode);
+                modifyWithBeats(element, "endTime", value, mode);
+                return;
+            }
+
+            let newValue: Beats;
+            switch (mode) {
+                case "to":
+                    newValue = value;
+                    break;
+                case "by":
+                    newValue = addBeats(element.startTime, value);
+                    break;
+                default:
+                    newValue = element.startTime;
+            }
+
+            if (isNoteLike(element)) {
+                historyManager.recordModifyNote(element.id, attr, newValue, element[attr]);
+            }
+            else {
+                historyManager.recordModifyEvent(element.id, attr, newValue, element[attr]);
+            }
+            element[attr] = newValue;
+        }
         mouseManager.checkMouseUp();
         historyManager.group("批量编辑");
         if (stateManager.cache.mutipleEdit.type === "note") {
@@ -169,6 +197,9 @@ export default class MutipleEditManager extends Manager {
                     historyManager.recordModifyNote(note.id, "type", stateManager.cache.mutipleEdit.paramNoteType, note.type);
                     note.type = stateManager.cache.mutipleEdit.paramNoteType;
                 }
+                else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
+                    modifyWithBeats(note, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
+                }
                 else {
                     modifyNoteWithNumber(note, attrName, value, stateManager.cache.mutipleEdit.mode);
                 }
@@ -193,6 +224,9 @@ export default class MutipleEditManager extends Manager {
                     if (attrName === "easingType") {
                         historyManager.recordModifyEvent(event.id, "easingType", stateManager.cache.mutipleEdit.paramEasing, event.easingType);
                         event.easingType = stateManager.cache.mutipleEdit.paramEasing;
+                    }
+                    else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
+                        modifyWithBeats(event, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
                     }
                     else if (isNumberEventLike(event)) {
                         const start = stateManager.cache.mutipleEdit.paramStart;

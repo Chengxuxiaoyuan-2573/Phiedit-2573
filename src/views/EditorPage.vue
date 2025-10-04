@@ -754,8 +754,7 @@ const mouseX = ref(0);
 const mouseY = ref(0);
 const judgeLineFilter = ref("");
 
-// eslint-disable-next-line no-extra-parens
-const judgeLineList = reactive<DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]>>([]);
+const judgeLineList: DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
     globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);

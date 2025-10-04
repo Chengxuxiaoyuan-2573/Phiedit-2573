@@ -67,10 +67,10 @@ export default class StateManager extends Manager {
             eventTypes: [] as string[],
 
             /** 要编辑音符的哪个属性 */
-            attributeNote: "positionX" as NoteNumberAttrs | "isFake" | "above" | "type",
+            attributeNote: "positionX" as NoteNumberAttrs | "isFake" | "above" | "type" | "startTime" | "endTime" | "bothTime",
 
             /** 要编辑事件的哪个属性 */
-            attributeEvent: "both" as "start" | "end" | "both" | "easingType",
+            attributeEvent: "both" as "start" | "end" | "both" | "easingType" | "startTime" | "endTime" | "bothTime",
 
             /** 要怎么修改原来的值 */
             mode: "to" as "to" | "by" | "times" | "invert",
@@ -83,6 +83,9 @@ export default class StateManager extends Manager {
 
             /** 修改的参数值是多少 */
             param: 0,
+
+            /** 修改的拍数值是多少 */
+            paramBeats: [1, 0, 1] as Beats,
 
             /** 修改的参数值从多少开始变化 */
             paramStart: 0,

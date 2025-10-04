@@ -177,13 +177,25 @@ export function formatBeats(beats: Beats) {
     return beats[0] + "." + beats[1] + "/" + beats[2];
 }
 
-export function parseBeats(str: string) {
+export function parseBeats(str: string): Beats {
+    if (str.startsWith("-")) {
+        const beats = parseBeats(str.slice(1));
+        return [-beats[0], -beats[1], beats[2]];
+    }
+
     const split = str.replaceAll(/\s/g, "").split(/\D/g);
     const beats: Beats = [
         Number.isNaN(+split[0]) ? 0 : +split[0],
         Number.isNaN(+split[1]) ? 0 : +split[1],
         Number.isNaN(+split[2]) ? 1 : +split[2]];
     return beats;
+}
+
+export function describeBeats(beats: Beats) {
+    if (beats[1] === 0) {
+        return `${beats[0]}拍`;
+    }
+    return `${beats[0]}又${beats[2]}分之${beats[1]}拍`;
 }
 
 export function addBeats(beats1: Beats, beats2: Beats): Beats {

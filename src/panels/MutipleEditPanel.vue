@@ -247,6 +247,13 @@
                     </template>
                 </MySwitch>
             </template>
+            <template v-else-if="paramType == 'beats'">
+                <MyInputBeats v-model="stateManager.cache.mutipleEdit.paramBeats">
+                    <template #prepend>
+                        参数值
+                    </template>
+                </MyInputBeats>
+            </template>
             <template v-else-if="paramType == 'NoteType'">
                 <MySelectNoteType v-model="stateManager.cache.mutipleEdit.paramNoteType" />
             </template>
@@ -296,6 +303,7 @@ import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import { isColorEventLike, isEventLike, isNumberEventLike, isTextEventLike } from "@/models/event";
+import { describeBeats } from "@/models/beats";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -360,6 +368,21 @@ const noteOptions = [
         label: "方向",
         text: "方向",
         value: "above",
+    },
+    {
+        label: "时间",
+        text: "时间",
+        value: "bothTime",
+    },
+    {
+        label: "起始时间",
+        text: "起始时间",
+        value: "startTime",
+    },
+    {
+        label: "结束时间",
+        text: "结束时间",
+        value: "endTime",
     }
 ] as const;
 
@@ -383,6 +406,21 @@ const eventOptions = [
         label: "事件缓动",
         value: "easingType",
         text: "事件缓动"
+    },
+    {
+        label: "时间",
+        text: "时间",
+        value: "bothTime",
+    },
+    {
+        label: "起始时间",
+        text: "起始时间",
+        value: "startTime",
+    },
+    {
+        label: "结束时间",
+        text: "结束时间",
+        value: "endTime",
     }
 ] as const;
 
@@ -399,10 +437,22 @@ const modeOptions = computed(() => {
 
 const paramType = computed(() => {
     if (stateManager.cache.mutipleEdit.type === "note") {
-        return stateManager.cache.mutipleEdit.attributeNote === "isFake" || stateManager.cache.mutipleEdit.attributeNote === "above" ? "boolean" : stateManager.cache.mutipleEdit.attributeNote === "type" ? "NoteType" : "number";
+        if (stateManager.cache.mutipleEdit.attributeNote === "startTime" || stateManager.cache.mutipleEdit.attributeNote === "endTime" || stateManager.cache.mutipleEdit.attributeNote === "bothTime") {
+            return "beats";
+        }
+        else if (stateManager.cache.mutipleEdit.attributeNote === "isFake" || stateManager.cache.mutipleEdit.attributeNote === "above") {
+            return "boolean";
+        }
+        else if (stateManager.cache.mutipleEdit.attributeNote === "type") {
+            return "NoteType";
+        }
+        return  "number";
     }
     else {
-        if (stateManager.cache.mutipleEdit.attributeEvent === "easingType") {
+        if (stateManager.cache.mutipleEdit.attributeEvent === "startTime" || stateManager.cache.mutipleEdit.attributeEvent === "endTime" || stateManager.cache.mutipleEdit.attributeEvent === "bothTime") {
+            return "beats";
+        }
+        else if (stateManager.cache.mutipleEdit.attributeEvent === "easingType") {
             return "easing";
         }
         else {
@@ -432,6 +482,7 @@ const validModes = computed((): readonly ("to" | "by" | "times" | "invert")[] =>
         "number": ["to", "by", "times", "invert"],
         "color": ["to", "invert"],
         "text": ["to"],
+        "beats": ["to", "by"],
         "invalid": undefined
     } as const;
     return mapping[paramType.value] || ["to"] as const;
@@ -488,6 +539,12 @@ const description = computed(() => {
                     return "方向";
                 case "isFake":
                     return "真假";
+                case "bothTime":
+                    return "时间";
+                case "startTime":
+                    return "起始时间";
+                case "endTime":
+                    return "结束时间";
             }
         }
         else {
@@ -500,6 +557,12 @@ const description = computed(() => {
                     return "缓动";
                 case "both":
                     return "值";
+                case "bothTime":
+                    return "时间";
+                case "startTime":
+                    return "起始时间";
+                case "endTime":
+                    return "结束时间";
             }
         }
     })();
@@ -557,6 +620,8 @@ const description = computed(() => {
                     return colorToHex(stateManager.cache.mutipleEdit.paramColor);
                 case "text":
                     return `字符串 "${stateManager.cache.mutipleEdit.paramText}"`;
+                case "beats":
+                    return describeBeats(stateManager.cache.mutipleEdit.paramBeats);
                 case "NoteType":
                     return NoteType[stateManager.cache.mutipleEdit.paramNoteType];
                 case "boolean":
