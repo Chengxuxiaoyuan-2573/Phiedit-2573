@@ -11,11 +11,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { contextBridge, ipcRenderer } from "electron";
-import type { defaultSettings } from "./managers/settings";
+import type { defaultSettings } from "./managers/renderer/settings";
 import type { ChartReadResult } from "./models/chartPackage";
-import { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
-import { Replace } from "./tools/typeTools";
-import { NoteType } from "./models/note";
+import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
+import type { Replace } from "./tools/typeTools";
+import type { HitSoundInfo } from "./managers/main/videoRenderer";
 
 const electronAPI: ElectronAPI = {
     importChart: (chartPackagePath) => ipcRenderer.invoke("import-chart", chartPackagePath),
@@ -230,11 +230,6 @@ interface ElectronAPI {
 
     on: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
     off: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
-}
-
-export interface HitSoundInfo {
-    type: NoteType;
-    time: number;
 }
 
 export interface RenderingConfig {

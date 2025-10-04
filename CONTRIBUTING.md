@@ -64,9 +64,8 @@
 
 ### [managers](src/managers)（管理器）
 
-用于实现各种功能，比如[复制粘贴](src/managers/clipboard.ts)，[鼠标框选](src/managers/mouse.ts)等等。
-[managers/render](src/managers/render) 是专门用来把内容渲染到 canvas 上的管理器。
-[chartPackageLoader](src/managers/chartPackageLoader.ts) 和 [resourcePackageLoader](src/managers/resourcePackageLoader.ts) 是全局管理器，生命周期从打开软件到关闭软件。
+管理器是用来实现具体功能的类，包含实现该功能的具体代码。
+[managers/renderer](src/managers/renderer) 属于渲染线程，[managers/main](src/managers/main) 属于主线程。
 
 ### [tools](src/tools)（工具）
 
@@ -134,6 +133,64 @@
 
 > 这些文件都是在 [src](src) 目录下的，你不会还在根目录下找文件吧？不会吧？
 
+## 术语解释
+
+### `ChartPackage` 谱面包
+
+被压缩为 zip 或 pez 压缩包的谱面。
+
+### `ChartFolder`/`ChartDir` 谱面文件夹
+
+被存储在文件夹内的谱面。
+其实没有必要区分 `ChartPackage`、`ChartFolder` 和 `ChartDir` 的存储形式，但为了和 `Chart` 作区分，所以~~随便起了一个名字就得了~~。
+
+### `Chart` 谱面
+
+存储为 RPEJSON 格式的谱面。
+
+### `ResourcePackage` 资源包
+
+被压缩为 zip 格式的资源包，里面包含一些资源文件，如音符图片和打击音效等。
+
+### `JudgeLine` 判定线
+
+谱面中最主要的组成部分。存储在 `chart.judgeLineList` 中。
+
+### `Note` 音符
+
+在落在判定线上时需要被打击。存储在 `judgeLine.notes` 中。
+
+### `Event` 事件
+
+谱面中用于控制判定线的某些属性，例如坐标、角度等。也有一些属性是静态的，无法用事件控制。
+为了和 `window` 对象自带的 `Event` 类区分开，代码中该类的名字叫做 `AbstractEvent`。
+
+### `NumberEvent` 数字事件
+
+起始和结束值类型为数字的事件。
+
+### `ColorEvent` 颜色事件
+
+起始和结束值类型为 [RGBcolor](src/tools/color.ts#L7) 的事件。
+
+### `TextEvent` 文本事件
+
+起始和结束值类型为字符串的事件。
+
+### `ShaderVariableEvent` 着色器变量事件
+
+用于控制着色器变量的事件。类型可以为数字，也可以为二维、三维、四维矢量（以数组的形式存储）。
+
+### `Extra` 扩展信息
+
+存储在 `extra.json` 中，用于定义着色器等高级信息。
+
+### `Effect`/`Shader` 效果/着色器
+
+包含着色器名称、着色器变量等信息。
+
+> 待补充
+
 ## 注意事项
 
 这些注意事项是本项目的开发规范，旨在防止代码成为“屎山代码”。
@@ -149,18 +206,18 @@
 3. [Root.vue](src/Root.vue)（R）
 4. [views\\](src/views/)（R）
 5. [panels\\](src/panels/)（R）
-6. [managers\\](src/managers/)（R）
-7. [preload.ts](src/preload.ts)（R，通过 `window.electronAPI` 访问）
-8. [eventEmitter.ts](src/eventEmitter.ts)（R）
-9. [store.ts](src/store.ts)（R，可依赖 managers\）
+6. [managers\\main](src/managers/main)（M）、[managers\\renderer](src/managers/renderer/)（R）
+7. [store.ts](src/store.ts)（R，可依赖 managers\）
+8. [preload.ts](src/preload.ts)（R）
+9. [eventEmitter.ts](src/eventEmitter.ts)（R）
 10. [constants.ts](src/constants.ts)（R，只可被 managers\ 依赖）
 11. [myElements\\](src/myElements/)（*R）
-12. [models\\](src/models/)（*R）
+12. [models\\](src/models/)（*RM）
 13. [tools\\](src/tools/)（*RM）
 14. 第三方库（*RM，~~不会真的有人上 `node_modules` 里去改库吧~~）
 
-除特殊说明外，模块都只能依赖比其依赖等级更低的模块，标星号的还可以直接依赖同级的模块。
-模块名称后面的 R 表示它属于渲染线程（Render），M 表示它属于主线程（Main）。RM 表示渲染线程和主线程都可以依赖该模块。
+除特殊说明外，模块都只能**直接**依赖比其依赖等级更低的模块，标星号的还可以**直接**依赖同级的模块。
+R 表示该模块属于渲染线程（Renderer），M 表示该模块属于主线程（Main）。RM 表示渲染线程和主线程都可以依赖该模块。在遵守其他规则的前提下，同一线程的模块可以直接进行依赖。R 依赖 M 时必须通过 `window.electronAPI` 调用，M 依赖 R 时必须通过 `win.webContents.send` 发送消息。RM 只能依赖 RM。
 除 [Root.vue](src/Root.vue) 可以被 [main.ts](src/main.ts) 引用外，**Vue 文件只能被 Vue 文件引用**。
 > 特殊说明：managers\ 必须通过依赖 [store.ts](src/store.ts) 来间接依赖其他 managers。（详见 [数据使用规范第 1 条](#数据使用规范)）
 
@@ -307,33 +364,37 @@ method(1, 2, 3, {
 
 - 本规定针对文档内除嵌入代码外的文字部分，以及代码内的注释部分。
 - 如果你使用的是 VSCode，请安装 `markdownlint` 插件，并按照其中的规则编写文档。你可以使用 Quick Fix 功能中的 “Fix all supported markdownlint violations in the document” 来自动修复报错，然后再手动修复剩余的报错。下列均为 markdownlint 中没有配置的规则，请自行遵守。
+
+#### 空格格式
+  
+| 字符种类 | 中文 | 英文 | 数字 | 全角标点 | 特殊字符 |
+| -------- | ---- | ---- | ---- | -------- | -------- |
+| 中文     | ×    | √    | O    | ×        | √        |
+| 英文     | √    | √    | √    | ×        | √        |
+| 数字     | O    | √    | √    | ×        | √        |
+| 全角标点 | ×    | ×    | ×    | ×        | ×        |
+| 特殊字符 | √    | √    | √    | ×        | O        |
+
+- 列表示前面的字符，行表示后面的字符；
+- √ 表示对应行列的两个字符之间要有空格，× 表示不要有空格，O 表示可有可无；
+- 中文、英文以词为单位，按照对应的语言习惯空格即可；
+- 数字仅包括阿拉伯数字；
+- 全角标点仅包括全角的逗号、句号、问号、感叹号、冒号、分号、省略号、括号、引号、破折号、顿号、书名号；
+- 特殊字符是包括数学符号在内的不属于前面四类的所有非语言字符；
+- 对于多种字符混合，共同表达一个意思的词语，我们称之为混合词，例如“B站”、“i18n”、“3.14”、“C++”等；
+- 混合词内部不空格；
+- 混合词的字符种类视作其含有的所有字符的种类中，在上表中最靠前的那个，例如“B站”为中文，“i18n”为英文，“3.14”为数字；
+
+> 半角标点的特殊规定：
+> 逗号、句点、问号、感叹号、冒号、分号**后**要空格；
+> 左引号和左括号**前**要空格，右引号和右括号**后**要空格；
+> 斜杠和反斜杠**两侧都不空格**；
+> 两个半角标点相邻时，中间不空格。
+
+#### 其他
+
 - 结构完整的句子后面要加标点符号。
 - 如果要使用简称，第一次出现时请用全称，并在括号中注明“以下简称 xxx”。
-
-- 下表规定了相邻两个字符之间空格的格式：
-  
-  | 字符种类 | 中文 | 英文 | 数字 | 全角标点 | 半角标点 | 特殊字符 |
-  | -------- | ---- | ---- | ---- | -------- | -------- | -------- |
-  | 中文     | ×    | √    | O    | ×        | √        | O        |
-  | 英文     | √    | √    | √    | ×        | √        | O        |
-  | 数字     | O    | √    | √    | ×        | √        | O        |
-  | 全角标点 | ×    | ×    | ×    | ×        | O        | ×        |
-  | 半角标点 | ×    | ×    | ×    | ×        | ×        | √        |
-  | 特殊字符 | O    | O    | O    | ×        | √        | O        |
-
-  注：
-  列表示前面的字符，行表示后面的字符；
-  √ 表示对应行列的两个字符之间要有空格，× 表示不要有空格，O 表示可有可无；
-
-  中文、英文以词为单位，按照对应的语言习惯空格即可；
-  数字仅包括阿拉伯数字；
-  全角标点仅包括全角的逗号、句号、问号、感叹号、冒号、分号、省略号、括号、引号、破折号、顿号、书名号；
-  半角标点仅包括半角的逗号、句点、问号、感叹号、冒号、分号、括号、引号、波浪线；
-  特殊字符是包括数学符号在内的不属于前面五类的所有非语言字符；
-  对于多种字符混合，共同表达一个意思的词语，我们称之为混合词，例如“B站”、“i18n”、“3.14”、“C++”等；
-  混合词内部不空格；
-  混合词的字符种类视作其含有的所有字符的种类中，在上表中最靠前的那个，例如“B站”为中文，“i18n”为英文，“3.14”为数字；
-
 - 文档中可以写开玩笑的话，但请使用删除线<!-- 或者注释 -->括起来。
 ~~其实就算没有这些规定，你靠直觉也能知道到底该怎么写，你看不懂就看不懂吧~~
 
@@ -380,6 +441,7 @@ method(1, 2, 3, {
 - 在 [managers](src/managers/) 中，如果发现用户传入的参数有误时，不要直接 `return`。请使用 `throw new Error()` 抛出一个错误，并在 [`globalEventEmitter.on()`](src/eventEmitter.ts) 中使用 [`createCatchErrorByMessage()`](src/tools/catchError.ts) 包裹住函数以捕获错误，这样该错误会在界面的顶部显示为一个弹窗。
 - 路径的拼接请使用 `path` 库中的 `path.join()` 方法，不要直接把字符串相加，也不要使用模板字符串拼接。
 - Javascript 中，对负数做取模运算仍会返回负数。如果这不合你的预期，请使用 [`MathUtils.mod`](src/tools/mathUtils.ts) 函数来处理负数的取模运算。
+- [managers\\main](src/managers/main) 是主线程的管理器，需要用 `export default new MyManager()` 导出单例；[managers\\renderer](src/managers/renderer) 是渲染线程的管理器，需要用 `export default class MyManager { ... }` 导出类。
 - 不要在 [managers](src/managers) 中直接引用 [models](src/models) 的具体实现类来判断一个对象是否属于这个类。你可以引用 `isNoteLike()` 或者 `isEventLike()` 等函数。
 
 ### UI 组件规范
@@ -427,11 +489,6 @@ Pull Request 的目标分支必须是 dev（开发分支），而非 master（�
 - `docs/xxx`：文档修改
 - `release/vA.B.C`：即将发布的新版本
 
-## 开发建议
-
-- 建议不要轻易升级或降级依赖，因为这可能会带来一些非常难解决的问题。
-- 建议你在推送代码之前，先逐一检查你所做的修改是否符合规范，是否有可能引起其他 bug。
-
 ## 版权与许可证
 
 本项目采用 [MIT 许可证](LICENSE)，所有贡献均需遵守以下版权规则：
@@ -470,11 +527,16 @@ Pull Request 的目标分支必须是 dev（开发分支），而非 master（�
 
 ### 特殊情况处理
 
-| 场景                | 操作指引                               |
-| ------------------- | -------------------------------------- |
-| 修复他人代码中的 bug | 不添加声明，保持原版权归属             |
-| 重写整个文件        | 移除旧声明，添加您的新声明（需在 Pull Request 中说明） |
-| 包含第三方代码      | 必须在 Pull Request 中声明来源并确认兼容 MIT        |
+| 场景                 | 操作指引                                               |
+| -------------------- | ------------------------------------------------------ |
+| 修复他人代码中的 bug | 不添加声明，保持原版权归属                             |
+| 重写整个文件         | 移除旧声明，添加您的新声明（需在 Pull Request 中说明） |
+| 包含第三方代码       | 必须在 Pull Request 中声明来源并确认兼容 MIT           |
+
+## 开发建议
+
+- 建议不要轻易升级或降级依赖，因为这可能会带来一些非常难解决的问题。
+- 建议你在推送代码之前，先逐一检查你所做的修改是否符合规范，是否有可能引起其他 bug。
 
 ## 备注
 

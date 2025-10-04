@@ -12,6 +12,9 @@ import { Point } from "@/tools/mathUtils";
 
 /** 一些常量，每个属性都必须是 static readonly 的 */
 export default class Constants {
+    /** 编码格式 */
+    static readonly ENCODING = "utf-8";
+
     /** canvas 的宽度 */
     static readonly CANVAS_WIDTH = 1350;
 

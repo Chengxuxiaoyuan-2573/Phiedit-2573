@@ -12,13 +12,13 @@ import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
 import { floor, ceil } from "lodash";
 import Constants from "../../constants";
-import { MouseMoveMode } from "../mouse";
+import { MouseMoveMode } from "./mouse";
 import store from "@/store";
-import Manager from "../abstract";
+import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
-import { BottomText } from "../settings";
+import { BottomText } from "./settings";
 import { FullEvent } from "@/models/element";
 
 export default class EditorRenderer extends Manager {

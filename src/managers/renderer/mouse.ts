@@ -9,7 +9,7 @@ import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
 import { Bezier } from "@/models/event";
 import { clamp, floor } from "lodash";
-import Constants from "../constants";
+import Constants from "../../constants";
 import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/easing";
 import Manager from "./abstract";

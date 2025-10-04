@@ -181,7 +181,7 @@ import { ref } from "vue";
 import MySwitch from "@/myElements/MySwitch.vue";
 import MySlider from "@/myElements/MySlider.vue";
 import MySelect from "@/myElements/MySelect.vue";
-import { BottomText } from "@/managers/settings";
+import { BottomText } from "@/managers/renderer/settings";
 const props = defineProps<{
     titleTeleport: string
 }>();

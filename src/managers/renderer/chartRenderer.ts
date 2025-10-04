@@ -13,7 +13,7 @@ import canvasUtils from "@/tools/canvasUtils";
 import { GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
 import { ceil, isNull } from "lodash";
-import Manager from "../abstract";
+import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
 import { ArrayRepeat, UnionToTuple } from "@/tools/typeTools";
 import EditableImage from "@/tools/editableImage";

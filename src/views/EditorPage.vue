@@ -731,7 +731,7 @@ import ShaderPanel from "@/panels/ShaderPanel.vue";
 import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import Constants from "@/constants";
-import { RightPanelState } from "@/managers/state";
+import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
 import { DeepRequired } from "@/tools/typeTools";
 
@@ -1010,7 +1010,7 @@ async function renderVideo() {
     try {
         pauseRenderLoop();
         const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
-        const filePath = await window.electronAPI.showSaveVideoDialog(`${chartName}.mp4`);
+        const filePath = await window.electronAPI.showSaveVideoDialog(chartName);
         if (!filePath) {
             throw new Error("未选择导出视频的路径");
         }

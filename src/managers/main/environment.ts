@@ -4,6 +4,5 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-export default abstract class Manager {
-
-}
+const environment = process.env.NODE_ENV !== "production" ? "development" : "production";
+export default environment;

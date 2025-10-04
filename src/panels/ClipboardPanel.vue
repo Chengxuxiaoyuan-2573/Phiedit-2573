@@ -109,7 +109,7 @@ import MySelect from "@/myElements/MySelect.vue";
 import store from "@/store";
 import MyButton from "@/myElements/MyButton.vue";
 import { ref } from "vue";
-import { FlipOptions } from "@/managers/paragraphRepeater";
+import { FlipOptions } from "@/managers/renderer/paragraphRepeater";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 const props = defineProps<{
     titleTeleport: string

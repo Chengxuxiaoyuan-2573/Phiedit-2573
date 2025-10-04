@@ -10,30 +10,30 @@ import { ResourcePackage } from "./models/resourcePackage";
 import { INote } from "./models/note";
 import { IEvent } from "./models/event";
 import type { useRoute } from "vue-router";
-import ChartRenderer from "./managers/render/chartRenderer";
-import EditorRenderer from "./managers/render/editorRenderer";
-import ClipboardManager from "./managers/clipboard";
-import CloneManager from "./managers/clone";
-import HistoryManager from "./managers/history";
-import MouseManager from "./managers/mouse";
-import MoveManager from "./managers/move";
-import SaveManager from "./managers/save";
-import SelectionManager from "./managers/selection";
-import SettingsManager from "./managers/settings";
-import StateManager from "./managers/state";
-import ParagraphRepeater from "./managers/paragraphRepeater";
-import ExportManager from "./managers/export";
-import EventAbillitiesManager from "./managers/eventAbillities";
-import BoxesManager from "./managers/boxes";
-import NoteFiller from "./managers/noteFiller";
-import EventFiller from "./managers/eventFiller";
-import LineBinder from "./managers/lineBinder";
-import AutoplayManager from "./managers/autoplay";
-import ErrorManager from "./managers/error";
-import CoordinateManager from "./managers/coordinate";
-import MutipleEditManager from "./managers/mutipleEdit";
-import ChartPackageLoader from "./managers/chartPackageLoader";
-import ResourcePackageLoader from "./managers/resourcePackageLoader";
+import ChartRenderer from "./managers/renderer/chartRenderer";
+import EditorRenderer from "./managers/renderer/editorRenderer";
+import ClipboardManager from "./managers/renderer/clipboard";
+import CloneManager from "./managers/renderer/clone";
+import HistoryManager from "./managers/renderer/history";
+import MouseManager from "./managers/renderer/mouse";
+import MoveManager from "./managers/renderer/move";
+import SaveManager from "./managers/renderer/save";
+import SelectionManager from "./managers/renderer/selection";
+import SettingsManager from "./managers/renderer/settings";
+import StateManager from "./managers/renderer/state";
+import ParagraphRepeater from "./managers/renderer/paragraphRepeater";
+import ExportManager from "./managers/renderer/export";
+import EventAbillitiesManager from "./managers/renderer/eventAbillities";
+import BoxesManager from "./managers/renderer/boxes";
+import NoteFiller from "./managers/renderer/noteFiller";
+import EventFiller from "./managers/renderer/eventFiller";
+import LineBinder from "./managers/renderer/lineBinder";
+import AutoplayManager from "./managers/renderer/autoplay";
+import ErrorManager from "./managers/renderer/error";
+import CoordinateManager from "./managers/renderer/coordinate";
+import MutipleEditManager from "./managers/renderer/mutipleEdit";
+import ChartPackageLoader from "./managers/renderer/chartPackageLoader";
+import ResourcePackageLoader from "./managers/renderer/resourcePackageLoader";
 
 import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
 import { ArrayedObject } from "./tools/algorithm";
@@ -103,7 +103,7 @@ class Store {
     */
     readonly globalManagers = {
         chartPackageLoader: new ChartPackageLoader(),
-        resourcePackageLoader: new ResourcePackageLoader()
+        resourcePackageLoader: new ResourcePackageLoader(),
     };
 
     constructor() {
