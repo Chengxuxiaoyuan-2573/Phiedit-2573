@@ -19,6 +19,7 @@ class ChartInfoManager extends Manager {
         const lines = info.split(/[\r\n]+/g);
         const infoObj = {
             name: "unknown",
+            path: "unknown",
             charter: "unknown",
             composer: "unknown",
             illustration: "unknown",
@@ -35,6 +36,7 @@ class ChartInfoManager extends Manager {
             value = value.trim();
             key = key.toLowerCase();
             if (key === "name") infoObj.name = value;
+            else if (key === "path") infoObj.path = value;
             else if (key === "charter") infoObj.charter = value;
             else if (key === "composer") infoObj.composer = value;
             else if (key === "illustration") infoObj.illustration = value;
@@ -46,7 +48,18 @@ class ChartInfoManager extends Manager {
         return infoObj;
     }
     private async format(infoObj: ChartInfo) {
-        const info = `#\nName: ${infoObj.name}\nCharter: ${infoObj.charter}\nComposer: ${infoObj.composer}\nIllustration: ${infoObj.illustration}\nLevel: ${infoObj.level}\nChart: ${infoObj.chart}\nSong: ${infoObj.song}\nPicture: ${infoObj.picture}\n`;
+        const info = [
+            "#",
+            `Name: ${infoObj.name}`,
+            `Path: ${infoObj.path}`,
+            `Charter: ${infoObj.charter}`,
+            `Composer: ${infoObj.composer}`,
+            `Illustration: ${infoObj.illustration}`,
+            `Level: ${infoObj.level}`,
+            `Chart: ${infoObj.chart}`,
+            `Song: ${infoObj.song}`,
+            `Picture: ${infoObj.picture}`
+        ].join("\n");
         return info;
     }
 
@@ -72,6 +85,7 @@ class ChartInfoManager extends Manager {
 }
 export interface ChartInfo {
     name: string,
+    path: string,
     charter: string,
     composer: string,
     illustration: string,

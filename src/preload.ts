@@ -124,7 +124,7 @@ interface ElectronAPI {
     addChart: (musicPath: string, backgroundPath: string, name: string) => Promise<string>
 
     /** 保存谱面 */
-    saveChart: (chartId: string, chartContent: string, extraContent: string) => Promise<void>
+    saveChart: (chartId: string, chartContent: string, extraContent?: string) => Promise<void>
 
     /** 删除谱面 */
     deleteChart: (chartId: string) => Promise<void>

@@ -13,6 +13,10 @@ export interface IBPM {
     bpm: number
     startTime: Beats
 }
+export interface ExtraBPM {
+    bpm: number
+    time: Beats
+}
 const DEFAULT_BPM = 120;
 export class BPM implements IBPM, IObjectizable {
     bpm: number = DEFAULT_BPM;
@@ -47,6 +51,12 @@ export class BPM implements IBPM, IObjectizable {
         return {
             bpm: this.bpm,
             startTime: this.startTime
+        };
+    }
+    toObjectExtra(): ExtraBPM {
+        return {
+            bpm: this.bpm,
+            time: this.startTime
         };
     }
     constructor(bpm: unknown) {

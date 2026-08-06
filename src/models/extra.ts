@@ -5,7 +5,7 @@
  */
 
 import { isArray, isObject } from "lodash";
-import { IBPM, BPM } from "./beats";
+import { BPM, ExtraBPM } from "./beats";
 import { IEffect, Effect } from "./effect";
 import ChartError from "./error";
 import { SYMBOL_EXTRA_JSON_ERROR } from "./chartPackage";
@@ -13,7 +13,7 @@ import { IObjectizable } from "./objectizable";
 import { markRaw } from "vue";
 
 export interface IExtra {
-    bpm: IBPM[];
+    bpm: ExtraBPM[];
     effects: IEffect[];
 }
 
@@ -24,7 +24,7 @@ export class Extra implements IExtra, IObjectizable {
     private effectNumber = 0;
     toObject(): IExtra {
         const extraObject = {
-            bpm: this.bpm,
+            bpm: this.bpm.map(bpm => bpm.toObjectExtra()),
             effects: this.effects.map(effect => effect.toObject())
         };
         return extraObject;

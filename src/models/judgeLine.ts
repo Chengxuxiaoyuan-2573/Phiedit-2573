@@ -264,45 +264,57 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
     }
     addEventLayer() {
         if (this.eventLayers.length >= MAX_EVENT_LAYERS) {
-            throw new Error("最多只能有4个事件层级");
+            throw new Error(`最多只能有${MAX_EVENT_LAYERS}个事件层级`);
         }
 
-        const newEventLayer = this.createAnInitializedEventLayer(0, 0, 0, 0, 0);
+        const newEventLayer = this.eventLayers.length > 0 ?
+            this.createAnInitializedEventLayer(0, 0, 0, 0) :
+            this.createAnInitializedEventLayer(0, 0, 0, 0, 10);
         this.eventLayers.push(newEventLayer);
         return newEventLayer;
     }
-    createAnInitializedEventLayer(x = 0, y = 0, angle = 0, alpha = 0, speed = 0) {
+    createAnInitializedEventLayer(x?: number, y?: number, angle?: number, alpha?: number, speed?: number) {
         return new BaseEventLayer({
-            moveXEvents: [new NumberEvent({
-                startTime: [0, 0, 1],
-                endTime: [1, 0, 1],
-                start: x,
-                end: x
-            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "moveX", BPMList: this.options.BPMList })],
-            moveYEvents: [new NumberEvent({
-                startTime: [0, 0, 1],
-                endTime: [1, 0, 1],
-                start: y,
-                end: y
-            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "moveY", BPMList: this.options.BPMList })],
-            rotateEvents: [new NumberEvent({
-                startTime: [0, 0, 1],
-                endTime: [1, 0, 1],
-                start: angle,
-                end: angle
-            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "rotate", BPMList: this.options.BPMList })],
-            alphaEvents: [new NumberEvent({
-                startTime: [0, 0, 1],
-                endTime: [1, 0, 1],
-                start: alpha,
-                end: alpha
-            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "alpha", BPMList: this.options.BPMList })],
-            speedEvents: [new NumberEvent({
-                startTime: [0, 0, 1],
-                endTime: [1, 0, 1],
-                start: speed,
-                end: speed
-            }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "speed", BPMList: this.options.BPMList })]
+            moveXEvents: x === undefined ?
+                [] :
+                [new NumberEvent({
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
+                    start: x,
+                    end: x
+                }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "moveX", BPMList: this.options.BPMList })],
+            moveYEvents: y === undefined ?
+                [] :
+                [new NumberEvent({
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
+                    start: y,
+                    end: y
+                }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "moveY", BPMList: this.options.BPMList })],
+            rotateEvents: angle === undefined ?
+                [] :
+                [new NumberEvent({
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
+                    start: angle,
+                    end: angle
+                }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "rotate", BPMList: this.options.BPMList })],
+            alphaEvents: alpha === undefined ?
+                [] :
+                [new NumberEvent({
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
+                    start: alpha,
+                    end: alpha
+                }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "alpha", BPMList: this.options.BPMList })],
+            speedEvents: speed === undefined ?
+                [] :
+                [new NumberEvent({
+                    startTime: [0, 0, 1],
+                    endTime: [1, 0, 1],
+                    start: speed,
+                    end: speed
+                }, { judgeLineNumber: this.options.judgeLineNumber, eventLayerId: "0", eventNumber: 0, type: "speed", BPMList: this.options.BPMList })]
         }, {
             judgeLineNumber: this.options.judgeLineNumber,
             eventLayerId: "0",

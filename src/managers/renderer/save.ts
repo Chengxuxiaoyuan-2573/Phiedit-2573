@@ -26,7 +26,12 @@ export default class SaveManager extends Manager {
         chartObject.META.background = chartInfo.picture;
         const chartContent = JSON.stringify(chartObject);
         const extraContent = JSON.stringify(extraObject);
-        window.electronAPI.saveChart(store.getChartId(), chartContent, extraContent);
+        if (extraObject.effects.length === 0) {
+            window.electronAPI.saveChart(store.getChartId(), chartContent);
+        }
+        else {
+            window.electronAPI.saveChart(store.getChartId(), chartContent, extraContent);
+        }
         window.electronAPI.writeChartInfo(store.getChartId(), chart.META.toObject());
     }
 }

@@ -340,5 +340,9 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
                 }
             }
         }
+
+        if (this.inclineEvents.length === 0) {
+            this.addEvent({ startTime: [0, 0, 1], endTime: [1, 0, 1], start: 0, end: 0 }, "incline");
+        }
     }
 }

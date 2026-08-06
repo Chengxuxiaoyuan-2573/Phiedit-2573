@@ -46,15 +46,10 @@ class AddChartManager extends Manager {
         }));
         chart.META.name = chartName;
 
-        // 真的想不到这段代码怎么写了，就写成这样了……
         chart.judgeLineList[0].eventLayers[0].moveYEvents[0].start = -250;
         chart.judgeLineList[0].eventLayers[0].moveYEvents[0].end = -250;
         chart.judgeLineList[0].eventLayers[0].alphaEvents[0].start = 255;
         chart.judgeLineList[0].eventLayers[0].alphaEvents[0].end = 255;
-        for (const judgeLine of chart.judgeLineList) {
-            judgeLine.eventLayers[0].speedEvents[0].start = 10;
-            judgeLine.eventLayers[0].speedEvents[0].end = 10;
-        }
 
         return chart;
     }
