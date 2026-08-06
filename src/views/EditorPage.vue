@@ -692,7 +692,6 @@ import store, { managersMap } from "@/store";
 import Constants from "@/constants";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
-import { DeepRequired } from "@/tools/typeTools";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -754,7 +753,7 @@ const mouseX = ref(0);
 const mouseY = ref(0);
 const judgeLineFilter = ref("");
 
-const judgeLineList: DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
+const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
     globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
@@ -837,7 +836,7 @@ const filteredJudgeLines = computed(() => {
     if (uiMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
             if (uiMatch[2]) {
-                return judgeLine.attachUI.includes(uiMatch[2]);
+                return judgeLine.attachUI && judgeLine.attachUI.includes(uiMatch[2]);
             }
             else {
                 return judgeLine.attachUI && judgeLine.attachUI !== "none";
@@ -862,7 +861,7 @@ const filteredJudgeLines = computed(() => {
     const textMatch = judgeLineFilter.value.match(/^text/);
     if (textMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
-            return judgeLine.extended.textEvents.length > 0;
+            return judgeLine.extended.textEvents && judgeLine.extended.textEvents.length > 0;
         }));
     }
 
@@ -870,7 +869,7 @@ const filteredJudgeLines = computed(() => {
     const colorMatch = judgeLineFilter.value.match(/^color/);
     if (colorMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
-            return judgeLine.extended.colorEvents.length > 0;
+            return judgeLine.extended.colorEvents && judgeLine.extended.colorEvents.length > 0;
         }));
     }
 
