@@ -57,7 +57,7 @@
         <RouterLink
             v-for="chartId in chartList"
             :key="chartId"
-            :to="`/editor?chartId=${chartId}`"
+            :to="`/editor?chartId=${encodeURIComponent(chartId)}`"
         >
             <ElCard class="chart-card">
                 <img
@@ -159,7 +159,8 @@ async function loadChart() {
 
     const filePath = filePaths[0];
     const chartId = await window.electronAPI.importChart(filePath);
-    router.push(`/editor?chartId=${chartId}`);
+    const encodedId = encodeURIComponent(chartId);
+    router.push(`/editor?chartId=${encodedId}`);
 }
 
 async function addChart() {
@@ -172,7 +173,8 @@ async function addChart() {
     }
 
     const chartId = await window.electronAPI.addChart(musicFileUrl.value, backgroundFileUrl.value, name.value);
-    router.push(`/editor?chartId=${chartId}`);
+    const encodedId = encodeURIComponent(chartId);
+    router.push(`/editor?chartId=${encodedId}`);
 }
 
 function imageOnLoad(chartId: string) {
