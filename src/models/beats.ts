@@ -174,7 +174,7 @@ export function toBeats(value: number): Beats {
 }
 
 export function formatBeats(beats: Beats) {
-    return beats[0] + "." + beats[1] + "/" + beats[2];
+    return beats[0] + ":" + beats[1] + "/" + beats[2];
 }
 
 export function parseBeats(str: string): Beats {

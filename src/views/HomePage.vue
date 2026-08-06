@@ -75,25 +75,16 @@
             </ElCard>
         </RouterLink>
     </div>
-    <ElFooter>
-        <MyLink
-            href="https://teamflos.github.io/phira-docs/index.html"
-            class="phira-link"
-        >
-            点击此链接以进入 Phira 文档，可查看关于谱面文件格式的更多信息。该文档不是本软件的文档，仅供参考
-        </MyLink>
-    </ElFooter>
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElCard, ElFooter, ElHeader, ElInput } from "element-plus";
+import { ElCard, ElHeader, ElInput } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
 import { inject, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import MyLink from "@/myElements/MyLink.vue";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
