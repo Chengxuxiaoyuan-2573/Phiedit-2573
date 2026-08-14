@@ -190,9 +190,12 @@ export class Chart implements IChart, IObjectizable {
             BPMList: this.BPMList,
             judgeLineNumber
         });
-        for (const eventLayer of judgeLine.eventLayers) {
-            eventLayer.speedEvents[0].start = 10;
-            eventLayer.speedEvents[0].end = 10;
+        judgeLine.eventLayers[0].speedEvents[0].start = 10;
+        judgeLine.eventLayers[0].speedEvents[0].end = 10;
+
+        // 把其他事件层级上的速度事件删掉
+        for (let i = 1; i < judgeLine.eventLayers.length - 1; i++) {
+            judgeLine.eventLayers[i].speedEvents = [];
         }
         this.judgeLineList.push(judgeLine);
         return judgeLine;

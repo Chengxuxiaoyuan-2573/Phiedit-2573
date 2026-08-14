@@ -184,19 +184,6 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
                 }
             }
         }
-
-        // 普通事件层级，要求至少每个种类要有一个垫底的事件
-        for (const type of baseEventTypes) {
-            const events = this.getEventsByType(type);
-            if (events.length === 0) {
-                this.addEvent({
-                    start: 0,
-                    end: 0,
-                    startTime: [0, 0, 1],
-                    endTime: [1, 0, 1],
-                }, type);
-            }
-        }
     }
 }
 export interface IExtendedEventLayer {
