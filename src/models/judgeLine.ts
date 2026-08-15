@@ -151,47 +151,47 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
     alphaControl = [{
         easing: DEFAULT_EASING_TYPE,
         alpha: DEFAULT_ALPHA,
-        x: DEFAULT_X_MAX
+        x: DEFAULT_X_MIN
     }, {
         easing: DEFAULT_EASING_TYPE,
         alpha: DEFAULT_ALPHA,
-        x: DEFAULT_X_MIN
+        x: DEFAULT_X_MAX
     }];
     posControl = [{
         easing: DEFAULT_EASING_TYPE,
         pos: DEFAULT_POS,
-        x: DEFAULT_X_MAX
+        x: DEFAULT_X_MIN
     }, {
         easing: DEFAULT_EASING_TYPE,
         pos: DEFAULT_POS,
-        x: DEFAULT_X_MIN
+        x: DEFAULT_X_MAX
     }];
     sizeControl = [{
         easing: DEFAULT_EASING_TYPE,
         size: DEFAULT_SIZE,
-        x: DEFAULT_X_MAX
+        x: DEFAULT_X_MIN
     }, {
         easing: DEFAULT_EASING_TYPE,
         size: DEFAULT_SIZE,
-        x: DEFAULT_X_MIN
+        x: DEFAULT_X_MAX
     }];
     skewControl = [{
         easing: DEFAULT_EASING_TYPE,
         skew: DEFAULT_SKEW,
-        x: DEFAULT_X_MAX
+        x: DEFAULT_X_MIN
     }, {
         easing: DEFAULT_EASING_TYPE,
         skew: DEFAULT_SKEW,
-        x: DEFAULT_X_MIN
+        x: DEFAULT_X_MAX
     }];
     yControl = [{
         easing: DEFAULT_EASING_TYPE,
         y: DEFAULT_Y,
-        x: DEFAULT_X_MAX,
+        x: DEFAULT_X_MIN,
     }, {
         easing: DEFAULT_EASING_TYPE,
         y: DEFAULT_Y,
-        x: DEFAULT_X_MIN
+        x: DEFAULT_X_MAX
     }];
     zOrder: number = DEFAULT_Z_ORDER;
     attachUI: "none" | "pause" | "combonumber" | "combo" | "score" | "bar" | "name" | "level" = "none";

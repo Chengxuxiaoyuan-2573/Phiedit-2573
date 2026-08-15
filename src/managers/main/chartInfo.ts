@@ -15,7 +15,7 @@ class ChartInfoManager extends Manager {
     constructor() {
         super();
     }
-    private async parse(info: string): Promise<ChartInfo> {
+    async parse(info: string): Promise<ChartInfo> {
         const lines = info.split(/[\r\n]+/g);
         const infoObj = {
             name: "unknown",
@@ -47,30 +47,30 @@ class ChartInfoManager extends Manager {
         }
         return infoObj;
     }
-    private async format(infoObj: ChartInfo) {
+    async format(infoObj: ChartInfo) {
         const info = [
             "#",
             `Name: ${infoObj.name}`,
             `Path: ${infoObj.path}`,
-            `Charter: ${infoObj.charter}`,
-            `Composer: ${infoObj.composer}`,
-            `Illustration: ${infoObj.illustration}`,
-            `Level: ${infoObj.level}`,
-            `Chart: ${infoObj.chart}`,
             `Song: ${infoObj.song}`,
-            `Picture: ${infoObj.picture}`
+            `Picture: ${infoObj.picture}`,
+            `Chart: ${infoObj.chart}`,
+            `Level: ${infoObj.level}`,
+            `Composer: ${infoObj.composer}`,
+            `Charter: ${infoObj.charter}`,
+            `Illustration: ${infoObj.illustration}`,
         ].join("\n");
         return info;
     }
 
     private async readChartInfoAsString(chartId: string) {
-        const info = await fs.promises.readFile(filesManager.getChartPath(chartId, this.INFO_FILE_NAME), Constants.ENCODING);
-        return info;
+        const text = await fs.promises.readFile(filesManager.getChartPath(chartId, this.INFO_FILE_NAME), Constants.ENCODING);
+        return text;
     }
 
     async readChartInfo(chartId: string) {
-        const text = this.parse(await this.readChartInfoAsString(chartId));
-        return text;
+        const info = this.parse(await this.readChartInfoAsString(chartId));
+        return info;
     }
 
     async writeChartInfo(chartId: string, newInfo: Omit<ChartInfo, "song" | "background" | "chart">) {
