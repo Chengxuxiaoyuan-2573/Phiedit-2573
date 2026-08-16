@@ -247,6 +247,7 @@
                         :close-on-press-escape="!isRenderingVideo"
                         :show-close="!isRenderingVideo"
                         draggable
+                        @closed="videoRenderingProgress.done = false"
                     >
                         <template #default="{ close }">
                             <div
@@ -272,7 +273,7 @@
                                 渲染完成！
                                 <MyButton
                                     type="primary"
-                                    @click="videoRenderingProgress.done = false, close()"
+                                    @click="close()"
                                 >
                                     确定
                                 </MyButton>
