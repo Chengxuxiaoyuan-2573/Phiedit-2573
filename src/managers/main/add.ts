@@ -12,6 +12,7 @@ import { BPM } from "@/models/beats";
 import path from "path";
 import chartListManager from "./chartList";
 import chartIdCreator from "./chartIdCreator";
+import { app } from "electron";
 
 class AddChartManager extends Manager {
     async addChart(musicPath: string, backgroundPath: string, name: string) {
@@ -39,22 +40,17 @@ class AddChartManager extends Manager {
     /** 创建一个空的谱面 */
     private createAnEmptyChart(chartName: string) {
         const lines = 24;
-        const chart = new Chart(lines);
+        const chart = new Chart(lines, app.getVersion());
         chart.BPMList.push(new BPM({
             bpm: 120,
             startTime: [0, 0, 1]
         }));
         chart.META.name = chartName;
 
-        // 真的想不到这段代码怎么写了，就写成这样了……
         chart.judgeLineList[0].eventLayers[0].moveYEvents[0].start = -250;
         chart.judgeLineList[0].eventLayers[0].moveYEvents[0].end = -250;
         chart.judgeLineList[0].eventLayers[0].alphaEvents[0].start = 255;
         chart.judgeLineList[0].eventLayers[0].alphaEvents[0].end = 255;
-        for (const judgeLine of chart.judgeLineList) {
-            judgeLine.eventLayers[0].speedEvents[0].start = 10;
-            judgeLine.eventLayers[0].speedEvents[0].end = 10;
-        }
 
         return chart;
     }

@@ -7,7 +7,7 @@
             欢迎使用 Phiedit 2573 谱面编辑器！
         </h1>
         <em class="version">
-            当前版本：v0.2.0
+            当前版本：{{ version }}
         </em>
     </ElHeader>
     <MyGridContainer
@@ -57,7 +57,7 @@
         <RouterLink
             v-for="chartId in chartList"
             :key="chartId"
-            :to="`/editor?chartId=${chartId}`"
+            :to="`/editor?chartId=${encodeURIComponent(chartId)}`"
         >
             <ElCard class="chart-card">
                 <img
@@ -75,29 +75,21 @@
             </ElCard>
         </RouterLink>
     </div>
-    <ElFooter>
-        <MyLink
-            href="https://teamflos.github.io/phira-docs/index.html"
-            class="phira-link"
-        >
-            点击此链接以进入 Phira 文档，可查看关于谱面文件格式的更多信息。该文档不是本软件的文档，仅供参考
-        </MyLink>
-    </ElFooter>
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElCard, ElFooter, ElHeader, ElInput } from "element-plus";
+import { ElCard, ElHeader, ElInput } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
 import { inject, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import MyLink from "@/myElements/MyLink.vue";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
 const backgroundFileUrl = ref<string | undefined>();
+const version = await window.electronAPI.getVersion();
 
 const name = ref("");
 const loadStart = inject("loadStart", () => {
@@ -159,7 +151,8 @@ async function loadChart() {
 
     const filePath = filePaths[0];
     const chartId = await window.electronAPI.importChart(filePath);
-    router.push(`/editor?chartId=${chartId}`);
+    const encodedId = encodeURIComponent(chartId);
+    router.push(`/editor?chartId=${encodedId}`);
 }
 
 async function addChart() {
@@ -172,7 +165,8 @@ async function addChart() {
     }
 
     const chartId = await window.electronAPI.addChart(musicFileUrl.value, backgroundFileUrl.value, name.value);
-    router.push(`/editor?chartId=${chartId}`);
+    const encodedId = encodeURIComponent(chartId);
+    router.push(`/editor?chartId=${encodedId}`);
 }
 
 function imageOnLoad(chartId: string) {

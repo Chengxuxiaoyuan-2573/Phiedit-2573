@@ -111,7 +111,7 @@ export class Chart implements IChart, IObjectizable {
     /**
      * 传入谱面对象，加载谱面。如果传入的是一个数字，则创建一个有对应数量判定线的谱面。
      */
-    constructor(chart: unknown) {
+    constructor(chart: unknown, version: string) {
         this.BPMList = reactive([]);
         this.judgeLineGroup = [];
         this.judgeLineList = [];
@@ -125,7 +125,7 @@ export class Chart implements IChart, IObjectizable {
                 }
             }
 
-            const newChartMeta = new ChartMeta("META" in chart ? chart.META : null);
+            const newChartMeta = new ChartMeta("META" in chart ? chart.META : null, version);
             this.META = reactive(newChartMeta);
             this.errors.push(...newChartMeta.errors);
 
@@ -157,7 +157,7 @@ export class Chart implements IChart, IObjectizable {
             }
         }
         else {
-            this.META = reactive(new ChartMeta(null));
+            this.META = reactive(new ChartMeta(null, version));
             if (isNumber(chart)) {
                 for (let i = 0; i < chart; i++) {
                     this.addNewJudgeLine();
@@ -190,9 +190,12 @@ export class Chart implements IChart, IObjectizable {
             BPMList: this.BPMList,
             judgeLineNumber
         });
-        for (const eventLayer of judgeLine.eventLayers) {
-            eventLayer.speedEvents[0].start = 10;
-            eventLayer.speedEvents[0].end = 10;
+        judgeLine.eventLayers[0].speedEvents[0].start = 10;
+        judgeLine.eventLayers[0].speedEvents[0].end = 10;
+
+        // 把其他事件层级上的速度事件删掉
+        for (let i = 1; i < judgeLine.eventLayers.length - 1; i++) {
+            judgeLine.eventLayers[i].speedEvents = [];
         }
         this.judgeLineList.push(judgeLine);
         return judgeLine;

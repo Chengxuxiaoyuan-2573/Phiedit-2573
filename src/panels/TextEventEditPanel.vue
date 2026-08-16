@@ -17,23 +17,12 @@
                 时间
                 <MyQuestionMark>
                     输入开始时间和结束时间，以空格隔开。<br>
-                    开始时间和结束时间的格式都要满足“a.b/c”，<br>
+                    开始时间和结束时间的格式都要满足“a:b/c”，<br>
                     其中a、b、c均为整数，表示第a又c分之b拍。<br>
-                    特殊的，如果b=0，则c必须等于1，表示第a拍。<br>
-                    因此，只能输入有理数时间。<br>
+                    特殊的，如果b=0，则表示第a拍。<br>
                 </MyQuestionMark>
             </template>
         </MyInput>
-        <!-- <MyInput
-            ref="inputStartEnd"
-            v-model="inputEvent.startEnd"
-            @change="createHistory()"
-            @input="updateModel('start', 'end')"
-        >
-            <template #prepend>
-                颜色
-            </template>
-        </MyInput> -->
         <MyInput
             ref="inputStart"
             v-model="inputEvent.start"
@@ -60,10 +49,9 @@
                 结束文字
                 <MyQuestionMark>
                     请输入结束文字。<br>
-                    结束文字大多数时候都应该与起始文字相同。也有特殊情况：<br>
-                    如果起始文字是结束文字的前缀，或结束文字是起始文字的前缀，<br>
-                    就会显现一种文字逐渐出现或逐渐消失的效果。<br>
-                    起始文字和结束文字<em>必须</em>要么相同，要么有其中一个是另一个的前缀。<br>
+                    结束文字大多数时候都应该与起始文字相同。只有下面情况可以不同：<br>
+                    如果起始文字是结束文字的前缀，或结束文字是起始文字的前缀。<br>
+                    这样可以做出文字逐渐出现或逐渐消失的效果。<br>
                 </MyQuestionMark>
             </template>
         </MyInput>

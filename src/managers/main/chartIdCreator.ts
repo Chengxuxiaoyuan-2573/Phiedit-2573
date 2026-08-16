@@ -11,7 +11,7 @@ const TIMESTAMP_ENCODING_BASE = 36;
 
 class ChartIdCreator {
     /**
-     * 随机生成一个谱面ID，格式为 `<谱面名称>-<8位随机字符>`。
+     * 随机生成一个谱面ID，格式为 `<谱面名称>-<根据时间戳生成的随机字符>`。
      * @param name 谱面名称
      * @returns 随机生成的谱面ID
      */

@@ -12,14 +12,21 @@ import fs from "fs";
 import Constants from "@/constants";
 
 class SaveChartManager extends Manager {
-    async saveChart(chartId: string, chartContent: string, extraContent: string) {
+    async saveChart(chartId: string, chartContent: string, extraContent?: string) {
         const folderPath = filesManager.getChartPath(chartId);
         const chartInfo = await chartInfoManager.readChartInfo(chartId);
         const chartPath = chartInfo.chart;
         const chartWholePath = path.join(folderPath, chartPath);
         const extraWholePath = path.join(folderPath, "extra.json");
         fs.writeFileSync(chartWholePath, chartContent, Constants.ENCODING);
-        fs.writeFileSync(extraWholePath, extraContent, Constants.ENCODING);
+        if (extraContent === undefined) {
+            if (fs.existsSync(extraWholePath)) {
+                fs.rmSync(extraWholePath);
+            }
+        }
+        else {
+            fs.writeFileSync(extraWholePath, extraContent, Constants.ENCODING);
+        }
     }
 }
 export default new SaveChartManager();

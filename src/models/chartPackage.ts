@@ -31,8 +31,8 @@ export class ChartPackage implements IChartPackage {
     textures: Record<string, HTMLImageElement>;
     extra: Extra;
     errors: ChartError[] = [];
-    constructor(chartPackage: IChartPackage) {
-        this.chart = new Chart(chartPackage.chart);
+    constructor(chartPackage: IChartPackage, version: string) {
+        this.chart = new Chart(chartPackage.chart, version);
         this.musicSrc = chartPackage.musicSrc;
         this.background = chartPackage.background;
         this.textures = chartPackage.textures;

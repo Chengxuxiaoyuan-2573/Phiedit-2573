@@ -216,24 +216,12 @@
                     >
                         保存谱面
                     </MyButton>
-                    <ElTooltip placement="right">
-                        <template #default>
-                            <MyButton
-                                type="primary"
-                                @click="exportChart"
-                            >
-                                导出谱面
-                            </MyButton>
-                        </template>
-                        <template #content>
-                            <em>导出的谱面有bug，无法直接导入进Re:PhiEdit，请按以下步骤操作</em><br>
-                            导出后请把文件的后缀名pez改为zip并解压缩到一个文件夹中，<br>
-                            打开你的Re:PhiEdit，点击“添加谱面”，选择文件夹中的音乐和曲绘文件，<br>
-                            并进入谱面，点击左上角的齿轮按钮，点击“导入谱面”，选择文件夹中的json文件，<br>
-                            加载完成后按Ctrl+S保存，然后点“退出谱面”，再点击“导出谱面”，<br>
-                            导出完毕后，方可正常使用。<br>
-                        </template>
-                    </ElTooltip>
+                    <MyButton
+                        type="primary"
+                        @click="exportChart"
+                    >
+                        导出谱面
+                    </MyButton>
                     <MyButton
                         type="primary"
                         @click="catchErrorByMessage(addTextures, '添加判定线贴图')"
@@ -259,14 +247,18 @@
                         :close-on-press-escape="!isRenderingVideo"
                         :show-close="!isRenderingVideo"
                         draggable
+                        @closed="videoRenderingProgress.done = false"
                     >
                         <template #default="{ close }">
                             <div
                                 v-if="isRenderingVideo"
                                 class="export-options"
                             >
-                                <span>{{ videoRenderingProgress.message }}（剩余{{ MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）</span>
-                                <ElProgress :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)" />
+                                <span>{{ videoRenderingProgress.message }}（剩余{{
+                                    MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）</span>
+                                <ElProgress
+                                    :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)"
+                                />
                                 <MyButton
                                     type="warning"
                                     @click="cancelVideoRendering"
@@ -281,7 +273,7 @@
                                 渲染完成！
                                 <MyButton
                                     type="primary"
-                                    @click="videoRenderingProgress.done = false, close()"
+                                    @click="close()"
                                 >
                                     确定
                                 </MyButton>
@@ -643,7 +635,7 @@
 </template>
 
 <script setup lang="ts">
-import {ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElTooltip, ElRadioButton, ElRadioGroup, ElProgress} from "element-plus";
+import { ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElRadioButton, ElRadioGroup, ElProgress } from "element-plus";
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { clamp, isNumber, mean } from "lodash";
@@ -692,7 +684,6 @@ import store, { managersMap } from "@/store";
 import Constants from "@/constants";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
-import { DeepRequired } from "@/tools/typeTools";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -708,6 +699,7 @@ const showUpdateDialog = inject("showUpdateDialog", () => {
 
 store.route = useRoute();
 const router = useRouter();
+const version = await window.electronAPI.getVersion();
 
 // 先获取全局的 chartPackageLoader 和 resourcePackageLoader 管理器
 const chartPackageLoader = store.useGlobalManager("chartPackageLoader");
@@ -719,7 +711,7 @@ const chartId = store.getChartId();
 
 // 使用 chartPackageLoader 加载 chartPackage
 const readResult = await window.electronAPI.loadChart(chartId);
-store.chartPackageRef.value = await chartPackageLoader.load(readResult);
+store.chartPackageRef.value = await chartPackageLoader.load(readResult, version);
 
 // 使用 resourcePackageLoader 加载 resourcePackage
 const respackArrayBuffer = await window.electronAPI.loadResourcePackage();
@@ -754,7 +746,7 @@ const mouseX = ref(0);
 const mouseY = ref(0);
 const judgeLineFilter = ref("");
 
-const judgeLineList: DeepRequired<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
+const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
     globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
@@ -782,12 +774,13 @@ const filteredJudgeLines = computed(() => {
             .includes(
                 judgeLineFilter.value
                     .toLowerCase()
-            ) || judgeLine.Name
-            .toLowerCase()
-            .includes(
-                judgeLineFilter.value
-                    .toLowerCase()
-            );
+            ) ||
+            judgeLine.Name
+                .toLowerCase()
+                .includes(
+                    judgeLineFilter.value
+                        .toLowerCase()
+                );
     });
     const parseRanges = (input: string) => {
         /** 分隔符可以是空格、英文逗号、英文分号、中文逗号、中文顿号、中文分号、英文斜杠、英文反斜杠，英文竖线 */
@@ -837,7 +830,7 @@ const filteredJudgeLines = computed(() => {
     if (uiMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
             if (uiMatch[2]) {
-                return judgeLine.attachUI.includes(uiMatch[2]);
+                return judgeLine.attachUI && judgeLine.attachUI.includes(uiMatch[2]);
             }
             else {
                 return judgeLine.attachUI && judgeLine.attachUI !== "none";
@@ -862,7 +855,7 @@ const filteredJudgeLines = computed(() => {
     const textMatch = judgeLineFilter.value.match(/^text/);
     if (textMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
-            return judgeLine.extended.textEvents.length > 0;
+            return judgeLine.extended.textEvents && judgeLine.extended.textEvents.length > 0;
         }));
     }
 
@@ -870,7 +863,7 @@ const filteredJudgeLines = computed(() => {
     const colorMatch = judgeLineFilter.value.match(/^color/);
     if (colorMatch) {
         result.push(...judgeLineList.filter(judgeLine => {
-            return judgeLine.extended.colorEvents.length > 0;
+            return judgeLine.extended.colorEvents && judgeLine.extended.colorEvents.length > 0;
         }));
     }
 
@@ -1426,6 +1419,7 @@ onMounted(() => {
     flex-direction: column;
     gap: 10px;
 }
+
 .el-button+.el-button {
     margin-left: 0;
     margin-right: 0;

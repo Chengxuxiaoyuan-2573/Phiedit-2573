@@ -23,10 +23,9 @@
                 <MyQuestionMark>
                     输入开始时间和结束时间，以空格隔开。<br>
                     非Hold音符只能输入一个时间。<br>
-                    开始时间和结束时间的格式都要满足“a.b/c”，<br>
+                    开始时间和结束时间的格式都要满足“a:b/c”，<br>
                     其中a、b、c均为整数，表示第a又c分之b拍。<br>
-                    特殊的，如果b=0，则c必须等于1，表示第a拍。<br>
-                    因此，只能输入有理数时间。<br>
+                    特殊的，如果b=0，则表示第a拍。<br>
                 </MyQuestionMark>
             </template>
         </MyInput>
@@ -39,7 +38,7 @@
         >
             假音符
             <MyQuestionMark>
-                若开启，则该音符为假音符，无法被判定，不计分。<br>
+                若开启，则该音符为假音符，无法被判定，不计combo和分数。<br>
             </MyQuestionMark>
         </MySwitch>
         <MySwitch
@@ -52,8 +51,6 @@
             反向音符
             <MyQuestionMark>
                 若开启，则音符会从判定线的反面下落。<br>
-                “判定线正反面”的定义：判定线的角度为0时，判定线上面为正面，下面为反面。<br>
-                角度为90时，判定线右面为正面，左面为反面。其他角度以此类推。<br>
             </MyQuestionMark>
         </MySwitch>
         <MyInputNumber
@@ -76,7 +73,7 @@
             <template #prepend>
                 速度倍率
                 <MyQuestionMark>
-                    1为正常速度，2为双倍速度，0.5为一半速度，以此类推。<br>
+                    音符下落的速度，1为正常速度。<br>
                     速度以判定线上speed事件的速度为基准，乘以这个数。<br>
                     在做出差速下落的效果时可能会用到。<br>
                     不能设置为负数。<br>
@@ -93,9 +90,7 @@
             <template #prepend>
                 大小
                 <MyQuestionMark>
-                    1为正常大小。大小越大，横向的拉伸越大。纵向永远不会拉伸。<br>
-                    不能设置为负数。<br>
-                    在Phira中，大小不会影响判定范围的大小，所以无法还原其他音游中的大小键。<br>
+                    1为正常大小。大小越大，横向的拉伸越大，但纵向不会拉伸。<br>
                 </MyQuestionMark>
             </template>
         </MyInputNumber>
@@ -110,8 +105,7 @@
             <template #prepend>
                 透明度
                 <MyQuestionMark>
-                    255为不透明；0为完全透明，也就是隐藏。<br>
-                    不能大于255或小于0。<br>
+                    0~255，255为不透明；0为完全透明，也就是隐藏。<br>
                 </MyQuestionMark>
             </template>
         </MyInputNumber>
@@ -126,8 +120,6 @@
                 <MyQuestionMark>
                     若不为0，则音符判定的位置会偏离判定线。<br>
                     正数表示向判定线正面的方向偏移，负数表示向判定线反面的方向偏移。<br>
-                    “判定线正反面”的定义：判定线的角度为0时，判定线上面为正面，下面为反面。<br>
-                    角度为90时，判定线右面为正面，左面为反面。其他角度以此类推。<br>
                 </MyQuestionMark>
             </template>
         </MyInputNumber>
@@ -142,7 +134,7 @@
                 可见时间
                 <MyQuestionMark>
                     该音符在被判定前多少秒会保持显示状态。默认值为一个很大的数，表示持续显示。<br>
-                    在做出上隐的效果时可能会用到。不能设置为负数。<br>
+                    在做上隐的效果时可能会用到。<br>
                 </MyQuestionMark>
             </template>
         </MyInputNumber>

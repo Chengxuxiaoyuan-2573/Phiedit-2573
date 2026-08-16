@@ -10,14 +10,14 @@ import MediaUtils from "@/tools/mediaUtils";
 import Manager from "./abstract";
 
 export default class ChartPackageLoader extends Manager {
-    async load(chartReadResult: ChartReadResult) {
+    async load(chartReadResult: ChartReadResult, version: string) {
         return new ChartPackage({
             musicSrc: await this.loadMusicSrc(chartReadResult.musicData),
             background: await this.loadBackground(chartReadResult.backgroundData),
             textures: await this.loadTextures(chartReadResult.textures),
             chart: this.loadChart(chartReadResult.chartContent),
             extra: this.loadExtra(chartReadResult.extraContent),
-        });
+        }, version);
     }
     private async loadMusicSrc(musicData: ArrayBuffer) {
         const musicBlob = MediaUtils.arrayBufferToBlob(musicData);
