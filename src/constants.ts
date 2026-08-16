@@ -54,6 +54,15 @@ export default class Constants {
     /** 被禁用的事件显示的颜色 */
     static readonly EDITOR_VIEW_EVENT_DISABLED_COLOR: RGBAcolor = [255, 0, 0, 0.6] as const;
 
+    /** 事件边框的颜色 */
+    static readonly EDITOR_VIEW_EVENT_BORDER_COLOR: RGBAcolor = [255, 255, 255, 1] as const;
+
+    /** 被禁用的事件边框的颜色 */
+    static readonly EDITOR_VIEW_EVENT_DISABLED_BORDER_COLOR: RGBAcolor = [255, 0, 0, 1] as const;
+
+    /** 事件边框的宽度 */
+    static readonly EDITOR_VIEW_EVENT_BORDER_WIDTH = 2;
+
     /** 事件两端所标的文字的颜色 */
     static readonly EDITOR_VIEW_EVENT_TEXT_COLOR: RGBcolor = [255, 165, 0] as const;
 

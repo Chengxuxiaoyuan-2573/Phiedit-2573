@@ -453,6 +453,16 @@ export default class EditorRenderer extends Manager {
                         event.isDisabled ? Constants.EDITOR_VIEW_EVENT_DISABLED_COLOR : Constants.EDITOR_VIEW_EVENT_COLOR,
                         true);
 
+                    // 显示事件边框
+                    ctx.lineWidth = Constants.EDITOR_VIEW_EVENT_BORDER_WIDTH;
+                    drawRect(
+                        eventX - Constants.EDITOR_VIEW_EVENT_WIDTH / 2,
+                        eventEndY,
+                        Constants.EDITOR_VIEW_EVENT_WIDTH,
+                        eventHeight,
+                        event.isDisabled ? Constants.EDITOR_VIEW_EVENT_DISABLED_BORDER_COLOR : Constants.EDITOR_VIEW_EVENT_BORDER_COLOR,
+                        false);
+
                     // 显示选中框
                     if (selectionManager.isSelected(event)) {
                         drawRect(
