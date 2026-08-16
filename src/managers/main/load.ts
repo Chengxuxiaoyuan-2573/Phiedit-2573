@@ -14,12 +14,12 @@ import Constants from "@/constants";
 
 class LoadManager extends Manager {
     /** 加载判定线贴图 */
-    async loadTextures(chartId: string) {
+    private async loadTextures(chartId: string, backgroundPath: string) {
         const folderPath = filesManager.getChartPath(chartId);
         const texturePaths = [];
         const allFiles = await fs.promises.readdir(folderPath);
         for (const fileName of allFiles) {
-            if (FileUtils.isImage(fileName)) {
+            if (FileUtils.isImage(fileName) && fileName !== backgroundPath) {
                 texturePaths.push(fileName);
             }
         }
@@ -28,7 +28,7 @@ class LoadManager extends Manager {
     async loadChart(chartId: string) {
         const folderPath = filesManager.getChartPath(chartId);
         const { song: musicPath, picture: backgroundPath, chart: chartPath } = await chartInfoManager.readChartInfo(chartId);
-        const texturePaths = await this.loadTextures(chartId);
+        const texturePaths = await this.loadTextures(chartId, backgroundPath);
 
         const musicWholePath = path.join(folderPath, musicPath);
         const backgroundWholePath = path.join(folderPath, backgroundPath);
