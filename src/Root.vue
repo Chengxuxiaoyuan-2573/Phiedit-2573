@@ -6,9 +6,7 @@
     <Suspense>
         <RouterView />
     </Suspense>
-    <ElDialog
-        v-model="isShow"
-    >
+    <ElDialog v-model="isShow">
         <template #header>
             检查更新
         </template>
@@ -49,7 +47,8 @@
                 v-else-if="updateState === UpdateState.DOWNLOADING"
                 class="update-dialog-content"
             >
-                下载进度: {{ MathUtils.formatData(downloadProgress!.transferred) }} / {{ MathUtils.formatData(downloadProgress!.total) }}
+                下载进度: {{ MathUtils.formatData(downloadProgress!.transferred) }} / {{
+                    MathUtils.formatData(downloadProgress!.total) }}
                 <ElProgress :percentage="Math.round(downloadProgress?.percent || 0)" />
             </div>
             <div
@@ -100,10 +99,10 @@ import MyButton from "./myElements/MyButton.vue";
 import DOMPurify from "dompurify";
 import { Replace } from "./tools/typeTools";
 import MathUtils from "./tools/mathUtils";
-
 defineOptions({
     name: "MainRoot"
 });
+
 let loadingInstance: ReturnType<typeof ElLoading.service> | null = null;
 const isShow = ref(false);
 

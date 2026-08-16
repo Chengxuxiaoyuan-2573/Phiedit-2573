@@ -41,9 +41,6 @@ export interface IChartMeta {
     song?: string,
 }
 
-/** 当前是 0.2.0 版本 */
-const VERSION = 20;
-
 /** 谱面元数据，是响应式的 */
 export class ChartMeta implements IChartMeta, IObjectizable {
     charter = "unknown";
@@ -52,7 +49,7 @@ export class ChartMeta implements IChartMeta, IObjectizable {
     level = "SP Lv.?";
     name = "unknown";
     offset = 0;
-    RPEVersion = VERSION;
+    readonly RPEVersion;
     readonly is2573 = true;
     readonly errors: ChartError[] = [];
     toObject(): IChartMeta {
@@ -67,7 +64,8 @@ export class ChartMeta implements IChartMeta, IObjectizable {
             is2573: this.is2573
         };
     }
-    constructor(meta: unknown) {
+    constructor(meta: unknown, version: string) {
+        this.RPEVersion = parseInt(version.replaceAll(".", ""));
         if (isObject(meta)) {
             // name - required field
             if ("name" in meta) {

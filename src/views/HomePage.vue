@@ -7,7 +7,7 @@
             欢迎使用 Phiedit 2573 谱面编辑器！
         </h1>
         <em class="version">
-            当前版本：v0.2.0
+            当前版本：{{ version }}
         </em>
     </ElHeader>
     <MyGridContainer
@@ -89,6 +89,7 @@ import MyGridContainer from "@/myElements/MyGridContainer.vue";
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
 const backgroundFileUrl = ref<string | undefined>();
+const version = await window.electronAPI.getVersion();
 
 const name = ref("");
 const loadStart = inject("loadStart", () => {

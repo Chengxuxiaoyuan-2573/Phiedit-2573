@@ -699,6 +699,7 @@ const showUpdateDialog = inject("showUpdateDialog", () => {
 
 store.route = useRoute();
 const router = useRouter();
+const version = await window.electronAPI.getVersion();
 
 // 先获取全局的 chartPackageLoader 和 resourcePackageLoader 管理器
 const chartPackageLoader = store.useGlobalManager("chartPackageLoader");
@@ -710,7 +711,7 @@ const chartId = store.getChartId();
 
 // 使用 chartPackageLoader 加载 chartPackage
 const readResult = await window.electronAPI.loadChart(chartId);
-store.chartPackageRef.value = await chartPackageLoader.load(readResult);
+store.chartPackageRef.value = await chartPackageLoader.load(readResult, version);
 
 // 使用 resourcePackageLoader 加载 resourcePackage
 const respackArrayBuffer = await window.electronAPI.loadResourcePackage();

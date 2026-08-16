@@ -36,6 +36,10 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 async function createWindow() {
+    ipcMain.handle("get-version", async () => {
+        return app.getVersion();
+    });
+
     ipcMain.handle("read-chart-list", async () => {
         return await chartListManager.readChartList();
     });

@@ -18,6 +18,7 @@ import type { Replace } from "./tools/typeTools";
 import type { HitSoundInfo } from "./managers/main/videoRenderer";
 
 const electronAPI: ElectronAPI = {
+    getVersion: () => ipcRenderer.invoke("get-version"),
     importChart: (chartPackagePath) => ipcRenderer.invoke("import-chart", chartPackagePath),
     addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
     saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
@@ -113,6 +114,9 @@ const electronAPI: ElectronAPI = {
 };
 
 interface ElectronAPI {
+
+    /** 获取软件版本 */
+    getVersion: () => Promise<string>
 
     /** 导入谱面 */
     importChart: (chartPackagePath: string) => Promise<string>

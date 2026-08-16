@@ -13,6 +13,7 @@ import Constants from "@/constants";
 import { Chart } from "@/models/chart";
 import { baseEventTypes } from "@/models/eventLayer";
 import { hashToDigits } from "@/tools/hash";
+import { app } from "electron";
 
 const DIGITS = 12;
 
@@ -37,7 +38,7 @@ class ExportChartManager extends Manager {
         const backgroundPath = path.join(exportTempPath, info.picture);
 
         const chartText = await fs.promises.readFile(chartPath, Constants.ENCODING);
-        const chart = new Chart(JSON.parse(chartText));
+        const chart = new Chart(JSON.parse(chartText), app.getVersion());
         for (const judgeLine of chart.judgeLineList) {
             for (const eventLayer of judgeLine.eventLayers) {
                 for (const type of baseEventTypes) {

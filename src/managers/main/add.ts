@@ -12,6 +12,7 @@ import { BPM } from "@/models/beats";
 import path from "path";
 import chartListManager from "./chartList";
 import chartIdCreator from "./chartIdCreator";
+import { app } from "electron";
 
 class AddChartManager extends Manager {
     async addChart(musicPath: string, backgroundPath: string, name: string) {
@@ -39,7 +40,7 @@ class AddChartManager extends Manager {
     /** 创建一个空的谱面 */
     private createAnEmptyChart(chartName: string) {
         const lines = 24;
-        const chart = new Chart(lines);
+        const chart = new Chart(lines, app.getVersion());
         chart.BPMList.push(new BPM({
             bpm: 120,
             startTime: [0, 0, 1]
