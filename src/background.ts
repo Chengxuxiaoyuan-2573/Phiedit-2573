@@ -9,6 +9,7 @@
 
 import { app, protocol, BrowserWindow, ipcMain, shell } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
+import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { autoUpdater } from "electron-updater";
@@ -342,7 +343,48 @@ app.on("activate", () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+
+/** 当前进程是否以管理员权限运行 */
+function isElevated(): Promise<boolean> {
+    return new Promise((resolve) => {
+        // net session 命令只有管理员权限才能成功
+        execFile("net", ["session"], { windowsHide: true }, (error) => resolve(!error));
+    });
+}
+
+/**
+ * 以管理员权限重新启动本程序（会弹出 UAC 授权窗口）。
+ * 用户拒绝授权时会调用 onDenied，让程序照常启动。
+ */
+function relaunchAsAdmin(onDenied: () => void) {
+    const exePath = app.getPath("exe");
+    execFile("powershell.exe", [
+        "-NoProfile",
+        "-WindowStyle", "Hidden",
+        "-Command", `Start-Process -FilePath '${exePath}' -Verb RunAs`
+    ], { windowsHide: true }, (error) => {
+        if (error) {
+            // 用户拒绝了 UAC：无法创建文件，但照常启动（read-tips 会回退到默认提示）
+            onDenied();
+        }
+        else {
+            app.quit();
+        }
+    });
+}
+
 app.on("ready", async () => {
+    // 仅在打包版 + Windows 下：若软件根目录的 tips.txt 缺失（需要写入可能只读的安装目录），
+    // 自动以管理员权限重启一次来创建它
+    if (app.isPackaged && process.platform === "win32") {
+        const tipsPath = path.join(path.dirname(app.getPath("exe")), "tips.txt");
+        if (!fs.existsSync(tipsPath) && !await isElevated()) {
+            relaunchAsAdmin(() => {
+                createWindow();
+            });
+            return;
+        }
+    }
     createWindow();
 });
 
