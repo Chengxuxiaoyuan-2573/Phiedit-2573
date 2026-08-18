@@ -134,8 +134,8 @@ interface ElectronAPI {
     /** 删除谱面 */
     deleteChart: (chartId: string) => Promise<void>
 
-    /** 读取软件根目录 tips.txt 的自定义 tip 列表（文件不存在时返回空数组） */
-    readTips: () => Promise<string[]>
+    /** 读取软件根目录 tips.txt 的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
+    readTips: () => Promise<{ tips: string[]; created: boolean }>
 
     /** 读取谱面列表 */
     readChartList: () => Promise<string[]>

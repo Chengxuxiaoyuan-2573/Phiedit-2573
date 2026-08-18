@@ -753,9 +753,14 @@ const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = react
 
 onMounted(() => {
     // 读取软件根目录 tips.txt 中的 tip，存在时以文件内容为准
-    window.electronAPI.readTips().then((customTips) => {
-        if (customTips.length > 0) {
-            allTips.value = customTips;
+    window.electronAPI.readTips().then(({ tips, created }) => {
+        if (created) {
+            // 用户删除了 tips.txt：先显示俏皮提示，之后用自动重建的默认 tips 轮换
+            allTips.value = tips;
+            tip.value = "耶你还想删掉我？";
+        }
+        else if (tips.length > 0) {
+            allTips.value = tips;
             tip.value = getRandomTip();
         }
     });

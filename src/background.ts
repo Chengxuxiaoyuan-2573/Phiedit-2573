@@ -28,6 +28,7 @@ import exportChartManager from "./managers/main/export";
 import addTexturesManager from "./managers/main/addTextures";
 import shaderLoader from "./managers/main/shaderLoader";
 import dialogManager from "./managers/main/dialog";
+import { DEFAULT_TIPS } from "./managers/main/defaultTips";
 
 // import installExtension, { VUEJS3_DEVTOOLS } from "electron-devtools-installer";
 
@@ -51,17 +52,30 @@ async function createWindow() {
             // 开发环境：项目根目录
             path.join(process.cwd(), "tips.txt");
         try {
+            // 检测不到 tips.txt：自动用默认内容重建文件，并让渲染进程先显示一条俏皮提示
             if (!fs.existsSync(tipsPath)) {
-                return [];
+                try {
+                    fs.writeFileSync(tipsPath, DEFAULT_TIPS, "utf8");
+                }
+                catch (writeError) {
+                    console.error("创建 tips.txt 失败：", writeError);
+                }
+                return {
+                    tips: DEFAULT_TIPS.split(/\r?\n/).filter(line => line.length > 0),
+                    created: true
+                };
             }
-            return fs.readFileSync(tipsPath, "utf8")
-                .split(/\r?\n/)
-                .map(line => line.trim())
-                .filter(line => line.length > 0);
+            return {
+                tips: fs.readFileSync(tipsPath, "utf8")
+                    .split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0),
+                created: false
+            };
         }
         catch (error) {
             console.error("读取 tips.txt 失败：", error);
-            return [];
+            return { tips: [], created: false };
         }
     });
 
