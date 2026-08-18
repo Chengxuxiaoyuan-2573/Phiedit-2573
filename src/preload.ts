@@ -23,6 +23,7 @@ const electronAPI: ElectronAPI = {
     addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
     saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
     deleteChart: (chartId) => ipcRenderer.invoke("delete-chart", chartId),
+    readTips: () => ipcRenderer.invoke("read-tips"),
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
     loadChart: (chartId) => ipcRenderer.invoke("load-chart", chartId),
     exportChart: (chartId, targetPath) => ipcRenderer.invoke("export-chart", chartId, targetPath),
@@ -132,6 +133,9 @@ interface ElectronAPI {
 
     /** 删除谱面 */
     deleteChart: (chartId: string) => Promise<void>
+
+    /** 读取软件根目录 tips.txt 的自定义 tip 列表（文件不存在时返回空数组） */
+    readTips: () => Promise<string[]>
 
     /** 读取谱面列表 */
     readChartList: () => Promise<string[]>

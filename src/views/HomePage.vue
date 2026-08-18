@@ -4,7 +4,7 @@
 <template>
     <ElHeader class="header">
         <h1 class="top-title">
-            欢迎使用 Phiedit 2573 谱面编辑器！
+            欢迎使用 OpenPhi 谱面编辑器！
         </h1>
         <em class="version">
             当前版本：{{ version }}

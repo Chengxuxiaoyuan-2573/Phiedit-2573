@@ -1,9 +1,11 @@
-# Phiedit 2573 v0.2.0
+# OpenPhi v0.2.0
 
 ## 项目介绍
 
-Phiedit 2573 是我（bilibili 账号 [@程序小袁_2573](https://space.bilibili.com/522248560)）基于 Vue-Electron 框架开发的一款 Phigros 谱面编辑器、渲染器二合一的软件，编程语言为 Typescript。
-本软件从 2024 年的暑假开始开发，设计参考了 [@cmdysj](https://space.bilibili.com/252635690) 开发的制谱软件 Re:PhiEdit（以下简称 RPE）。
+OpenPhi 是一款基于 Vue-Electron 框架开发的 Phigros 谱面编辑器、渲染器二合一的软件，编程语言为 Typescript，使用了 npm 包管理器，界面采用 Element Plus 组件库，使用 ffmpeg 进行谱面渲染。
+本项目基于原版 [Phiedit 2573](https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573)（原作者 [@程序小袁_2573](https://space.bilibili.com/522248560)），在其基础上继续开发和维护。
+本软件从 2024 年的暑假开始开发，设计方面参考了 [@cmdysj](https://space.bilibili.com/252635690) 开发的制谱软件 Re:PhiEdit（以下简称 RPE），所以有很多功能都与 RPE 相同。本项目也含有一些 [通义灵码](https://lingma.aliyun.com/) 和 [Deepseek](https://deepseek.com) 生成的代码。
+**本软件不能代表包括 Phigros 在内的任何官方，仅为个人项目！**
 
 ## 版权声明
 

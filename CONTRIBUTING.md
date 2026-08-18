@@ -9,8 +9,8 @@
 5. 输入以下命令，把项目克隆到本地。
 
     ```bash
-    # 请把“你的用户名”这五个字替换成你实际的用户名
-    git clone https://github.com/你的用户名/Phiedit-2573.git
+    # 克隆项目，请把“你的用户名”替换成你实际的用户名
+    git clone https://github.com/你的用户名/OpenPhi.git
     ```
 
 6. 双击运行根目录下的 [install.cmd](install.cmd) ，**直接回车**安装依赖。

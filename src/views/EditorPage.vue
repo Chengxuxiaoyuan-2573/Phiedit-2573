@@ -208,7 +208,7 @@
                 style="justify-content: space-between;"
             >
                 <div class="flex-container">
-                    <h1>Phiedit 2573</h1>
+                    <h1>OpenPhi</h1>
                     <MyButton
                         type="primary"
                         class="save-chart-button"
@@ -619,8 +619,8 @@
         </ElAside>
         <ElFooter id="footer">
             <div class="footer-left">
-                <MyLink href="https://github.com/Chengxuxiaoyuan-2573/Phiedit-2573">
-                    Phiedit 2573
+                <MyLink href="https://github.com/uzjhf-836/OpenPhi">
+                    OpenPhi
                 </MyLink>
                 Made By
                 <MyLink href="https://space.bilibili.com/522248560">
@@ -681,7 +681,6 @@ import ShaderPanel from "@/panels/ShaderPanel.vue";
 
 import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
-import Constants from "@/constants";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
 
@@ -740,7 +739,11 @@ const time = ref(0);
 const combo = ref(0);
 const score = ref(0);
 const audioIsPlaying = ref(false);
-const tip = ref(Constants.tips[Math.floor(Math.random() * Constants.tips.length)]);
+
+/** tip 完全来自软件根目录的 tips.txt（文件缺失或为空时显示空白） */
+const allTips = ref<string[]>([]);
+const getRandomTip = () => allTips.value.length === 0 ? "" : allTips.value[Math.floor(Math.random() * allTips.value.length)];
+const tip = ref(getRandomTip());
 const mouseIsInCanvas = ref(false);
 const mouseX = ref(0);
 const mouseY = ref(0);
@@ -749,6 +752,13 @@ const judgeLineFilter = ref("");
 const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
+    // 读取软件根目录 tips.txt 中的 tip，存在时以文件内容为准
+    window.electronAPI.readTips().then((customTips) => {
+        if (customTips.length > 0) {
+            allTips.value = customTips;
+            tip.value = getRandomTip();
+        }
+    });
     globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
 });
 onBeforeUnmount(() => {
@@ -1359,7 +1369,7 @@ onMounted(() => {
     audio.addEventListener("play", audioOnPlay);
 
     const tipInterval = setInterval(() => {
-        tip.value = Constants.tips[Math.floor(Math.random() * Constants.tips.length)];
+        tip.value = getRandomTip();
     }, TIP_SHOW_TIME);
 
     renderLoop();

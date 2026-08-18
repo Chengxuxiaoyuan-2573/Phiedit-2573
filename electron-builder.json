@@ -1,7 +1,7 @@
 {
-    "appId": "io.github.cxxy2573.phiedit",
+    "appId": "io.github.uzjhf836.openphi",
     "asar": true,
-    "productName": "Phiedit 2573",
+    "productName": "OpenPhi",
     "copyright": "Copyright © 2025 程序小袁_2573. All rights reserved.",
     "directories": {
         "output": "dist_electron"
@@ -18,7 +18,7 @@
             "nsis",
             "msi"
         ],
-        "icon": "build/icon.ico"
+        "icon": "favicon.ico"
     },
     "mac": {
         "target": [
@@ -60,6 +60,10 @@
             "filter": [
                 "**/*"
             ]
+        },
+        {
+            "from": "tips.txt",
+            "to": ".."
         }
     ]
 }
