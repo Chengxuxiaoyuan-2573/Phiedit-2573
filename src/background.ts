@@ -10,6 +10,7 @@
 import { app, protocol, BrowserWindow, ipcMain, shell } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
 import path from "path";
+import fs from "fs";
 import { autoUpdater } from "electron-updater";
 import { RenderingConfig } from "./preload";
 import FileUtils from "./tools/fileUtils";
@@ -38,6 +39,30 @@ protocol.registerSchemesAsPrivileged([
 async function createWindow() {
     ipcMain.handle("get-version", async () => {
         return app.getVersion();
+    });
+
+    ipcMain.handle("read-tips", async () => {
+        // 软件根目录下的 tips.txt，用户可以用来自定义右下角的 tip
+        const tipsPath = app.isPackaged ?
+
+            // 生产环境：软件根目录（exe 所在目录）
+            path.join(path.dirname(app.getPath("exe")), "tips.txt") :
+
+            // 开发环境：项目根目录
+            path.join(process.cwd(), "tips.txt");
+        try {
+            if (!fs.existsSync(tipsPath)) {
+                return [];
+            }
+            return fs.readFileSync(tipsPath, "utf8")
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+        }
+        catch (error) {
+            console.error("读取 tips.txt 失败：", error);
+            return [];
+        }
     });
 
     ipcMain.handle("read-chart-list", async () => {
