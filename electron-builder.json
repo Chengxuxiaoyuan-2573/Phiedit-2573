@@ -1,7 +1,7 @@
 {
     "appId": "io.github.cxxy2573.phiedit",
     "asar": true,
-    "productName": "Phiedit 2573",
+    "productName": "Phiedit-2573",
     "copyright": "Copyright © 2025 程序小袁_2573. All rights reserved.",
     "directories": {
         "output": "dist_electron"
@@ -18,21 +18,24 @@
             "nsis",
             "msi"
         ],
-        "icon": "build/icon.ico"
+        "icon": "build/icon.ico",
+        "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
         "target": [
             "dmg",
             "pkg"
         ],
-        "icon": "build/icon.icns"
+        "icon": "build/icon.icns",
+        "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
         "target": [
             "deb",
             "rpm"
         ],
-        "icon": "build/icon.png"
+        "icon": "build/icon.png",
+        "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "electronDownload": {
         "mirror": "https://npmmirror.com/mirrors/electron/"
