@@ -9,7 +9,6 @@ import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
 import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
-import { checkAndSort } from "@/tools/algorithm";
 import ChartError from "./error";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
@@ -1060,14 +1059,14 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
 }
 
 /** 找到开始时间不大于seconds的最大的事件。若不存在，返回null。*/
-export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): T | null {
-    checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
+export function findLastEventIndex<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): number {
+    // checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
 
     // 筛选所有未被禁用的事件
-    const validEvents = events.filter(event => !event.isDisabled);
+    const validEvents = events.map((event, i) => ({ event, i })).filter(event => !event.event.isDisabled);
 
     if (validEvents.length === 0) {
-        return null;
+        return -1;
     }
 
     // 二分查找
@@ -1077,7 +1076,7 @@ export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(
 
     while (left <= right) {
         const mid = Math.floor((left + right) / 2);
-        if (validEvents[mid].cachedStartSeconds <= seconds) {
+        if (validEvents[mid].event.cachedStartSeconds <= seconds) {
             resultIndex = mid;
             left = mid + 1;
         }
@@ -1086,5 +1085,9 @@ export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(
         }
     }
 
-    return resultIndex !== -1 ? validEvents[resultIndex] : null;
+    if (resultIndex === -1) {
+        return -1;
+    }
+
+    return validEvents[resultIndex].i;
 }

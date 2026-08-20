@@ -7,9 +7,10 @@
 import { isObject, isArray } from "lodash";
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event";
 import { RGBcolor } from "../tools/color";
-import { BPM } from "./beats";
+import { beatsCompare, BPM } from "./beats";
 import ChartError from "./error";
 import { IObjectizable } from "./objectizable";
+import { insert } from "@/tools/algorithm";
 interface EventLayerOptions {
     BPMList: BPM[]
     judgeLineNumber: number
@@ -75,6 +76,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
     alphaEvents: NumberEvent[] = [];
     speedEvents: NumberEvent[] = [];
     readonly isBaseEventLayer = true;
+    cachedSpeedQZH: number[] | undefined = undefined;
     eventNumbers = {
         moveX: 0,
         moveY: 0,
@@ -111,35 +113,35 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
         switch (type) {
             case "moveX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveX", id, eventNumber: this.eventNumbers.moveX++ });
-                this.moveXEvents.push(newEvent);
+                insert(this.moveXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "moveY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveY", id, eventNumber: this.eventNumbers.moveY++ });
-                this.moveYEvents.push(newEvent);
+                insert(this.moveYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "rotate": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "rotate", id, eventNumber: this.eventNumbers.rotate++ });
-                this.rotateEvents.push(newEvent);
+                insert(this.rotateEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "alpha": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "alpha", id, eventNumber: this.eventNumbers.alpha++ });
-                this.alphaEvents.push(newEvent);
+                insert(this.alphaEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "speed": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "speed", id, eventNumber: this.eventNumbers.speed++ });
-                this.speedEvents.push(newEvent);
+                insert(this.speedEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
@@ -147,6 +149,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
                 throw new Error(`传入的type参数有误: ${type}`);
         }
     }
+
     constructor(eventLayer: unknown, readonly options: EventLayerOptions) {
         super();
         if (isNaN(+options.eventLayerId)) {
@@ -242,41 +245,41 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
         switch (type) {
             case "scaleX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleX", id, eventNumber: this.eventNumbers.scaleX++ });
-                this.scaleXEvents.push(newEvent);
+                insert(this.scaleXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "scaleY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleY", id, eventNumber: this.eventNumbers.scaleY++ });
-                this.scaleYEvents.push(newEvent);
+                insert(this.scaleYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "color": {
                 const newEvent = new ColorEvent(event, { ...baseConfig, type: "color", id, eventNumber: this.eventNumbers.color++ });
-                this.colorEvents.push(newEvent);
+                insert(this.colorEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "paint": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "paint", id, eventNumber: this.eventNumbers.paint++ });
-                this.paintEvents.push(newEvent);
+                insert(this.paintEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }
 
             case "text": {
                 const newEvent = new TextEvent(event, { ...baseConfig, type: "text", id, eventNumber: this.eventNumbers.text++ });
-                this.textEvents.push(newEvent);
+                insert(this.textEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 return newEvent;
             }
 
             case "incline": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "incline", id, eventNumber: this.eventNumbers.incline++ });
-                this.inclineEvents.push(newEvent);
+                insert(this.inclineEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
                 this.errors.push(...newEvent.errors);
                 return newEvent;
             }

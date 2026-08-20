@@ -5,9 +5,8 @@
  */
 
 import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEventLike, isColorEventLike, isTextEventLike, NumberEvent, ColorEvent, TextEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
-import { checkAndSort } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
 import { floor, ceil } from "lodash";
@@ -387,7 +386,7 @@ export default class EditorRenderer extends Manager {
             const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (column + 0.5) / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
 
             // 确保事件按时间顺序排列
-            checkAndSort<FullEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
+            // checkAndSort<FullEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
 
             // 给事件分组，首尾相连的事件为一组
             const eventGroups: FullEvent[][] = [];
@@ -610,19 +609,22 @@ export default class EditorRenderer extends Manager {
             }
             writeText(type, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
             if (type === "color") {
-                const event = findLastEvent(events as FullEvent<RGBcolor>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as ColorEvent;
                 const color: RGBcolor = event ? interpolateColorEventValue(event, seconds) : [255, 255, 255];
                 writeText(colorToHex(color), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, color, true);
             }
             else if (type === "text") {
-                const event = findLastEvent(events as FullEvent<string>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as TextEvent;
                 const text = event ? interpolateTextEventValue(event, seconds) : "";
 
                 // writeText(text, eventX, 860, 30, "white", false);
                 writeText(text, eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
             else {
-                const event = findLastEvent(events as FullEvent<number>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as NumberEvent;
                 let currentEventValue = event ? interpolateNumberEventValue(event, seconds) : undefined;
                 switch (type) {
                     case "scaleX":

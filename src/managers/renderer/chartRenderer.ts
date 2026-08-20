@@ -5,7 +5,7 @@
  */
 
 import { easingFuncs, EasingType } from "@/models/easing";
-import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
 import { INote, INoteHighlight, INoteJudgement, NoteAbove, NoteType } from "@/models/note";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
@@ -128,7 +128,8 @@ export default class ChartRenderer extends Manager {
                     };
                 }
                 else {
-                    const event = findLastEvent(value, seconds);
+                    const eventIndex = findLastEventIndex(value, seconds);
+                    const event = value[eventIndex];
                     if (!event) {
                         return null;
                     }
@@ -1440,35 +1441,40 @@ export default class ChartRenderer extends Manager {
         let x = 0, y = 0, angle = 0, alpha = 0, speed = 0;
         for (const layer of judgeLine.eventLayers) {
             if (getX) {
-                const event = findLastEvent(layer.moveXEvents, seconds);
+                const eventIndex = findLastEventIndex(layer.moveXEvents, seconds);
+                const event = layer.moveXEvents[eventIndex];
                 if (event) {
                     x += interpolateNumberEventValue(event, seconds);
                 }
             }
 
             if (getY) {
-                const event = findLastEvent(layer.moveYEvents, seconds);
+                const eventIndex = findLastEventIndex(layer.moveYEvents, seconds);
+                const event = layer.moveYEvents[eventIndex];
                 if (event) {
                     y += interpolateNumberEventValue(event, seconds);
                 }
             }
 
             if (getAngle) {
-                const event = findLastEvent(layer.rotateEvents, seconds);
+                const eventIndex = findLastEventIndex(layer.rotateEvents, seconds);
+                const event = layer.rotateEvents[eventIndex];
                 if (event) {
                     angle += interpolateNumberEventValue(event, seconds);
                 }
             }
 
             if (getAlpha) {
-                const event = findLastEvent(layer.alphaEvents, seconds);
+                const eventIndex = findLastEventIndex(layer.alphaEvents, seconds);
+                const event = layer.alphaEvents[eventIndex];
                 if (event) {
                     alpha += interpolateNumberEventValue(event, seconds);
                 }
             }
 
             if (getSpeed) {
-                const event = findLastEvent(layer.speedEvents, seconds);
+                const eventIndex = findLastEventIndex(layer.speedEvents, seconds);
+                const event = layer.speedEvents[eventIndex];
                 if (event) {
                     speed += interpolateNumberEventValue(event, seconds);
                 }
@@ -1488,8 +1494,8 @@ export default class ChartRenderer extends Manager {
 
         const scaleX = (() => {
             if (getScaleX) {
-                const event = findLastEvent(judgeLine.extended.scaleXEvents, seconds);
-
+                const eventIndex = findLastEventIndex(judgeLine.extended.scaleXEvents, seconds);
+                const event = judgeLine.extended.scaleXEvents[eventIndex];
                 if (event) {
                     return interpolateNumberEventValue(event, seconds);
                 }
@@ -1504,7 +1510,8 @@ export default class ChartRenderer extends Manager {
         })();
         const scaleY = (() => {
             if (getScaleY) {
-                const event = findLastEvent(judgeLine.extended.scaleYEvents, seconds);
+                const eventIndex = findLastEventIndex(judgeLine.extended.scaleYEvents, seconds);
+                const event = judgeLine.extended.scaleYEvents[eventIndex];
                 if (event) {
                     return interpolateNumberEventValue(event, seconds);
                 }
@@ -1519,7 +1526,8 @@ export default class ChartRenderer extends Manager {
         })();
         const color = (() => {
             if (getColor) {
-                const event = findLastEvent(judgeLine.extended.colorEvents, seconds);
+                const eventIndex = findLastEventIndex(judgeLine.extended.colorEvents, seconds);
+                const event = judgeLine.extended.colorEvents[eventIndex];
                 if (event) {
                     return interpolateColorEventValue(event, seconds);
                 }
@@ -1533,7 +1541,8 @@ export default class ChartRenderer extends Manager {
         })();
         const paint = (() => {
             if (getPaint) {
-                const event = findLastEvent(judgeLine.extended.paintEvents, seconds);
+                const eventIndex = findLastEventIndex(judgeLine.extended.paintEvents, seconds);
+                const event = judgeLine.extended.paintEvents[eventIndex];
                 if (event) {
                     return interpolateNumberEventValue(event, seconds);
                 }
@@ -1547,7 +1556,8 @@ export default class ChartRenderer extends Manager {
         })();
         const text = (() => {
             if (getText) {
-                const event = findLastEvent(judgeLine.extended.textEvents, seconds);
+                const eventIndex = findLastEventIndex(judgeLine.extended.textEvents, seconds);
+                const event = judgeLine.extended.textEvents[eventIndex];
                 if (event) {
                     return interpolateTextEventValue(event, seconds);
                 }
@@ -1555,8 +1565,6 @@ export default class ChartRenderer extends Manager {
                     return undefined;
                 }
             }
-
-            // 随便返回啥都行
             else {
                 return undefined;
             }

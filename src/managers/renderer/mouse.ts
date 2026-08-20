@@ -15,7 +15,7 @@ import { EasingType } from "@/models/easing";
 import Manager from "./abstract";
 import store from "@/store";
 import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } from "@/models/beats";
-import { findLastEvent } from "@/models/event";
+import { findLastEventIndex } from "@/models/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { ElMessage } from "element-plus";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
@@ -394,7 +394,9 @@ export default class MouseManager extends Manager {
             const track = floor((x - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) / (Constants.EDITOR_VIEW_EVENTS_VIEWBOX.right - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) * types.length);
             const type = types[track];
             const timeSeconds = beatsToSeconds(chart.BPMList, time);
-            const lastEvent = findLastEvent<FullEvent>(stateManager.currentEventLayer.getEventsByType(type), timeSeconds);
+            const events = stateManager.currentEventLayer.getEventsByType(type);
+            const lastEventIndex = findLastEventIndex<FullEvent>(events, timeSeconds);
+            const lastEvent = events[lastEventIndex];
             const eventValue = lastEvent?.end ?? (() => {
                 if (type === "scaleX" || type === "scaleY") {
                     return 1;
