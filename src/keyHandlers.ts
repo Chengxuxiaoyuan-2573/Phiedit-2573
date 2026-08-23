@@ -8,6 +8,7 @@ import globalEventEmitter, { GlobalEventMap } from "./eventEmitter";
 import { NoteType } from "./models/note";
 import { isArray, isObject, isString } from "lodash";
 import KeyboardUtils from "./tools/keyboardUtils";
+import store from "./store";
 
 const keyConfigs = {
     Space: "TOGGLE_PLAY",
@@ -64,6 +65,15 @@ type B = A | {
     keyup: A;
 }
 export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup") {
+    if (type === "keydown") {
+        store.pressedKeys.add(e.key);
+        globalEventEmitter.emit("KEYDOWN", e.key);
+    }
+    else {
+        store.pressedKeys.delete(e.key);
+        globalEventEmitter.emit("KEYUP", e.key);
+    }
+
     const key = KeyboardUtils.formatKey(e);
     if (key.startsWith("Ctrl")) {
         if (key !== "Ctrl R" && key !== "Ctrl Shift I") {

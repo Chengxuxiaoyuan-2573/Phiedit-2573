@@ -52,6 +52,8 @@ export interface GlobalEventMap {
     MOUSE_UP: [PositionX, PositionY, KeyOptions]
     MOUSE_ENTER: []
     MOUSE_LEAVE: []
+    KEYDOWN: [string]
+    KEYUP: [string]
     WHEEL: [DeltaY]
     CTRL_WHEEL: [DeltaY]
     RENDER_FRAME: []

@@ -77,5 +77,6 @@ export const DEFAULT_TIPS = [
     "Tip: FPS太低怎么办，换新电脑，新电脑上哪买，_________________________",
     "Tip: 你知道吗？Phiedit 2573有一个隐藏图标！你只要编译了，找到\\dist_electron\\bundled\\favicon.ico就能看到！",
     "Tip: UK是Unknown不是英国！",
+    "Tip: 写完谱后可以关掉Autoplay用键盘试玩哦！（如果你想用鼠标玩也可以）",
     "//你看不见我"
 ].join("\n");

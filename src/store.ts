@@ -39,6 +39,7 @@ import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
 import { ArrayedObject } from "./tools/algorithm";
 import { SEC_TO_MS } from "./tools/mathUtils";
 import MediaUtils from "./tools/mediaUtils";
+import JudgeManager from "./managers/renderer/judge";
 
 /**
  * 用来存储 managers 的构造函数
@@ -67,6 +68,7 @@ export const managersMap = {
     errorManager: ErrorManager,
     coordinateManager: CoordinateManager,
     mutipleEditManager: MutipleEditManager,
+    judgeManager: JudgeManager
 } as const;
 
 export type ManagersMap = {
@@ -75,12 +77,12 @@ export type ManagersMap = {
 
 /** 数据集中管理的对象 */
 class Store {
-    chartPackageRef: Ref<ChartPackage | null>;
-    resourcePackageRef: Ref<ResourcePackage | null>;
-    canvasRef: Ref<HTMLCanvasElement | null>;
-    audioRef: Ref<HTMLAudioElement | null>;
+    readonly chartPackageRef: Ref<ChartPackage | null>;
+    readonly resourcePackageRef: Ref<ResourcePackage | null>;
+    readonly canvasRef: Ref<HTMLCanvasElement | null>;
+    readonly audioRef: Ref<HTMLAudioElement | null>;
     route: ReturnType<typeof useRoute> | null;
-    isRenderingVideo = ref(false);
+    readonly isRenderingVideo = ref(false);
 
     /** 音频上下文（全局可用） */
     readonly audioContext = new AudioContext();
@@ -105,6 +107,8 @@ class Store {
         chartPackageLoader: new ChartPackageLoader(),
         resourcePackageLoader: new ResourcePackageLoader(),
     };
+
+    readonly pressedKeys = new Set<string>();
 
     constructor() {
         this.chartPackageRef = ref(null);

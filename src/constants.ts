@@ -152,9 +152,6 @@ export default class Constants {
     /** 难度的字体大小 */
     static readonly CHART_VIEW_LEVEL_SIZE = 35;
 
-    /** 连击数下面显示的字 */
-    static readonly CHART_VIEW_COMBO_TEXT = "AUTOPLAY";
-
     /** 暂停按钮的宽度 */
     static readonly CHART_VIEW_PAUSE_WIDTH = 30;
 

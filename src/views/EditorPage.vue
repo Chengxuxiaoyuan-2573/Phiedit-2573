@@ -149,18 +149,9 @@
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
-                <p class="event-layer-hint-text">
-                    点击右侧按钮切换事件层级
-                    <MyQuestionMark>
-                        事件层级是用来叠加不同的事件的，例如：<br>
-                        在0号事件层上写绕定点的圆周运动，1号事件层上写平移运动，<br>
-                        则实际效果会显示为判定线一边旋转一边平移。<br>
-                        内部实现逻辑为：把每个事件层级的事件值加一起作为最终事件值。<br>
-                        <br>
-                        上述说明针对的是普通事件层级，还有一层特殊事件层级。<br>
-                        特殊事件层级也被称为故事板，是用来写出一些比较高级的功能的。<br>
-                    </MyQuestionMark>
-                </p>
+                <MySwitch v-model="stateManager.state.autoplay">
+                    开启 Autoplay
+                </MySwitch>
                 <MyGridContainer
                     class="event-layer-select"
                     :columns="5"
@@ -683,6 +674,7 @@ import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
+import MySwitch from "@/myElements/MySwitch.vue";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -730,14 +722,11 @@ const { chart, textures } = store.chartPackageRef.value;
 const stateManager = store.useManager("stateManager");
 const settingsManager = store.useManager("settingsManager");
 const selectionManager = store.useManager("selectionManager");
-const autoplayManager = store.useManager("autoplayManager");
 const mouseManager = store.useManager("mouseManager");
 const coordinateManager = store.useManager("coordinateManager");
 
 const fps = ref(0);
 const time = ref(0);
-const combo = ref(0);
-const score = ref(0);
 const audioIsPlaying = ref(false);
 
 /** tip 完全来自软件根目录的 tips.txt（文件缺失或为空时显示空白） */
@@ -1309,7 +1298,11 @@ function renderLoop() {
 
             catchErrorByMessage(() => {
                 globalEventEmitter.emit("RENDER_FRAME");
-                globalEventEmitter.emit("AUTOPLAY");
+
+                if (stateManager._state.autoplay) {
+                    globalEventEmitter.emit("AUTOPLAY");
+                }
+
                 if (stateManager.state.isPreviewing) {
                     globalEventEmitter.emit("RENDER_CHART");
                 }
@@ -1333,13 +1326,6 @@ function renderLoop() {
                 fps.value = 0;
             }
             renderTime = now;
-            if (combo.value !== autoplayManager.combo) {
-                combo.value = autoplayManager.combo;
-            }
-
-            if (score.value !== autoplayManager.score) {
-                score.value = autoplayManager.score;
-            }
             audio.volume = settingsManager._settings.musicVolume;
         }
 

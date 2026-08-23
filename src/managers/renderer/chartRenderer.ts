@@ -6,7 +6,7 @@
 
 import { easingFuncs, EasingType } from "@/models/easing";
 import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
-import { INote, INoteHighlight, INoteJudgement, NoteAbove, NoteType } from "@/models/note";
+import { Note, NoteAbove, NoteType } from "@/models/note";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
@@ -21,7 +21,7 @@ import Constants from "@/constants";
 import { ElMessage } from "element-plus";
 import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { ITimeSegment } from "@/models/timeSegment";
+import { LineColor } from "./judge";
 
 interface ShaderInfo {
     name: ShaderName;
@@ -454,8 +454,8 @@ export default class ChartRenderer extends Manager {
     private drawJudgeLines() {
         const settingsManager = store.useManager("settingsManager");
         const stateManager = store.useManager("stateManager");
-        const autoplayManager = store.useManager("autoplayManager");
         const coordinateManager = store.useManager("coordinateManager");
+        const judgeManager = store.useManager("judgeManager");
         const canvas = this.offscreenCanvas;
         const seconds = store.getSeconds();
         const chart = store.useChart();
@@ -463,7 +463,7 @@ export default class ChartRenderer extends Manager {
         const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
         const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
-        const { combo, score } = autoplayManager;
+        const { combo, score } = judgeManager;
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
@@ -480,7 +480,16 @@ export default class ChartRenderer extends Manager {
         const { textures } = chartPackage;
         const defaultScaleX = 1;
         const defaultScaleY = 1;
-        const defaultColor = RGBAtoRGB(resourcePackage.config.colorPerfect);
+        const defaultColor: RGBcolor = (() => {
+            switch (judgeManager.lineColor) {
+                case LineColor.AP:
+                    return RGBAtoRGB(resourcePackage.config.colorPerfect);
+                case LineColor.FC:
+                    return RGBAtoRGB(resourcePackage.config.colorGood);
+                default:
+                    return [255, 255, 255];
+            }
+        })();
         const currentColor: RGBcolor = GREEN;
         sortAndForEach(chart.judgeLineList, (x, y) => x.zOrder - y.zOrder, (judgeLine, i) => {
             const { x, y, angle, alpha, scaleX, scaleY, color, text } = this.getJudgeLineInfo(i, seconds, {
@@ -700,7 +709,7 @@ export default class ChartRenderer extends Manager {
 
                     case "combo":
                         if (shownCombo) {
-                            writeText(Constants.CHART_VIEW_COMBO_TEXT,
+                            writeText(stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
                                 0,
                                 0,
                                 Constants.CHART_VIEW_COMBO_SIZE,
@@ -787,13 +796,14 @@ export default class ChartRenderer extends Manager {
     }
 
     private drawUI() {
-        const autoplayManager = store.useManager("autoplayManager");
+        const stateManager = store.useManager("stateManager");
         const coordinateManager = store.useManager("coordinateManager");
+        const judgeManager = store.useManager("judgeManager");
         const canvas = this.offscreenCanvas;
         const chart = store.useChart();
         const audio = store.useAudio();
         const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
-        const { combo, score } = autoplayManager;
+        const { combo, score } = judgeManager;
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
@@ -813,6 +823,8 @@ export default class ChartRenderer extends Manager {
             nameIsAttached = false,
             levelIsAttached = false,
             barIsAttached = false;
+
+        ctx.globalAlpha = 1;
         for (const judgeLine of chart.judgeLineList) {
             if (judgeLine.attachUI !== "none") {
                 switch (judgeLine.attachUI) {
@@ -872,12 +884,13 @@ export default class ChartRenderer extends Manager {
                 coordinateManager.convertYToCanvas(Constants.CHART_VIEW_COMBO_POSITION.y));
 
             if (shownCombo) {
-                writeText(Constants.CHART_VIEW_COMBO_TEXT,
+                writeText(stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
                     0,
                     0,
                     Constants.CHART_VIEW_COMBO_SIZE,
                     "white",
-                    true);
+                    true,
+                    255);
             }
             ctx.restore();
         }
@@ -893,7 +906,8 @@ export default class ChartRenderer extends Manager {
                 0,
                 Constants.CHART_VIEW_SCORE_SIZE,
                 "white",
-                true);
+                true,
+                255);
 
             ctx.restore();
         }
@@ -910,7 +924,7 @@ export default class ChartRenderer extends Manager {
                 Constants.CHART_VIEW_NAME_SIZE,
                 "white",
                 true,
-                undefined,
+                255,
                 "left");
 
             ctx.restore();
@@ -928,7 +942,7 @@ export default class ChartRenderer extends Manager {
                 Constants.CHART_VIEW_LEVEL_SIZE,
                 "white",
                 true,
-                undefined,
+                255,
                 "right");
 
             ctx.restore();
@@ -944,14 +958,16 @@ export default class ChartRenderer extends Manager {
                 Constants.CHART_VIEW_PAUSE_WIDTH / 3,
                 Constants.CHART_VIEW_PAUSE_HEIGHT,
                 "white",
-                true);
+                true,
+                255);
 
             drawRect(Constants.CHART_VIEW_PAUSE_WIDTH / 2 / 3,
                 -Constants.CHART_VIEW_PAUSE_HEIGHT / 2,
                 Constants.CHART_VIEW_PAUSE_WIDTH / 3,
                 Constants.CHART_VIEW_PAUSE_HEIGHT,
                 "white",
-                true);
+                true,
+                255);
 
             ctx.restore();
         }
@@ -967,7 +983,8 @@ export default class ChartRenderer extends Manager {
                 audio.currentTime / audio.duration * canvas.width,
                 0,
                 "white",
-                Constants.CHART_VIEW_BAR_THICKNESS);
+                Constants.CHART_VIEW_BAR_THICKNESS,
+                255);
 
             ctx.restore();
         }
@@ -976,6 +993,7 @@ export default class ChartRenderer extends Manager {
     /** 显示音符及其打击特效 */
     private drawNotes() {
         const settingsManager = store.useManager("settingsManager");
+        const stateManager = store.useManager("stateManager");
         const coordinateManager = store.useManager("coordinateManager");
         const canvas = this.offscreenCanvas;
         const seconds = store.getSeconds();
@@ -1004,7 +1022,7 @@ export default class ChartRenderer extends Manager {
                 getAlpha: true
             });
             const currentPositionY = judgeLine.getFloorPositionOfSeconds(seconds);
-            const drawNote = (note: INote & ITimeSegment & INoteJudgement & INoteHighlight) => {
+            const drawNote = (note: Note) => {
                 // 把当前判定线的角度转为弧度
                 const radians = MathUtils.degToRad(judgeLineInfo.angle);
                 const missSeconds = note.getJudgementRange().bad;
@@ -1040,11 +1058,26 @@ export default class ChartRenderer extends Manager {
                     return;
                 }
 
+                function cacheJudgementInfo() {
+                    if (stateManager._state.autoplay) return;
+
+                    const result = MathUtils.moveAndRotate(
+                        judgeLineInfo.x,
+                        judgeLineInfo.y,
+                        judgeLineInfo.angle,
+                        note.positionX,
+                        0
+                    );
+                    note.cachedPosX = result.x;
+                    note.cachedPosY = result.y;
+                    note.cachedDir = radians;
+                }
+
                 if (note.type === NoteType.Hold) {
                     const { type, highlight } = note;
                     functions[RENDERING_LAYER[NoteType.Hold]].push(() => {
                         ctx.globalAlpha = note.alpha / 255;
-                        const missed = seconds > startSeconds + missSeconds && note.getJudgement() === "none";
+                        const missed = note.missed;
                         if (missed && !note.isFake) {
                             ctx.globalAlpha *= Constants.CHART_VIEW_MISS_ALPHA;
                         }
@@ -1053,6 +1086,7 @@ export default class ChartRenderer extends Manager {
                         ctx.save();
                         ctx.translate(coordinateManager.convertXToCanvas(judgeLineInfo.x), coordinateManager.convertYToCanvas(judgeLineInfo.y));
                         ctx.rotate(radians);
+                        cacheJudgementInfo();
                         if (startPositionY > endPositionY) {
                             //    startPositionY --> sy
                             //     endPositionY --> ey
@@ -1139,6 +1173,7 @@ export default class ChartRenderer extends Manager {
                         ctx.save();
                         ctx.translate(coordinateManager.convertXToCanvas(judgeLineInfo.x), coordinateManager.convertYToCanvas(judgeLineInfo.y));
                         ctx.rotate(radians);
+                        cacheJudgementInfo();
                         ctx.drawImage(image,
                             0, 0, image.width, image.height,
                             note.positionX - width / 2, -startPositionY - height / 2, width, height);

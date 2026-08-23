@@ -51,7 +51,10 @@ export default class StateManager extends Manager {
         currentEventLayerId: "0",
 
         /** 正在放置的note类型 */
-        currentNoteType: NoteType.Tap
+        currentNoteType: NoteType.Tap,
+
+        /** 是否为自动播放 */
+        autoplay: true,
     };
 
     /** 状态对象，响应式 */

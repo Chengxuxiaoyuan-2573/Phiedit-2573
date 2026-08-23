@@ -83,7 +83,7 @@ export default class MouseManager extends Manager {
 
     /**
      * 确保鼠标已经松开了，在其他管理器中调用
-     * 为了防止鼠标还未松开时进行其他操作，而导致的一些历史记录的bug
+     * 为了防止鼠标还未松开时进行其他操作，而导致历史记录错乱的 bug
      */
     checkMouseUp() {
         this.mouseUp(false);
@@ -176,95 +176,103 @@ export default class MouseManager extends Manager {
         this.mousePressed = false;
     }
     mouseMove(x: number, y: number) {
+        const stateManager = store.useManager("stateManager");
+        const judgeManager = store.useManager("judgeManager");
         const selectionManager = store.useManager("selectionManager");
         const coordinateManager = store.useManager("coordinateManager");
-        const firstElement = selectionManager.selectedElements[0];
-        switch (this.mouseMoveMode) {
-            case MouseMoveMode.Drag: {
-                if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
-                    store.setCursor("move");
-                }
-                else {
-                    store.setCursor("ns-resize");
-                }
-
-                const beats = coordinateManager.attatchY(y);
-                if (isNoteLike(firstElement)) {
-                    firstElement.startTime = beats;
-                    firstElement.positionX = coordinateManager.attatchX(x);
-                }
-                else {
-                    firstElement.startTime = beats;
-                }
-
-                if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                    [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
-                    this.mouseMoveMode = MouseMoveMode.DragEnd;
-                }
-                globalEventEmitter.emit("ELEMENT_DRAGGED");
-                break;
-            }
-
-            case MouseMoveMode.DragEnd: {
-                if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
-                    store.setCursor("move");
-                }
-                else {
-                    store.setCursor("ns-resize");
-                }
-
-                const beats = coordinateManager.attatchY(y);
-                if (isNoteLike(firstElement)) {
-                    firstElement.endTime = beats;
-                    firstElement.positionX = coordinateManager.attatchX(x);
-                }
-                else {
-                    firstElement.endTime = beats;
-                }
-
-                if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                    [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
-                    this.mouseMoveMode = MouseMoveMode.Drag;
-                }
-                globalEventEmitter.emit("ELEMENT_DRAGGED");
-                break;
-            }
-
-            case MouseMoveMode.Select: {
-                if (!this.selectionBox) {
-                    break;
-                }
-                this.selectionBox.right = x;
-                this.selectionBox.bottom = coordinateManager.absolute(y);
-                store.setCursor("crosshair");
-                break;
-            }
-
-            default: {
-                const clickedBox = this.getClickedBox(x, y);
-                const clickedObject = clickedBox ? clickedBox.data : null;
-                if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold) {
-                    store.setCursor("default");
-                    break;
-                }
-
-                if (clickedBox) {
-                    const startY = coordinateManager.relative(clickedBox.top);
-                    const endY = coordinateManager.relative(clickedBox.bottom);
-                    if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
+        if (stateManager.state.isPreviewing) {
+            store.setCursor("default");
+            judgeManager.move(coordinateManager.convertXToChart(x), coordinateManager.convertYToChart(y));
+        }
+        else {
+            const firstElement = selectionManager.selectedElements[0];
+            switch (this.mouseMoveMode) {
+                case MouseMoveMode.Drag: {
+                    if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
+                        store.setCursor("move");
+                    }
+                    else {
                         store.setCursor("ns-resize");
                     }
-                    else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
+
+                    const beats = coordinateManager.attatchY(y);
+                    if (isNoteLike(firstElement)) {
+                        firstElement.startTime = beats;
+                        firstElement.positionX = coordinateManager.attatchX(x);
+                    }
+                    else {
+                        firstElement.startTime = beats;
+                    }
+
+                    if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
+                        [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                        this.mouseMoveMode = MouseMoveMode.DragEnd;
+                    }
+                    globalEventEmitter.emit("ELEMENT_DRAGGED");
+                    break;
+                }
+
+                case MouseMoveMode.DragEnd: {
+                    if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
+                        store.setCursor("move");
+                    }
+                    else {
                         store.setCursor("ns-resize");
+                    }
+
+                    const beats = coordinateManager.attatchY(y);
+                    if (isNoteLike(firstElement)) {
+                        firstElement.endTime = beats;
+                        firstElement.positionX = coordinateManager.attatchX(x);
+                    }
+                    else {
+                        firstElement.endTime = beats;
+                    }
+
+                    if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
+                        [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                        this.mouseMoveMode = MouseMoveMode.Drag;
+                    }
+                    globalEventEmitter.emit("ELEMENT_DRAGGED");
+                    break;
+                }
+
+                case MouseMoveMode.Select: {
+                    if (!this.selectionBox) {
+                        break;
+                    }
+                    this.selectionBox.right = x;
+                    this.selectionBox.bottom = coordinateManager.absolute(y);
+                    store.setCursor("crosshair");
+                    break;
+                }
+
+                default: {
+                    const clickedBox = this.getClickedBox(x, y);
+                    const clickedObject = clickedBox ? clickedBox.data : null;
+                    if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold) {
+                        store.setCursor("default");
+                        break;
+                    }
+
+                    if (clickedBox) {
+                        const startY = coordinateManager.relative(clickedBox.top);
+                        const endY = coordinateManager.relative(clickedBox.bottom);
+                        if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
+                            store.setCursor("ns-resize");
+                        }
+                        else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
+                            store.setCursor("ns-resize");
+                        }
+                        else {
+                            store.setCursor("default");
+                        }
                     }
                     else {
                         store.setCursor("default");
                     }
+                    break;
                 }
-                else {
-                    store.setCursor("default");
-                }
-                break;
             }
         }
         this.mouseX = x;
@@ -289,58 +297,62 @@ export default class MouseManager extends Manager {
     }
     mouseLeft(x: number, y: number, mutiple: boolean) {
         const stateManager = store.useManager("stateManager");
+        const judgeManager = store.useManager("judgeManager");
         const selectionManager = store.useManager("selectionManager");
         const coordinateManager = store.useManager("coordinateManager");
 
-        // 禁止在预览谱面时点击canvas
-        if (stateManager.state.isPreviewing) return;
+        if (stateManager.state.isPreviewing) {
+            store.setCursor("default");
+            judgeManager.click(coordinateManager.convertXToChart(x), coordinateManager.convertYToChart(y));
+        }
+        else {
+            const clickedBox = this.getClickedBox(x, y);
 
-        const clickedBox = this.getClickedBox(x, y);
+            const clickedObject = clickedBox ? clickedBox.data : null;
 
-        const clickedObject = clickedBox ? clickedBox.data : null;
-
-        // 如果点到某个元素了，就选择这个元素
-        if (clickedObject && clickedBox) {
-            if (mutiple) {
-                // 如果是多选，且已经选择的话就取消选择，未选择就选择这个元素
-                if (selectionManager.selectedElements.includes(clickedObject)) {
-                    selectionManager.removeFromSelection([clickedObject]);
-                }
-                else {
-                    selectionManager.addToSelection([clickedObject]);
-                }
-            }
-            else {
-                // 如果是单选，就取消选择所有，只选择这个元素
-                if (selectionManager.selectedElements.includes(clickedObject)) {
-                    this.oldTime = clickedObject.startTime;
-                    if (isNoteLike(clickedObject)) {
-                        this.oldPositionX = clickedObject.positionX;
+            // 如果点到某个元素了，就选择这个元素
+            if (clickedObject && clickedBox) {
+                if (mutiple) {
+                    // 如果是多选，且已经选择的话就取消选择，未选择就选择这个元素
+                    if (selectionManager.selectedElements.includes(clickedObject)) {
+                        selectionManager.removeFromSelection([clickedObject]);
+                    }
+                    else {
+                        selectionManager.addToSelection([clickedObject]);
                     }
                 }
-                selectionManager.select([clickedObject]);
+                else {
+                    // 如果是单选，就取消选择所有，只选择这个元素
+                    if (selectionManager.selectedElements.includes(clickedObject)) {
+                        this.oldTime = clickedObject.startTime;
+                        if (isNoteLike(clickedObject)) {
+                            this.oldPositionX = clickedObject.positionX;
+                        }
+                    }
+                    selectionManager.select([clickedObject]);
 
-                // 检测拖动头尾
-                const startY = coordinateManager.relative(clickedBox.top);
-                const endY = coordinateManager.relative(clickedBox.bottom);
-                if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
-                    this.mouseMoveMode = MouseMoveMode.Drag;
-                }
-                else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
-                    this.mouseMoveMode = MouseMoveMode.DragEnd;
-                }
+                    // 检测拖动头尾
+                    const startY = coordinateManager.relative(clickedBox.top);
+                    const endY = coordinateManager.relative(clickedBox.bottom);
+                    if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
+                        this.mouseMoveMode = MouseMoveMode.Drag;
+                    }
+                    else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
+                        this.mouseMoveMode = MouseMoveMode.DragEnd;
+                    }
 
-                // 非Hold音符不能拖动尾部，改为拖动头部
-                if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
-                    this.mouseMoveMode = MouseMoveMode.Drag;
+                    // 非Hold音符不能拖动尾部，改为拖动头部
+                    if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
+                        this.mouseMoveMode = MouseMoveMode.Drag;
+                    }
                 }
             }
-        }
 
-        // 如果没有点到任何元素，就认为用户是想拖拽选择框选择，设置状态为拖拽选择框选择，并初始化选择框位置
-        else {
-            this.mouseMoveMode = MouseMoveMode.Select;
-            this.selectionBox = new Box(coordinateManager.absolute(y), coordinateManager.absolute(y), x, x);
+            // 如果没有点到任何元素，就认为用户是想拖拽选择框选择，设置状态为拖拽选择框选择，并初始化选择框位置
+            else {
+                this.mouseMoveMode = MouseMoveMode.Select;
+                this.selectionBox = new Box(coordinateManager.absolute(y), coordinateManager.absolute(y), x, x);
+            }
         }
         this.mousePressed = true;
     }

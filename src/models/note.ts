@@ -5,7 +5,7 @@
  */
 
 import { beatsToSeconds, BPM, makeSureBeatsValid } from "./beats";
-import { isArrayOfNumbers,  Optional } from "../tools/typeTools";
+import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { Beats } from "./beats";
 import { isObject, isNumber } from "lodash";
 import ChartError from "./error";
@@ -86,7 +86,7 @@ const
     TAP_BAD = 0.18,
     HOLD_PERFECT = 0.08,
     HOLD_GOOD = 0.16,
-    HOLD_BAD = 0.18,
+    HOLD_BAD = 0.16,
     DRAGFLICK_PERFECT = 0.18,
     DEFAULT_ABOVE = NoteAbove.Above,
     DEFAULT_ALPHA = 255,
@@ -115,6 +115,9 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
     cachedStartSeconds: number;
     cachedEndSeconds: number;
     cachedIsJudged: boolean = false;
+    cachedPosX: number = 0;
+    cachedPosY: number = 0;
+    cachedDir: number = 0;
     readonly isNote = true;
     readonly BPMList: BPM[];
 
@@ -145,6 +148,12 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
         };
     }
     hitSeconds: number | undefined = undefined;
+
+    /** 是否在预判状态，只对 Drag 和 Flick 有意义 */
+    prejudgedSeconds: number | undefined = undefined;
+
+    /** 是否已经 miss */
+    missed: boolean = false;
     hit(seconds: number) {
         if (this.isFake) {
             // 该音符是假音符，无法被击打
@@ -192,25 +201,7 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
         if (this.hitSeconds === undefined) return "none";
         const startSeconds = this.cachedStartSeconds;
         const delta = this.hitSeconds - startSeconds;
-        const { perfect, good, bad } = (() => {
-            switch (this.type) {
-                case NoteType.Tap: return {
-                    perfect: TAP_PERFECT,
-                    good: TAP_GOOD,
-                    bad: TAP_BAD
-                };
-                case NoteType.Hold: return {
-                    perfect: HOLD_PERFECT,
-                    good: HOLD_GOOD,
-                    bad: HOLD_BAD
-                };
-                default: return {
-                    perfect: DRAGFLICK_PERFECT,
-                    good: DRAGFLICK_PERFECT,
-                    bad: DRAGFLICK_PERFECT
-                };
-            }
-        })();
+        const { perfect, good, bad } = this.getJudgementRange();
         if (delta >= -perfect && delta < perfect) return "perfect";
         if (delta >= -good && delta < good) return "good";
         else if (delta >= -bad && delta < bad) return "bad";
