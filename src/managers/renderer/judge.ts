@@ -10,17 +10,26 @@ import store from "@/store";
 import Manager from "./abstract";
 import Constants from "@/constants";
 import MathUtils, { Point } from "@/tools/mathUtils";
+import { reactive } from "vue";
 
 const HOLD_PREUNTOUCH = 0.22;
+const JUDGEMENT_AREA_RATIO = 1.5;
 
 export enum LineColor {
     AP, FC, Normal
 }
 
 export default class JudgeManager extends Manager {
-    combo: number = 0;
-    score: number = 0;
-    lineColor: LineColor = LineColor.AP;
+    _judgeInfo = {
+        combo: 0,
+        score: 0,
+        perfect: 0,
+        good: 0,
+        bad: 0,
+        miss: 0,
+        lineColor: LineColor.AP,
+    };
+    judgeInfo = reactive(this._judgeInfo);
     private cachedAllNotes: Note[];
     constructor() {
         super();
@@ -33,7 +42,7 @@ export default class JudgeManager extends Manager {
 
         globalEventEmitter.on("RENDER_FRAME", () => {
             this.resetHitState();
-            this.calculateScore();
+            this.calculate();
             const stateManager = store.useManager("stateManager");
             if (!stateManager._state.isPreviewing) {
                 return;
@@ -63,6 +72,10 @@ export default class JudgeManager extends Manager {
                 if (seconds < note.cachedStartSeconds - range.bad) {
                     note.missed = false;
                 }
+
+                if (seconds < note.cachedEndSeconds - HOLD_PREUNTOUCH) {
+                    note.holdJudged = false;
+                }
             }
             else {
                 if (seconds < note.cachedStartSeconds) {
@@ -71,13 +84,13 @@ export default class JudgeManager extends Manager {
             }
         }
     }
-    calculateScore() {
+    calculate() {
         const seconds = store.getSeconds();
         let perfect = 0, good = 0, bad = 0, miss = 0, realNotes = 0;
         for (const note of this.cachedAllNotes) {
-            const endSeconds = note.cachedEndSeconds;
             if (!note.isFake) {
                 realNotes++;
+                const endSeconds = note.cachedEndSeconds;
                 if (note.type !== NoteType.Hold || endSeconds - seconds <= HOLD_PREUNTOUCH) {
                     switch (note.getJudgement()) {
                         case "perfect":
@@ -100,16 +113,22 @@ export default class JudgeManager extends Manager {
         }
 
         if (good === 0 && bad === 0 && miss === 0) {
-            this.lineColor = LineColor.AP;
+            this.judgeInfo.lineColor = LineColor.AP;
         }
         else if (bad === 0 && miss === 0) {
-            this.lineColor = LineColor.FC;
+            this.judgeInfo.lineColor = LineColor.FC;
         }
         else {
-            this.lineColor = LineColor.Normal;
+            this.judgeInfo.lineColor = LineColor.Normal;
         }
-        this.score = (perfect + good * Constants.CHART_VIEW_GOOD_RATE) / realNotes * Constants.CHART_VIEW_PERFECT_SCORE;
+        this.judgeInfo.perfect = perfect;
+        this.judgeInfo.good = good;
+        this.judgeInfo.bad = bad;
+        this.judgeInfo.miss = miss;
+        this.judgeInfo.score = (perfect + good * Constants.CHART_VIEW_GOOD_RATE) / realNotes * Constants.CHART_VIEW_PERFECT_SCORE;
     }
+
+    /** 每帧运行一次 */
     framely() {
         const resourcePackage = store.useResourcePackage();
         const settingsManager = store.useManager("settingsManager");
@@ -129,7 +148,7 @@ export default class JudgeManager extends Manager {
             const startSeconds = note.cachedStartSeconds;
             const endSeconds = note.cachedEndSeconds;
 
-            const threshold = settingsManager._settings.noteSize * note.size;
+            const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
             const delta = startSeconds - seconds;
             const range = note.getJudgementRange();
 
@@ -151,7 +170,7 @@ export default class JudgeManager extends Manager {
 
             if (delta < -range.bad && note.hitSeconds === undefined && !note.missed) {
                 note.missed = true;
-                this.combo = 0;
+                this.judgeInfo.combo = 0;
                 continue;
             }
 
@@ -172,7 +191,15 @@ export default class JudgeManager extends Manager {
                     if (endSeconds - seconds > HOLD_PREUNTOUCH && !mouseJudgeSucceed && !keyboardJudgeSucceed) {
                         note.unhit();
                         note.missed = true;
-                        this.combo = 0;
+                        this.judgeInfo.combo = 0;
+                    }
+                }
+
+                if (!note.holdJudged && endSeconds - seconds <= HOLD_PREUNTOUCH) {
+                    note.holdJudged = true;
+                    const judgement = note.getJudgement();
+                    if (judgement === "perfect" || judgement === "good") {
+                        this.judgeInfo.combo++;
                     }
                 }
             }
@@ -181,7 +208,7 @@ export default class JudgeManager extends Manager {
                 if (note.hitSeconds === undefined && note.prejudgedSeconds !== undefined && seconds >= startSeconds) {
                     note.hit(seconds);
                     resourcePackage.playSound(store.audioContext, note.type);
-                    this.combo++;
+                    this.judgeInfo.combo++;
                 }
             }
         }
@@ -217,7 +244,7 @@ export default class JudgeManager extends Manager {
                         continue;
                     }
 
-                    const threshold = settingsManager._settings.noteSize * note.size;
+                    const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
 
                     const distance = MathUtils.distance(x, y, coordinateManager.convertXToChart(mouseManager.mouseX), coordinateManager.convertYToChart(mouseManager.mouseY));
 
@@ -262,6 +289,7 @@ export default class JudgeManager extends Manager {
                 const startSeconds = note.cachedStartSeconds;
                 const range = note.getJudgementRange();
                 const delta = startSeconds - seconds;
+                const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
                 if (Math.abs(delta) > range.bad) {
                     continue;
                 }
@@ -275,15 +303,15 @@ export default class JudgeManager extends Manager {
                         y) :
                     0;
 
-                if (distance <= settingsManager._settings.noteSize * note.size) {
+                if (distance <= threshold) {
                     note.hit(seconds);
                     resourcePackage.playSound(store.audioContext, note.type);
                     const judgement = note.getJudgement();
                     if (judgement === "bad") {
-                        this.combo = 0;
+                        this.judgeInfo.combo = 0;
                     }
-                    else {
-                        this.combo++;
+                    else if (note.type !== NoteType.Hold) {
+                        this.judgeInfo.combo++;
                     }
                     break;
                 }

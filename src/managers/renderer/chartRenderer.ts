@@ -463,7 +463,7 @@ export default class ChartRenderer extends Manager {
         const chartPackage = store.useChartPackage();
         const resourcePackage = store.useResourcePackage();
         const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
-        const { combo, score } = judgeManager;
+        const { combo, score, lineColor } = judgeManager._judgeInfo;
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();
@@ -481,7 +481,7 @@ export default class ChartRenderer extends Manager {
         const defaultScaleX = 1;
         const defaultScaleY = 1;
         const defaultColor: RGBcolor = (() => {
-            switch (judgeManager.lineColor) {
+            switch (lineColor) {
                 case LineColor.AP:
                     return RGBAtoRGB(resourcePackage.config.colorPerfect);
                 case LineColor.FC:
@@ -803,7 +803,7 @@ export default class ChartRenderer extends Manager {
         const chart = store.useChart();
         const audio = store.useAudio();
         const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
-        const { combo, score } = judgeManager;
+        const { combo, score } = judgeManager._judgeInfo;
 
         const shownCombo = combo < 3 && combo >= 0 ? "" : combo.toString();
         const perfectScoreString = Constants.CHART_VIEW_PERFECT_SCORE.toString();

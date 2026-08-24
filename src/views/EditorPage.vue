@@ -149,9 +149,9 @@
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
-                <MySwitch v-model="stateManager.state.autoplay">
-                    开启 Autoplay
-                </MySwitch>
+                <div>
+                    点击右侧按钮切换事件层级
+                </div>
                 <MyGridContainer
                     class="event-layer-select"
                     :columns="5"
@@ -194,7 +194,25 @@
             @wheel.passive.stop
         >
             <div
-                v-if="selectionManager.selectedElements.length == 0"
+                v-if="!stateManager.state.autoplay"
+                class="left-inner default-panel flex-container"
+                style="justify-content: space-between;"
+            >
+                <div>
+                    <p>当前处于试玩模式，请使用键盘游玩</p>
+                    <p>Tap：落到判定线上时按下任意键</p>
+                    <p>Hold：落到判定线上时按住任意键直到其结束</p>
+                    <p>Drag、Flick：落到判定线上时有任意键被按下即可</p>
+                </div>
+                <MyButton
+                    type="primary"
+                    @click="exitPlayChart()"
+                >
+                    退出试玩
+                </MyButton>
+            </div>
+            <div
+                v-else-if="selectionManager.selectedElements.length == 0"
                 class="left-inner default-panel flex-container"
                 style="justify-content: space-between;"
             >
@@ -383,6 +401,12 @@
                             </div>
                         </template>
                     </MyDialog>
+                    <MyButton
+                        type="primary"
+                        @click="playChart()"
+                    >
+                        试玩
+                    </MyButton>
                 </div>
                 <div class="flex-container">
                     <MyButton
@@ -444,8 +468,16 @@
             id="right"
             @wheel.passive.stop
         >
+            <div v-if="!stateManager.state.autoplay">
+                <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
+                <p>Good：{{ judgeManager.judgeInfo.good }}</p>
+                <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
+                <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
+                <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
+                <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+            </div>
             <div
-                v-if="stateManager.state.right == RightPanelState.Default"
+                v-else-if="stateManager.state.right == RightPanelState.Default"
                 class="right-inner default-panel"
             >
                 <MyGridContainer
@@ -674,7 +706,6 @@ import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
-import MySwitch from "@/myElements/MySwitch.vue";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -724,6 +755,7 @@ const settingsManager = store.useManager("settingsManager");
 const selectionManager = store.useManager("selectionManager");
 const mouseManager = store.useManager("mouseManager");
 const coordinateManager = store.useManager("coordinateManager");
+const judgeManager = store.useManager("judgeManager");
 
 const fps = ref(0);
 const time = ref(0);
@@ -964,6 +996,18 @@ const videoRenderingProgress = reactive({
 let windowIsFocused = true;
 let cachedRect: DOMRect;
 let canvasIsRendering = true;
+
+function playChart() {
+    stateManager.state.autoplay = false;
+    stateManager.state.isPreviewing = true;
+    store.playAudio();
+}
+
+function exitPlayChart() {
+    stateManager.state.autoplay = true;
+    stateManager.state.isPreviewing = false;
+    store.pauseAudio();
+}
 
 /** 检查更新 */
 function checkForUpdates() {

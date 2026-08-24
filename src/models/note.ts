@@ -154,6 +154,9 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
 
     /** 是否已经 miss */
     missed: boolean = false;
+
+    /** 是否已经完成判定，只对 Hold 有意义 */
+    holdJudged: boolean = false;
     hit(seconds: number) {
         if (this.isFake) {
             // 该音符是假音符，无法被击打

@@ -50,6 +50,6 @@ export default class AutoplayManager extends Manager {
                 }
             }
         }
-        judgeManager.combo = combo;
+        judgeManager.judgeInfo.combo = combo;
     }
 }

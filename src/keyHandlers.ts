@@ -65,15 +65,6 @@ type B = A | {
     keyup: A;
 }
 export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup") {
-    if (type === "keydown") {
-        store.pressedKeys.add(e.key);
-        globalEventEmitter.emit("KEYDOWN", e.key);
-    }
-    else {
-        store.pressedKeys.delete(e.key);
-        globalEventEmitter.emit("KEYUP", e.key);
-    }
-
     const key = KeyboardUtils.formatKey(e);
     if (key.startsWith("Ctrl")) {
         if (key !== "Ctrl R" && key !== "Ctrl Shift I") {
@@ -81,10 +72,29 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
         }
     }
 
-    const EMPTY_FUNCTION = () => { };
+    const keydownup = (() => {
+        if (type === "keydown") {
+            return () => {
+                store.pressedKeys.add(e.key);
+                globalEventEmitter.emit("KEYDOWN", e.key);
+            };
+        }
+        else {
+            return () => {
+                store.pressedKeys.delete(e.key);
+                globalEventEmitter.emit("KEYUP", e.key);
+            };
+        }
+    })();
+
+    const stateManager = store.useManager("stateManager");
+
+    if (!stateManager._state.autoplay) {
+        return keydownup;
+    }
 
     if (!(key in keyConfigs)) {
-        return EMPTY_FUNCTION;
+        return keydownup;
     }
 
     let keyConfig: B = keyConfigs[key as keyof typeof keyConfigs];
@@ -94,18 +104,20 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
     }
     else {
         if (type === "keyup") {
-            return EMPTY_FUNCTION;
+            return keydownup;
         }
     }
 
     if (isString(keyConfig)) {
         return () => {
+            keydownup();
             globalEventEmitter.emit(keyConfig);
         };
     }
     else {
         const eventName = keyConfig[0];
         return () => {
+            keydownup();
             globalEventEmitter.emit(eventName, ...keyConfig.slice(1) as never);
         };
     }
