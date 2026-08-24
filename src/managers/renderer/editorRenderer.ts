@@ -17,7 +17,6 @@ import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
-import { BottomText } from "./settings";
 import { FullEvent } from "@/models/element";
 
 export default class EditorRenderer extends Manager {
@@ -330,36 +329,24 @@ export default class EditorRenderer extends Manager {
             }
         }
 
-        if (settingsManager._settings.bottomText === BottomText.Info) {
-            writeText(`${stateManager._state.currentJudgeLineNumber}号判定线   名称${stateManager.currentJudgeLine.Name}`,
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-            writeText(`本判定线上共有${stateManager.currentJudgeLine.numOfNotes}个音符和${stateManager.currentJudgeLine.numOfEvents}个事件`,
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_SECOND_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-        }
-
-        if (settingsManager._settings.bottomText === BottomText.Hint) {
-            writeText("在此区域右键放置音符",
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-        }
+        writeText(`线号：${stateManager._state.currentJudgeLineNumber}，名称：${stateManager.currentJudgeLine.Name}`,
+            Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
+            Constants.EDITOR_VIEW_FIRST_LINE_Y,
+            Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+            "white",
+            true);
+        writeText(`音符数：${stateManager.currentJudgeLine.numOfNotes}，事件数：${stateManager.currentJudgeLine.numOfEvents}`,
+            Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
+            Constants.EDITOR_VIEW_SECOND_LINE_Y,
+            Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+            "white",
+            true);
     }
 
     /** 显示事件 */
     private renderEvents() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
-        const settingsManager = store.useManager("settingsManager");
         const coordinateManager = store.useManager("coordinateManager");
         const mouseManager = store.useManager("mouseManager");
 
@@ -604,9 +591,6 @@ export default class EditorRenderer extends Manager {
                 }
             }
 
-            if (!(settingsManager._settings.bottomText === BottomText.Info)) {
-                continue;
-            }
             writeText(type, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
             if (type === "color") {
                 const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
@@ -639,22 +623,6 @@ export default class EditorRenderer extends Manager {
                 // writeText(currentEventValue.toFixed(2), eventX, 860, 30, "white", false);
                 writeText(currentEventValue.toFixed(2), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
-        }
-
-        if (settingsManager._settings.bottomText === BottomText.Hint) {
-            writeText("在此区域右键放置事件",
-                Constants.EDITOR_VIEW_EVENTS_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-
-            writeText(`前往“设置>界面底部文字”以设置此位置显示的文字`,
-                canvas.width / 2,
-                Constants.EDITOR_VIEW_SECOND_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_SMALL,
-                "white",
-                true);
         }
     }
 

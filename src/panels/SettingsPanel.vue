@@ -111,13 +111,6 @@
         >
             预览时显示判定线编号
         </MySwitch>
-        <MySelect
-            v-model="settingsManager.settings.bottomText"
-            :options="bottomTextOptions"
-            @change="settingsManager.saveSettings()"
-        >
-            界面底部文字
-        </MySelect>
         <MySwitch
             v-model="settingsManager.settings.markCurrentJudgeLine"
             @change="settingsManager.saveSettings()"
@@ -180,8 +173,6 @@ import MyButton from "@/myElements/MyButton.vue";
 import { ref } from "vue";
 import MySwitch from "@/myElements/MySwitch.vue";
 import MySlider from "@/myElements/MySlider.vue";
-import MySelect from "@/myElements/MySelect.vue";
-import { BottomText } from "@/managers/renderer/settings";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -189,24 +180,6 @@ const u = ref(false);
 function update() {
     u.value = !u.value;
 }
-
-const bottomTextOptions = [
-    {
-        value: BottomText.None,
-        label: "不显示",
-        text: "不显示"
-    },
-    {
-        value: BottomText.Info,
-        label: "显示判定线信息",
-        text: "显示判定线信息"
-    },
-    {
-        value: BottomText.Hint,
-        label: "显示提示文字",
-        text: "显示提示文字"
-    }
-];
 
 // const resourcePackage = store.useResourcePackage();
 const settingsManager = store.useManager("settingsManager");
