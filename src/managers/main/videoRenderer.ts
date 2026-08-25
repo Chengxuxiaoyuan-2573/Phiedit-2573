@@ -35,7 +35,7 @@ export interface RenderingConfig {
 }
 
 /** 缓存的打击音效文件名 */
-const HIT_SOUND_FILE_NAME = `hitSound.aac`;
+const HIT_SOUND_FILE_NAME = `hitSound.mp3`;
 
 /** 每次合成多少个打击音效 */
 const BATCH_SIZE = 100;
@@ -92,7 +92,7 @@ class VideoRenderer extends Manager {
                 "-c:v", "libx264",
                 "-preset", "slow",
                 "-crf", "22",
-                "-c:a", "aac",
+                "-c:a", "libmp3lame",
                 "-b:a", "192k",
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
@@ -196,7 +196,7 @@ class VideoRenderer extends Manager {
             const startTime = Date.now();
 
             // 生成合成后音频的文件名
-            const fileName = path.join("hitSoundMerge", `${num++}.aac`);
+            const fileName = path.join("hitSoundMerge", `${num++}.mp3`);
 
             // 取前 BATCH_SIZE 个音效进行合成，如果不够，就全部合成
             const sliced: readonly (string | HitSoundInfo)[] = arr.splice(0, BATCH_SIZE);
@@ -215,7 +215,7 @@ class VideoRenderer extends Manager {
         }
 
         // 直到只剩一个音频文件，这个文件就包含了所有的音效
-        const finalFileName = `${num - 1}.aac`;
+        const finalFileName = `${num - 1}.mp3`;
 
         // 把这个文件复制到 hitSoundFileName 中，作为 ffmpeg 的输入
         const finalFilePath = filesManager.getTempPath("hitSoundMerge", finalFileName);
@@ -357,8 +357,8 @@ class VideoRenderer extends Manager {
             // 映射混合后的音频流
             "-map", "[mixed]",
 
-            // 音频编码格式设置为AAC
-            "-c:a", "aac",
+            // 音频编码格式设置为WAV
+            "-c:a", "libmp3lame",
 
             // 音频比特率设置为192kbps
             "-b:a", "192k",
