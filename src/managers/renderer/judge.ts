@@ -193,13 +193,13 @@ export default class JudgeManager extends Manager {
                         note.missed = true;
                         this.judgeInfo.combo = 0;
                     }
-                }
 
-                if (!note.holdJudged && endSeconds - seconds <= HOLD_PREUNTOUCH) {
-                    note.holdJudged = true;
-                    const judgement = note.getJudgement();
-                    if (judgement === "perfect" || judgement === "good") {
-                        this.judgeInfo.combo++;
+                    if (!note.holdJudged && endSeconds - seconds <= HOLD_PREUNTOUCH) {
+                        note.holdJudged = true;
+                        const judgement = note.getJudgement();
+                        if (judgement === "perfect" || judgement === "good") {
+                            this.judgeInfo.combo++;
+                        }
                     }
                 }
             }
