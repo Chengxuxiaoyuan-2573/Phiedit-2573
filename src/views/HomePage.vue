@@ -80,21 +80,27 @@
                     <img :src="backgroundSrcs[chartId]">
                     <MyGridContainer
                         class="chart-card-buttons-container"
-                        :columns="2"
-                        :gap="50"
+                        :columns="3"
+                        :gap="30"
                     >
-                        <ElButton
+                        <p
                             type="primary"
                             @click.stop.prevent="exportChart(chartId)"
                         >
                             导出
-                        </ElButton>
-                        <ElButton
+                        </p>
+                        <p
+                            type="success"
+                            @click.stop.prevent="gotoChart(chartId)"
+                        >
+                            进入
+                        </p>
+                        <p
                             type="danger"
                             @click.stop.prevent="deleteChart(chartId)"
                         >
                             删除
-                        </ElButton>
+                        </p>
                     </MyGridContainer>
                 </div>
                 <div class="chart-info">
@@ -127,18 +133,18 @@
                         :columns="2"
                         :gap="50"
                     >
-                        <ElButton
+                        <p
                             type="primary"
                             @click.stop.prevent="restoreChart(chartId)"
                         >
                             恢复
-                        </ElButton>
-                        <ElButton
+                        </p>
+                        <p
                             type="danger"
                             @click.stop.prevent="confirm(() => permentlydeleteChart(chartId), '确定要永久删除该谱面吗？', '删除')"
                         >
                             删除
-                        </ElButton>
+                        </p>
                     </MyGridContainer>
                 </div>
                 <div class="chart-info">
@@ -155,7 +161,7 @@
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElButton, ElCard, ElHeader, ElInput, ElMenu, ElMenuItem } from "element-plus";
+import { ElCard, ElHeader, ElInput, ElMenu, ElMenuItem } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
 import { inject, onBeforeUnmount, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
@@ -274,6 +280,11 @@ async function permentlydeleteChart(chartId: string) {
     router.go(0);
 }
 
+async function gotoChart(chartId: string) {
+    const url = `/editor?chartId=${encodeURIComponent(chartId)}`;
+    router.push(url);
+}
+
 onBeforeUnmount(() => {
     for (const chartId of allCharts) {
         URL.revokeObjectURL(backgroundSrcs[chartId]);
@@ -334,6 +345,21 @@ onBeforeUnmount(() => {
     right: 0;
     background: #0007;
     padding: 5px;
+    cursor: initial;
+}
+
+.chart-card-buttons-container p {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: 0.1s;
+    color: #fffa;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.chart-card-buttons-container p:hover {
+    background: #fff7;
 }
 
 .chart-info {
