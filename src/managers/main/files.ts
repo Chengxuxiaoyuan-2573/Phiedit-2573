@@ -23,6 +23,8 @@ class FilesManager extends Manager {
         const userDataDir = app.getPath("userData");
         this.chartFoldersDir = path.join(userDataDir, "charts");
         this.tempDir = path.join(userDataDir, "temp");
+
+        // 确保这些文件夹都是存在的
         if (!fs.existsSync(userDataDir)) {
             fs.mkdirSync(userDataDir);
         }

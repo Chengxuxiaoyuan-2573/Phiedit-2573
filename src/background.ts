@@ -30,6 +30,7 @@ import addTexturesManager from "./managers/main/addTextures";
 import shaderLoader from "./managers/main/shaderLoader";
 import dialogManager from "./managers/main/dialog";
 import { DEFAULT_TIPS } from "./managers/main/defaultTips";
+import deleteManager from "./managers/main/delete";
 
 // import installExtension, { VUEJS3_DEVTOOLS } from "electron-devtools-installer";
 
@@ -84,6 +85,10 @@ async function createWindow() {
         return await chartListManager.readChartList();
     });
 
+    ipcMain.handle("read-all-charts", async () => {
+        return await chartListManager.readAllCharts();
+    });
+
     ipcMain.handle("read-chart-info", async (event, chartId: string) => {
         return await chartInfoManager.readChartInfo(chartId);
     });
@@ -114,6 +119,14 @@ async function createWindow() {
 
     ipcMain.handle("delete-chart", async (event, chartId: string) => {
         return await chartListManager.deleteIdFromChartList(chartId);
+    });
+
+    ipcMain.handle("restore-chart", async (event, chartId: string) => {
+        return await chartListManager.addIdToChartList(chartId);
+    });
+
+    ipcMain.handle("permantly-delete-chart", async (event, chartId: string) => {
+        return await deleteManager.permantlyDelete(chartId);
     });
 
     ipcMain.handle("load-resource-package", async () => {

@@ -52,18 +52,35 @@
             导入谱面（仅支持RPE格式，不支持官方谱面格式）
         </MyButton>
     </MyGridContainer>
-
-    <div class="chart-list">
+    <ElMenu
+        mode="horizontal"
+        default-active="undeleted"
+        style="width: 100%;"
+        :collapse="false"
+        @select="(e) => menuOption = e"
+    >
+        <ElMenuItem index="undeleted">
+            我的谱面
+        </ElMenuItem>
+        <ElMenuItem index="deleted">
+            最近删除
+        </ElMenuItem>
+    </ElMenu>
+    <div
+        v-if="menuOption === 'undeleted'"
+        class="chart-list"
+    >
         <RouterLink
             v-for="chartId in chartList"
             :key="chartId"
             :to="`/editor?chartId=${encodeURIComponent(chartId)}`"
         >
             <ElCard class="chart-card">
-                <img
-                    :src="backgroundSrcs[chartId]"
-                    @load="imageOnLoad(chartId)"
-                >
+                <div class="image-container">
+                    <img
+                        :src="backgroundSrcs[chartId]"
+                    >
+                </div>
                 <div class="chart-info">
                     <h2 class="chart-title">
                         {{ chartNames[chartId] }}
@@ -75,20 +92,67 @@
             </ElCard>
         </RouterLink>
     </div>
+    <div
+        v-else-if="menuOption === 'deleted'"
+        class="chart-list deleted-chart-list"
+    >
+        <template
+            v-for="chartId in allCharts"
+            :key="chartId"
+        >
+            <ElCard
+                v-if="!chartList.includes(chartId)"
+                class="chart-card"
+            >
+                <div class="image-container">
+                    <img
+                        :src="backgroundSrcs[chartId]"
+                    >
+                    <MyGridContainer
+                        class="chart-card-buttons-container"
+                        :columns="2"
+                        :gap="50"
+                    >
+                        <ElButton
+                            type="primary"
+                            @click="restoreChart(chartId)"
+                        >
+                            恢复
+                        </ElButton>
+                        <ElButton
+                            type="danger"
+                            @click="confirm(() => permentlydeleteChart(chartId), '确定要永久删除该谱面吗？', '删除')"
+                        >
+                            删除
+                        </ElButton>
+                    </MyGridContainer>
+                </div>
+                <div class="chart-info">
+                    <h2 class="chart-title">
+                        {{ chartNames[chartId] }}
+                    </h2>
+                    <span class="chart-level">
+                        {{ levels[chartId] }}
+                    </span>
+                </div>
+            </ElCard>
+        </template>
+    </div>
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElCard, ElHeader, ElInput } from "element-plus";
+import { ElButton, ElCard, ElHeader, ElInput, ElMenu, ElMenuItem } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
-import { inject, ref } from "vue";
+import { inject, onBeforeUnmount, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
-import { catchErrorByMessage } from "@/tools/catchError";
+import { catchErrorByMessage, confirm } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
 const backgroundFileUrl = ref<string | undefined>();
+const menuOption = ref<string>("undeleted");
 const version = await window.electronAPI.getVersion();
 
 const name = ref("");
@@ -101,11 +165,12 @@ const loadEnd = inject("loadEnd", () => {
 
 loadStart();
 const chartList = await window.electronAPI.readChartList();
+const allCharts = await window.electronAPI.readAllCharts();
 const backgroundSrcs: Record<string, string> = {};
 const chartNames: Record<string, string> = {};
 const levels: Record<string, string> = {};
-for (let i = 0; i < chartList.length; i++) {
-    const chartId = chartList[i];
+for (let i = 0; i < allCharts.length; i++) {
+    const chartId = allCharts[i];
     const chartObject = await window.electronAPI.loadChart(chartId);
     const chartInfo = await window.electronAPI.readChartInfo(chartId);
     const src = await MediaUtils.createObjectURL(chartObject.backgroundData);
@@ -169,9 +234,21 @@ async function addChart() {
     router.push(`/editor?chartId=${encodedId}`);
 }
 
-function imageOnLoad(chartId: string) {
-    URL.revokeObjectURL(backgroundSrcs[chartId]);
+async function restoreChart(chartId: string) {
+    await window.electronAPI.restoreChart(chartId);
+    router.go(0);
 }
+
+async function permentlydeleteChart(chartId: string) {
+    await window.electronAPI.permentlyDeleteChart(chartId);
+    router.go(0);
+}
+
+onBeforeUnmount(() => {
+    for (const chartId of allCharts) {
+        URL.revokeObjectURL(backgroundSrcs[chartId]);
+    }
+});
 </script>
 <style>
 .header {
@@ -208,10 +285,25 @@ function imageOnLoad(chartId: string) {
     height: calc(var(--card-width) * 2 / 3 + 50px);
 }
 
-.chart-card img {
+.chart-card .image-container {
+    position: relative;
+}
+
+.chart-card .image-container img {
     display: block;
     width: var(--card-width);
     height: calc(var(--card-width) * 2 / 3);
+    object-fit: cover;
+}
+
+.chart-card-buttons-container {
+    box-sizing: border-box;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0007;
+    padding: 5px;
 }
 
 .chart-info {
@@ -234,7 +326,6 @@ function imageOnLoad(chartId: string) {
     display: block;
     white-space: nowrap;
     align-self: flex-end;
-    max-width: 60px;
 }
 
 a {
