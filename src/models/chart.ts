@@ -181,6 +181,14 @@ export class Chart implements IChart, IObjectizable {
                 ));
             }
         }
+
+        if (this.judgeLineList.length === 0) {
+            this.addNewJudgeLine();
+            this.errors.push(new ChartError(
+                `谱面没有任何判定线，将增加一条判定线。`,
+                "ChartReadError.MissingProperty"
+            ));
+        }
         markRaw(this);
         this.highlightNotes();
     }

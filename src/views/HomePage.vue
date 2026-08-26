@@ -77,9 +77,25 @@
         >
             <ElCard class="chart-card">
                 <div class="image-container">
-                    <img
-                        :src="backgroundSrcs[chartId]"
+                    <img :src="backgroundSrcs[chartId]">
+                    <MyGridContainer
+                        class="chart-card-buttons-container"
+                        :columns="2"
+                        :gap="50"
                     >
+                        <ElButton
+                            type="primary"
+                            @click.stop.prevent="exportChart(chartId)"
+                        >
+                            导出
+                        </ElButton>
+                        <ElButton
+                            type="danger"
+                            @click.stop.prevent="deleteChart(chartId)"
+                        >
+                            删除
+                        </ElButton>
+                    </MyGridContainer>
                 </div>
                 <div class="chart-info">
                     <h2 class="chart-title">
@@ -105,9 +121,7 @@
                 class="chart-card"
             >
                 <div class="image-container">
-                    <img
-                        :src="backgroundSrcs[chartId]"
-                    >
+                    <img :src="backgroundSrcs[chartId]">
                     <MyGridContainer
                         class="chart-card-buttons-container"
                         :columns="2"
@@ -115,13 +129,13 @@
                     >
                         <ElButton
                             type="primary"
-                            @click="restoreChart(chartId)"
+                            @click.stop.prevent="restoreChart(chartId)"
                         >
                             恢复
                         </ElButton>
                         <ElButton
                             type="danger"
-                            @click="confirm(() => permentlydeleteChart(chartId), '确定要永久删除该谱面吗？', '删除')"
+                            @click.stop.prevent="confirm(() => permentlydeleteChart(chartId), '确定要永久删除该谱面吗？', '删除')"
                         >
                             删除
                         </ElButton>
@@ -232,6 +246,22 @@ async function addChart() {
     const chartId = await window.electronAPI.addChart(musicFileUrl.value, backgroundFileUrl.value, name.value);
     const encodedId = encodeURIComponent(chartId);
     router.push(`/editor?chartId=${encodedId}`);
+}
+
+async function exportChart(chartId: string) {
+    const chartName = chartNames[chartId];
+
+    // 使用预加载的 API 替代直接导入
+    const filePath = await window.electronAPI.showSaveDialog(chartName);
+    if (filePath === null) {
+        throw new Error("未选择导出路径");
+    }
+    await window.electronAPI.exportChart(chartId, filePath);
+}
+
+async function deleteChart(chartId: string) {
+    await window.electronAPI.deleteChart(chartId);
+    router.go(0);
 }
 
 async function restoreChart(chartId: string) {
