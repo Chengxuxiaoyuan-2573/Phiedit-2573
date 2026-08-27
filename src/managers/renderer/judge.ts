@@ -148,7 +148,7 @@ export default class JudgeManager extends Manager {
             const startSeconds = note.cachedStartSeconds;
             const endSeconds = note.cachedEndSeconds;
 
-            const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
+            const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
             const delta = startSeconds - seconds;
             const range = note.getJudgementRange();
 
@@ -207,7 +207,22 @@ export default class JudgeManager extends Manager {
             if (note.type === NoteType.Drag || note.type === NoteType.Flick) {
                 if (note.hitSeconds === undefined && note.prejudgedSeconds !== undefined && seconds >= startSeconds) {
                     note.hit(seconds);
-                    resourcePackage.playSound(store.audioContext, note.type);
+                    switch (note.hitsound) {
+                        case undefined:
+                            resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "tap.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Tap, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "drag.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Drag, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "flick.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Flick, settingsManager._settings.hitSoundVolume);
+                            break;
+                        default:
+                            console.error(`WHAT??? (${note.hitsound})`);
+                    }
                     this.judgeInfo.combo++;
                 }
             }
@@ -244,7 +259,7 @@ export default class JudgeManager extends Manager {
                         continue;
                     }
 
-                    const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
+                    const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
 
                     const distance = MathUtils.distance(x, y, coordinateManager.convertXToChart(mouseManager.mouseX), coordinateManager.convertYToChart(mouseManager.mouseY));
 
@@ -289,7 +304,7 @@ export default class JudgeManager extends Manager {
                 const startSeconds = note.cachedStartSeconds;
                 const range = note.getJudgementRange();
                 const delta = startSeconds - seconds;
-                const threshold = settingsManager._settings.noteSize * note.size / 2 * JUDGEMENT_AREA_RATIO;
+                const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
                 if (Math.abs(delta) > range.bad) {
                     continue;
                 }
@@ -305,7 +320,23 @@ export default class JudgeManager extends Manager {
 
                 if (distance <= threshold) {
                     note.hit(seconds);
-                    resourcePackage.playSound(store.audioContext, note.type);
+                    switch (note.hitsound) {
+                        case undefined:
+                            resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "tap.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Tap, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "drag.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Drag, settingsManager._settings.hitSoundVolume);
+                            break;
+                        case "flick.mp3":
+                            resourcePackage.playSound(store.audioContext, NoteType.Flick, settingsManager._settings.hitSoundVolume);
+                            break;
+                        default:
+                            console.error(`WHAT??? (${note.hitsound})`);
+                    }
+
                     const judgement = note.getJudgement();
                     if (judgement === "bad") {
                         this.judgeInfo.combo = 0;

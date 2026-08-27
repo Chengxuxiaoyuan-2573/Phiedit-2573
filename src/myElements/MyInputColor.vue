@@ -40,12 +40,22 @@
 import MyInput from "./MyInput.vue";
 import { reactive, useSlots, useTemplateRef, watch } from "vue";
 import { formatRGBcolor, parseRGBcolor, RGBcolor } from "@/tools/color";
+const props = withDefaults(defineProps<{
+    undefinedWhenEmpty?: boolean
+}>(), {
+    undefinedWhenEmpty: false
+});
 const inputColor = useTemplateRef("inputColor");
 const inputData = reactive({
     get colorString() {
         return model.value === undefined ? "" : formatRGBcolor(model.value);
     },
     set colorString(value: string) {
+        if (value === "" && props.undefinedWhenEmpty) {
+            model.value = undefined;
+            return;
+        }
+
         const color = parseRGBcolor(value);
         if (!color) return;
         model.value = color;

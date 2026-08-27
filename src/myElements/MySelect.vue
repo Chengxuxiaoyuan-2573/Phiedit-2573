@@ -20,11 +20,11 @@
         >
             <template
                 v-for="option in filteredOptions"
-                :key="option"
+                :key="String(isObject(option) ? option.value : option)"
             >
                 <ElOption
                     v-if="isObject(option)"
-                    :value="option.value"
+                    :value="option.value === undefined ? UNDEFINED : option.value"
                     :label="option.label"
                     :disabled="option.isDisabled"
                     @wheel.passive.stop
@@ -33,8 +33,8 @@
                 </ElOption>
                 <ElOption
                     v-else
-                    :value="option"
-                    :label="option.toString()"
+                    :value="option === undefined ? UNDEFINED : option"
+                    :label="String(option)"
                     :disabled="false"
                     @wheel.passive.stop
                 >
@@ -46,14 +46,22 @@
 </template>
 <script setup lang="ts">
 import { ElOption, ElSelect } from "element-plus";
-import { isObject } from "lodash";
+import { isArray, isObject } from "lodash";
 import { ref, useTemplateRef, watch } from "vue";
-const inputData = ref<A | A[]>("");
-type A = string | number | boolean;
+
+const UNDEFINED = -1;
+
+type A = string | number | boolean | undefined;
+type B = string | number | boolean | typeof UNDEFINED;
+
+/** 单选时类型为 `B`，多选时类型为 `B[]` */
+const inputData = ref<B | B[]>("");
+
 const select = useTemplateRef("select");
 const model = defineModel<A | A[]>({
     required: true
 });
+
 const props = withDefaults(defineProps<{
     options: readonly (A | {
         value: A,
@@ -73,14 +81,47 @@ const emit = defineEmits<{
     change: [A | A[]]
 }>();
 const filteredOptions = ref([...props.options]);
+
+function isUNDEFINED(value: unknown): value is typeof UNDEFINED {
+    return value === UNDEFINED;
+}
+
+function a2b(a: A): B {
+    if (a === undefined) {
+        return UNDEFINED;
+    }
+    return a;
+}
+
+function b2a(b: B): A {
+    if (isUNDEFINED(b)) {
+        return undefined;
+    }
+    return b;
+}
+
+function aa2bb(aa: A | A[]) {
+    if (isArray(aa)) {
+        return aa.map(a2b);
+    }
+    return a2b(aa);
+}
+
+function bb2aa(bb: B | B[]) {
+    if (isArray(bb)) {
+        return bb.map(b2a);
+    }
+    return b2a(bb);
+}
+
 watch(model, () => {
-    inputData.value = model.value;
+    inputData.value = aa2bb(model.value);
 }, {
     immediate: true
 });
 
 function onChange() {
-    model.value = inputData.value;
+    model.value = bb2aa(inputData.value);
     emit("change", model.value);
     select.value?.$el?.blur();
 }
@@ -126,7 +167,7 @@ function filterMethod(value: string) {
     }
 
     if (filteredOptions.value.length > 0) {
-        inputData.value = getValue(filteredOptions.value[0]);
+        inputData.value = aa2bb(getValue(filteredOptions.value[0]));
     }
     onChange();
 }
@@ -139,7 +180,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function updateShowedValue() {
-    inputData.value = model.value;
+    inputData.value = aa2bb(model.value);
 }
 
 defineExpose({

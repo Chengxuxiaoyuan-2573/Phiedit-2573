@@ -5,14 +5,12 @@
  */
 
 import canvasUtils from "./canvasUtils";
-import { RGBcolor, RGBAcolor, RGBA_LENGTH } from "./color";
+import { RGBcolor, RGBAcolor, colorToString } from "./color";
 export default class EditableImage {
-    canvas: HTMLCanvasElement;
-    constructor(a: HTMLImageElement | HTMLCanvasElement, left?: number, top?: number, width?: number, height?: number) {
-        this.canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(this.canvas);
-        this.canvas.width = width ?? a.width;
-        this.canvas.height = height ?? a.height;
+    canvas: OffscreenCanvas;
+    constructor(a: HTMLImageElement | HTMLCanvasElement | OffscreenCanvas, left?: number, top?: number, width?: number, height?: number) {
+        this.canvas = new OffscreenCanvas(width ?? a.width, height ?? a.height);
+        const ctx = canvasUtils.getOffscreenCanvasContext(this.canvas);
         ctx.drawImage(a, left ?? 0, top ?? 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width, this.canvas.height);
     }
     static empty(width: number, height: number) {
@@ -40,15 +38,13 @@ export default class EditableImage {
     rotate(angle: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
         const radians = angle * Math.PI / 180;
         const absSin = Math.abs(Math.sin(radians));
         const absCos = Math.abs(Math.cos(radians));
         const newWidth = imageWidth * absCos + imageHeight * absSin;
         const newHeight = imageWidth * absSin + imageHeight * absCos;
-        canvas.width = newWidth;
-        canvas.height = newHeight;
+        const canvas = new OffscreenCanvas(newWidth, newHeight);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
         ctx.rotate(radians);
         ctx.drawImage(this.canvas, -imageWidth / 2, -imageHeight / 2);
@@ -58,10 +54,8 @@ export default class EditableImage {
     stretch(w: number, h: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = w;
-        canvas.height = h;
+        const canvas = new OffscreenCanvas(w, h);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.drawImage(this.canvas, 0, 0, imageWidth, imageHeight, 0, 0, w, h);
         this.canvas = canvas;
         return this;
@@ -73,10 +67,8 @@ export default class EditableImage {
     cutBottom(length: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = imageWidth;
-        canvas.height = imageHeight - length;
+        const canvas = new OffscreenCanvas(imageWidth, imageHeight - length);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.drawImage(this.canvas, 0, 0, imageWidth, canvas.height, 0, 0, canvas.width, canvas.height);
         this.canvas = canvas;
         return this;
@@ -84,10 +76,8 @@ export default class EditableImage {
     cutTop(length: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = imageWidth;
-        canvas.height = imageHeight - length;
+        const canvas = new OffscreenCanvas(imageWidth, imageHeight - length);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.drawImage(this.canvas, 0, length, imageWidth, canvas.height, 0, 0, canvas.width, canvas.height);
         this.canvas = canvas;
         return this;
@@ -95,10 +85,8 @@ export default class EditableImage {
     cutLeft(length: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = imageWidth - length;
-        canvas.height = imageHeight;
+        const canvas = new OffscreenCanvas(imageWidth - length, imageHeight);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.drawImage(this.canvas, 0, 0, canvas.width, imageHeight, 0, 0, canvas.width, canvas.height);
         this.canvas = canvas;
         return this;
@@ -106,65 +94,55 @@ export default class EditableImage {
     cutRight(length: number) {
         const imageWidth = this.canvas.width;
         const imageHeight = this.canvas.height;
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = imageWidth - length;
-        canvas.height = imageHeight;
+        const canvas = new OffscreenCanvas(imageWidth - length, imageHeight);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
         ctx.drawImage(this.canvas, length, 0, canvas.width, imageHeight, 0, 0, canvas.width, canvas.height);
         this.canvas = canvas;
         return this;
     }
     color(color: RGBcolor | RGBAcolor) {
-        const thisCtx = canvasUtils.getContext(this.canvas);
-        const imageData = thisCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        const canvas = document.createElement("canvas");
-        const ctx = canvasUtils.getContext(canvas);
-        canvas.width = this.canvas.width;
-        canvas.height = this.canvas.height;
-        for (let i = 0; i < imageData.data.length; i += RGBA_LENGTH) {
-            imageData.data[i] = color[0];
-            imageData.data[i + 1] = color[1];
-            imageData.data[i + 2] = color[2];
-
-            /*
-            if (color.length == 4) {
-                imageData.data[i + 3] *= color[3] / 0xff;
-            }
-            */
-        }
-        ctx.putImageData(imageData, 0, 0);
-        this.canvas = canvas;
+        const ctx = canvasUtils.getOffscreenCanvasContext(this.canvas);
+        ctx.drawImage(this.canvas, 0, 0);
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = colorToString(color);
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.globalCompositeOperation = "source-over";
         return this;
     }
     addColor(color: RGBcolor) {
-        // 按照原颜色乘以新颜色再除以255，得到叠加后的颜色
-        const ctx = canvasUtils.getContext(this.canvas);
-        const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        for (let i = 0; i < imageData.data.length; i += RGBA_LENGTH) {
-            imageData.data[i] = imageData.data[i] * color[0] / 0xff;
-            imageData.data[i + 1] = imageData.data[i + 1] * color[1] / 0xff;
-            imageData.data[i + 2] = imageData.data[i + 2] * color[2] / 0xff;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        return this;
-    }
-    addColorWithForce(color: RGBcolor, force: number) {
-        const ctx = canvasUtils.getContext(this.canvas);
-        const imageData = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        for (let i = 0; i < imageData.data.length; i += RGBA_LENGTH) {
-            imageData.data[i] += (color[0] - imageData.data[i]) * force;
-            imageData.data[i + 1] += (color[1] - imageData.data[i + 1]) * force;
-            imageData.data[i + 2] += (color[2] - imageData.data[i + 2]) * force;
-        }
-        ctx.putImageData(imageData, 0, 0);
+        const canvas = new OffscreenCanvas(this.canvas.width, this.canvas.height);
+        const ctx = canvasUtils.getOffscreenCanvasContext(canvas);
+        ctx.drawImage(this.canvas, 0, 0);
+
+        // ---------- 第一步：绘制原图 ----------
+        ctx.drawImage(this.canvas, 0, 0);
+
+        // ---------- 第二步：在图像背后垫一层白色 ----------
+        // destination-over 会让新绘制的内容出现在现有内容的下方
+        ctx.globalCompositeOperation = "destination-over";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 此时：不透明区域保持原图，透明区域变成了白色，半透明边缘变成了半透明白色
+
+        // ---------- 第三步：正片叠底上色 ----------
+        ctx.globalCompositeOperation = "multiply";
+        ctx.fillStyle = colorToString(color);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 此时：颜色已经叠加上去，但原本透明的区域因为垫了白色，变成了纯色（不透明）
+
+        // ---------- 第四步：恢复原图的透明度 ----------
+        // destination-in 会保留现有画布（已上色）的颜色，但形状裁剪为原图的形状（包含透明度）
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.drawImage(this.canvas, 0, 0);
+
+        // 透明区域被重新掏空，且边缘颜色是正片叠底后的正确颜色，不再发黑
+        ctx.globalCompositeOperation = "source-over";
+        this.canvas = canvas;
         return this;
     }
     clone() {
-        const newCanvas = document.createElement("canvas");
-        const newCtx = canvasUtils.getContext(newCanvas);
-        newCanvas.width = this.canvas.width;
-        newCanvas.height = this.canvas.height;
-        newCtx.drawImage(this.canvas, 0, 0);
-        return new EditableImage(newCanvas);
+        return new EditableImage(this.canvas);
     }
 }

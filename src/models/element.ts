@@ -4,11 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { IEvent, IEventExtendedOptions } from "./event";
-import { INote, INoteExtendedOptions } from "./note";
-import { IObjectizable } from "./objectizable";
-import { TimeSegment } from "./timeSegment";
+import { AbstractEvent } from "./event";
+import { Note } from "./note";
 
-export type FullNote = INote & INoteExtendedOptions & IObjectizable<INote> & TimeSegment;
-export type FullEvent<T = unknown> = IEvent<T> & IEventExtendedOptions & IObjectizable<IEvent> & TimeSegment;
-export type SelectableElement = FullNote | FullEvent;
+export type SelectableElement = Note | AbstractEvent;

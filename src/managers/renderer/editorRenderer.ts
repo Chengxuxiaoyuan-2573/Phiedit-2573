@@ -5,7 +5,7 @@
  */
 
 import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEventLike, isColorEventLike, isTextEventLike, NumberEvent, ColorEvent, TextEvent } from "@/models/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
@@ -17,7 +17,6 @@ import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
-import { FullEvent } from "@/models/element";
 
 export default class EditorRenderer extends Manager {
     constructor() {
@@ -373,11 +372,11 @@ export default class EditorRenderer extends Manager {
             const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (column + 0.5) / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
 
             // 确保事件按时间顺序排列
-            // checkAndSort<FullEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
+            // checkAndSort<AbstractEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
 
             // 给事件分组，首尾相连的事件为一组
-            const eventGroups: FullEvent[][] = [];
-            let currentGroup: FullEvent[] = [];
+            const eventGroups: AbstractEvent[][] = [];
+            let currentGroup: AbstractEvent[] = [];
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
 
@@ -395,12 +394,12 @@ export default class EditorRenderer extends Manager {
             for (let i = 0; i < eventGroups.length; i++) {
                 const group = eventGroups[i];
                 const minValue = (() => {
-                    if (group.every(event => isNumberEventLike(event))) {
+                    if (group.every(event => isNumberEvent(event))) {
                         return Math.min(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
                 const maxValue = (() => {
-                    if (group.every(event => isNumberEventLike(event))) {
+                    if (group.every(event => isNumberEvent(event))) {
                         return Math.max(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
@@ -474,7 +473,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示数字事件的曲线
-                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && isNumberEventLike(event)) {
+                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && isNumberEvent(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 5;
                         ctx.beginPath();
@@ -513,7 +512,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示颜色事件的渐变条
-                    else if (isColorEventLike(event)) {
+                    else if (isColorEvent(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 1;
                         for (let sec = startSeconds; sec <= endSeconds; sec += Constants.EDITOR_VIEW_EVENT_LINE_PRECISION) {
@@ -548,14 +547,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (isNumberEventLike(event)) {
+                        if (isNumberEvent(event)) {
                             writeText(event.start.toFixed(2),
                                 eventX,
                                 eventStartY - 1,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (isTextEventLike(event)) {
+                        else if (isTextEvent(event)) {
                             writeText(event.start,
                                 eventX,
                                 eventStartY - 1,
@@ -572,14 +571,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (isNumberEventLike(event)) {
+                        if (isNumberEvent(event)) {
                             writeText(event.end.toFixed(2),
                                 eventX,
                                 eventEndY,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (isTextEventLike(event)) {
+                        else if (isTextEvent(event)) {
                             writeText(event.end,
                                 eventX,
                                 eventEndY,

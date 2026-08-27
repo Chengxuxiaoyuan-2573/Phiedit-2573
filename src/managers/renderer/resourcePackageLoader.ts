@@ -217,8 +217,9 @@ export default class ResourcePackageLoader extends Manager {
                         .canvas;
                     const hitFxWidth = hitFxImage.width / hitFx[0];
                     const hitFxHeight = hitFxImage.height / hitFx[1];
-                    const perfectHitFxFrames: HTMLCanvasElement[] = [];
-                    const goodHitFxFrames: HTMLCanvasElement[] = [];
+                    const hitFxFrames: OffscreenCanvas[] = [];
+                    const perfectHitFxFrames: OffscreenCanvas[] = [];
+                    const goodHitFxFrames: OffscreenCanvas[] = [];
                     for (let i = 0; i < hitFx[1]; i++) {
                         for (let j = 0; j < hitFx[0]; j++) {
                             const perfectHitFxFrame = new EditableImage(hitFxImage, j * hitFxWidth, i * hitFxHeight, hitFxWidth, hitFxHeight);
@@ -226,6 +227,7 @@ export default class ResourcePackageLoader extends Manager {
                             const goodHitFxFrame = perfectHitFxFrame.clone();
                             const coloredFramePerfect = hitFxTinted ? perfectHitFxFrame.color(colorPerfect) : perfectHitFxFrame;
                             const coloredFrameGood = hitFxTinted ? goodHitFxFrame.color(colorGood) : goodHitFxFrame;
+                            hitFxFrames.push(new EditableImage(hitFxImage).canvas);
                             perfectHitFxFrames.push(coloredFramePerfect.canvas);
                             goodHitFxFrames.push(coloredFrameGood.canvas);
                         }
@@ -234,7 +236,7 @@ export default class ResourcePackageLoader extends Manager {
                         tap, drag, flick, holdHead, holdEnd, holdBody, hold,
                         tapHL, dragHL, flickHL, holdHLHead, holdHLEnd, holdHLBody, holdHL,
                         tapSound, dragSound, flickSound,
-                        perfectHitFxFrames, goodHitFxFrames,
+                        hitFxFrames, perfectHitFxFrames, goodHitFxFrames,
                         config: {
                             hitFxDuration, hitFxRotate, hideParticles,
                             holdKeepHead, holdRepeat, holdCompact,

@@ -10,7 +10,7 @@ import { Note, NoteAbove, NoteType } from "@/models/note";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
-import { GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
+import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
 import { ceil, isNull } from "lodash";
 import Manager from "./abstract";
@@ -22,6 +22,7 @@ import { ElMessage } from "element-plus";
 import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
+import LimitedMap from "@/tools/limitedMap";
 
 interface ShaderInfo {
     name: ShaderName;
@@ -44,6 +45,8 @@ const POSITION_COMPONENTS = 2;
 // 2 * 4 = 8 bytes
 const TEXCOORD_OFFSET = POSITION_COMPONENTS * FLOAT_SIZE;
 
+const LIMIT = 4096;
+
 export default class ChartRenderer extends Manager {
     private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
     private shaderCanvas: HTMLCanvasElement | null = null;
@@ -54,6 +57,11 @@ export default class ChartRenderer extends Manager {
     private vertexShader: WebGLShader | null = null;
     private fragmentShader: WebGLShader | null = null;
     private currentShaderName: string | null = null;
+
+    private cachedTintedHitFxFrame: LimitedMap<string, OffscreenCanvas> = new LimitedMap(LIMIT);
+    private cachedTintedNormalNote: LimitedMap<string, OffscreenCanvas> = new LimitedMap(LIMIT);
+    private cachedTintedHoldNote: LimitedMap<string, { head: OffscreenCanvas, body: OffscreenCanvas, end: OffscreenCanvas }> = new LimitedMap(LIMIT);
+
     constructor() {
         super();
         globalEventEmitter.on("RENDER_CHART", createCatchErrorByMessage(() => {
@@ -1115,38 +1123,62 @@ export default class ChartRenderer extends Manager {
 
                         const height = endPositionY - startPositionY;
                         const { head, body, end } = resourcePackage.getSkin(type, highlight);
+                        const { head: tintedHead, body: tintedBody, end: tintedEnd } = (() => {
+                            if (note.tint === undefined) {
+                                return { head, body, end };
+                            }
+                            else {
+                                const key = `hold-${colorToString(note.tint)}`;
+                                if (this.cachedTintedHoldNote.has(key)) {
+                                    return this.cachedTintedHoldNote.get(key)!;
+                                }
+
+                                const tintedHead = note.tint === undefined ? head : new EditableImage(head).addColor(note.tint).canvas;
+                                const tintedBody = note.tint === undefined ? body : new EditableImage(body).addColor(note.tint).canvas;
+                                const tintedEnd = note.tint === undefined ? end : new EditableImage(end).addColor(note.tint).canvas;
+
+                                const result = {
+                                    head: tintedHead,
+                                    body: tintedBody,
+                                    end: tintedEnd
+                                };
+                                this.cachedTintedHoldNote.set(key, result);
+                                return result;
+                            }
+                        })();
+
                         const width = note.size * settingsManager._settings.noteSize *
                             resourcePackage.getSkin(type, highlight).body.width / resourcePackage.getSkin(type, false).body.width;
-                        const headHeight = head.height / head.width * width;
-                        const endHeight = end.height / end.width * width;
+                        const headHeight = tintedHead.height / tintedHead.width * width;
+                        const endHeight = tintedEnd.height / tintedEnd.width * width;
 
                         // 显示主体
 
                         // holdRepeat 有性能问题，长条太长时会很卡
                         if (resourcePackage.config.holdRepeat) {
-                            const step = body.height / body.width * width;
+                            const step = tintedBody.height / tintedBody.width * width;
                             for (let i = height; i >= 0; i -= step) {
                                 if (i < step) {
-                                    ctx.drawImage(body,
-                                        0, 0, body.width, body.height * (i / step),
+                                    ctx.drawImage(tintedBody,
+                                        0, 0, tintedBody.width, tintedBody.height * (i / step),
                                         note.positionX - width / 2, -startPositionY - i, width, i);
                                 }
                                 else {
-                                    ctx.drawImage(body, note.positionX - width / 2, -startPositionY - i, width, step);
+                                    ctx.drawImage(tintedBody, note.positionX - width / 2, -startPositionY - i, width, step);
                                 }
                             }
                         }
                         else {
-                            ctx.drawImage(body, note.positionX - width / 2, -startPositionY - height, width, height);
+                            ctx.drawImage(tintedBody, note.positionX - width / 2, -startPositionY - height, width, height);
                         }
 
                         // 显示头部
                         if (seconds < startSeconds || resourcePackage.config.holdKeepHead) {
-                            ctx.drawImage(head, note.positionX - width / 2, -startPositionY, width, headHeight);
+                            ctx.drawImage(tintedHead, note.positionX - width / 2, -startPositionY, width, headHeight);
                         }
 
                         // 显示尾部
-                        ctx.drawImage(end, note.positionX - width / 2, -endPositionY - endHeight, width, endHeight);
+                        ctx.drawImage(tintedEnd, note.positionX - width / 2, -endPositionY - endHeight, width, endHeight);
 
                         ctx.restore();
                     });
@@ -1165,17 +1197,32 @@ export default class ChartRenderer extends Manager {
                         }
 
                         const image = resourcePackage.getSkin(type, highlight);
+                        const tintedImage = (() => {
+                            if (note.tint === undefined) {
+                                return image;
+                            }
+                            else {
+                                const key = `${note.type}-${colorToString(note.tint)}`;
+                                if (this.cachedTintedNormalNote.has(key)) {
+                                    return this.cachedTintedNormalNote.get(key)!;
+                                }
+
+                                const result = new EditableImage(image).addColor(note.tint).canvas;
+                                this.cachedTintedNormalNote.set(key, result);
+                                return result;
+                            }
+                        })();
                         const width = note.size * settingsManager._settings.noteSize *
                             resourcePackage.getSkin(type, highlight).width / resourcePackage.getSkin(type, false).width;
-                        const height = image.height / image.width * settingsManager._settings.noteSize;
+                        const height = tintedImage.height / tintedImage.width * settingsManager._settings.noteSize;
 
                         // const height = noteImage.height / noteImage.width * noteWidth; // 会让note等比缩放
                         ctx.save();
                         ctx.translate(coordinateManager.convertXToCanvas(judgeLineInfo.x), coordinateManager.convertYToCanvas(judgeLineInfo.y));
                         ctx.rotate(radians);
                         cacheJudgementInfo();
-                        ctx.drawImage(image,
-                            0, 0, image.width, image.height,
+                        ctx.drawImage(tintedImage,
+                            0, 0, tintedImage.width, tintedImage.height,
                             note.positionX - width / 2, -startPositionY - height / 2, width, height);
                         ctx.restore();
                     });
@@ -1249,26 +1296,6 @@ export default class ChartRenderer extends Manager {
                                         let endPositionY = judgeLine.getFloorPositionOfSeconds(endSeconds) - judgeLine.getFloorPositionOfSeconds(hitSeconds);
                                         endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                                         if (startPositionY > endPositionY) {
-                                            //    startPositionY --> sy
-                                            //     endPositionY --> ey
-                                            //       positionX --> x
-                                            //
-                                            // +6   _____               -6
-                                            // +5  /     \  A.x  = -6   -5
-                                            // +4  |  A  |  A.sy = 2    -4
-                                            // +3  |     |  A.ey = 5    -3
-                                            // +2  \_____/  A.sy < A.ey -2
-                                            // +1                       -1
-                                            // 0y x9876543210123456789x y0
-                                            // -1   _____               +1
-                                            // -2  /     \  B.x  = -6   +2
-                                            // -3  |  B  |  B.sy = -2   +3
-                                            // -4  |     |  B.ey = -5   +4
-                                            // -5  \_____/  B.sy > B.ey +5
-                                            // -6                       +6
-                                            // 上下翻转之后，y坐标再变相反数，可以正确显示倒打长条，否则会显示成倒的
-                                            // 因为canvas绘制图片时，无论图片的宽高是正数还是负数，图片都是正立的
-
                                             ctx.scale(1, -1);
                                             startPositionY = -startPositionY;
                                             endPositionY = -endPositionY;
@@ -1347,12 +1374,26 @@ export default class ChartRenderer extends Manager {
                                     const canvasY = coordinateManager.convertYToCanvas(hitFxPosition.y);
 
                                     const frames = type === "perfect" ? resourcePackage.perfectHitFxFrames : resourcePackage.goodHitFxFrames;
-                                    const color = type === "perfect" ? resourcePackage.config.colorPerfect : resourcePackage.config.colorGood;
+                                    const color = note.tintHitEffects === undefined ? type === "perfect" ? resourcePackage.config.colorPerfect : resourcePackage.config.colorGood : note.tintHitEffects;
 
                                     // 如果当前的打击特效帧数不在范围内，则不显示特效
                                     // 因为不在范围内说明打击特效还未开始或已结束
                                     if (frameNumber < 0 || frameNumber >= frames.length) return;
-                                    const frame = frames[frameNumber];
+                                    const frame = (() => {
+                                        if (note.tintHitEffects === undefined) {
+                                            return frames[frameNumber];
+                                        }
+                                        else {
+                                            const key = `${frameNumber}-${note.tintHitEffects}`;
+                                            if (this.cachedTintedHitFxFrame.has(key)) {
+                                                return this.cachedTintedHitFxFrame.get(key)!;
+                                            }
+
+                                            const result = new EditableImage(frames[frameNumber]).color(note.tintHitEffects).canvas;
+                                            this.cachedTintedHitFxFrame.set(key, result);
+                                            return result;
+                                        }
+                                    })();
 
                                     ctx.save();
                                     ctx.translate(canvasX, canvasY);

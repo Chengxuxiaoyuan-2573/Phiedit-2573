@@ -440,17 +440,17 @@
                     title-teleport=".title-left"
                 />
                 <NumberEventEditPanel
-                    v-else-if="isNumberEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isNumberEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <ColorEventEditPanel
-                    v-else-if="isColorEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isColorEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <TextEventEditPanel
-                    v-else-if="isTextEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isTextEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
@@ -669,7 +669,7 @@ import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
-import { isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
 import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/judgeLine";
 

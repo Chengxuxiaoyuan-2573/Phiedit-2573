@@ -7,7 +7,7 @@
 import { isNoteLike, NoteAbove, NoteFake, NoteType } from "@/models/note";
 import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
-import { Bezier } from "@/models/event";
+import { AbstractEvent, Bezier } from "@/models/event";
 import { clamp, floor } from "lodash";
 import Constants from "../../constants";
 import globalEventEmitter from "@/eventEmitter";
@@ -19,7 +19,7 @@ import { findLastEventIndex } from "@/models/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { ElMessage } from "element-plus";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
-import { FullEvent, SelectableElement } from "@/models/element";
+import { SelectableElement } from "@/models/element";
 export enum MouseMoveMode {
     None, Drag, DragEnd, Select
 }
@@ -381,7 +381,8 @@ export default class MouseManager extends Manager {
                 visibleTime: 999999,
                 yOffset: 0,
                 isFake: NoteFake.Real,
-                above: NoteAbove.Above
+                above: NoteAbove.Above,
+                judgeArea: 1
             }, stateManager.state.currentJudgeLineNumber);
             this.addedElement = addedNote;
             selectionManager.select([addedNote]);
@@ -407,7 +408,7 @@ export default class MouseManager extends Manager {
             const type = types[track];
             const timeSeconds = beatsToSeconds(chart.BPMList, time);
             const events = stateManager.currentEventLayer.getEventsByType(type);
-            const lastEventIndex = findLastEventIndex<FullEvent>(events, timeSeconds);
+            const lastEventIndex = findLastEventIndex<AbstractEvent>(events, timeSeconds);
             const lastEvent = events[lastEventIndex];
             const eventValue = lastEvent?.end ?? (() => {
                 if (type === "scaleX" || type === "scaleY") {

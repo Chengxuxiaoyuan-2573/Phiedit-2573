@@ -49,28 +49,28 @@ export function isBezier(value: unknown): value is Bezier {
     return value === Bezier.On || value === Bezier.Off;
 }
 
-export function isEventLike(value: unknown): value is IEvent {
+export function isEvent(value: unknown): value is AbstractEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isEvent" in value;
 }
 
-export function isNumberEventLike(value: unknown): value is IEvent<number> {
+export function isNumberEvent(value: unknown): value is NumberEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isNumberEvent" in value;
 }
 
-export function isColorEventLike(value: unknown): value is IEvent<RGBcolor> {
+export function isColorEvent(value: unknown): value is ColorEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isColorEvent" in value;
 }
 
-export function isTextEventLike(value: unknown): value is IEvent<string> {
+export function isTextEvent(value: unknown): value is TextEvent {
     if (!isObject(value)) {
         return false;
     }
@@ -437,8 +437,8 @@ export class ColorEvent extends AbstractEvent<RGBcolor> {
     readonly isColorEvent = true;
     toObject() {
         const obj = super.toObject();
-        obj.start = [...this.start];
-        obj.end = [...this.end];
+        obj.start = this.start.map(Math.round) as RGBcolor;
+        obj.end = this.end.map(Math.round) as RGBcolor;
         return obj;
     }
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {

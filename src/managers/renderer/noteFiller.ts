@@ -84,7 +84,8 @@ export default class NoteFiller extends Manager {
                 isFake: NoteFake.Real,
                 size: 1,
                 yOffset: 0,
-                visibleTime: 999999
+                visibleTime: 999999,
+                judgeArea: 1
             };
             const note = store.addNote(noteObject, stateManager._state.currentJudgeLineNumber);
             historyManager.recordAddNote(note.id);
