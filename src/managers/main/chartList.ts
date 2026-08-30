@@ -80,6 +80,11 @@ class ChartListManager extends Manager {
             throw new Error(`未找到谱面ID：${chartId}`);
         }
     }
+
+    async readAllCharts() {
+        const charts = await fs.promises.readdir(filesManager.chartFoldersDir, { withFileTypes: true });
+        return charts.filter(file => file.isDirectory()).map(file => file.name);
+    }
 }
 
 export default new ChartListManager();

@@ -16,7 +16,7 @@ import { RGBcolor } from "@/tools/color";
 import { Beats } from "@/models/beats";
 
 /** 音符的属性中，类型为数字的属性 */
-export type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime";
+export type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime" | "judgeArea";
 export enum RightPanelState {
     Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History, Calculator, NoteFill, EventFill, FastBind, Error, Shader
 }
@@ -51,7 +51,10 @@ export default class StateManager extends Manager {
         currentEventLayerId: "0",
 
         /** 正在放置的note类型 */
-        currentNoteType: NoteType.Tap
+        currentNoteType: NoteType.Tap,
+
+        /** 是否为自动播放 */
+        autoplay: true,
     };
 
     /** 状态对象，响应式 */
@@ -67,7 +70,7 @@ export default class StateManager extends Manager {
             eventTypes: [] as string[],
 
             /** 要编辑音符的哪个属性 */
-            attributeNote: "positionX" as NoteNumberAttrs | "isFake" | "above" | "type" | "startTime" | "endTime" | "bothTime",
+            attributeNote: "positionX" as NoteNumberAttrs | "isFake" | "above" | "type" | "startTime" | "endTime" | "bothTime" | "tint" | "tintHitEffects" | "hitsound",
 
             /** 要编辑事件的哪个属性 */
             attributeEvent: "both" as "start" | "end" | "both" | "easingType" | "startTime" | "endTime" | "bothTime",

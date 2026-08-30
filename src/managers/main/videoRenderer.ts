@@ -14,7 +14,7 @@ import fs from "fs";
 import { NoteType } from "@/models/note";
 import { isString } from "lodash";
 import JSZip from "jszip";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, powerSaveBlocker } from "electron";
 
 export interface RenderingConfig {
 
@@ -35,7 +35,7 @@ export interface RenderingConfig {
 }
 
 /** 缓存的打击音效文件名 */
-const HIT_SOUND_FILE_NAME = `hitSound.aac`;
+const HIT_SOUND_FILE_NAME = `hitSound.mp3`;
 
 /** 每次合成多少个打击音效 */
 const BATCH_SIZE = 100;
@@ -48,6 +48,7 @@ const CHANNEL_LAYOUT = "stereo";
 
 class VideoRenderer extends Manager {
     ffmpegProcess: ChildProcessWithoutNullStreams | null = null;
+    powerSaveBlockerId: number | null = null;
     constructor() {
         super();
     }
@@ -62,6 +63,47 @@ class VideoRenderer extends Manager {
         }
 
         return ffmpegPath;
+    }
+
+    private setupBlocker() {
+        // 关闭后台节流
+        for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.setBackgroundThrottling(false);
+        }
+
+        // 开启电源锁
+        if (this.powerSaveBlockerId === null) {
+            this.powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+        }
+    }
+
+    /**
+     * 统一清理 FFmpeg 进程并恢复所有窗口的后台节流
+     */
+    private cleanupAndRestore() {
+        if (this.ffmpegProcess) {
+            try {
+                this.ffmpegProcess.stdin.removeAllListeners();
+                this.ffmpegProcess.stdout.destroy();
+                this.ffmpegProcess.stderr.destroy();
+                this.ffmpegProcess.kill("SIGKILL");
+            }
+            catch (e) {
+                console.error("清理 FFmpeg 进程时出错", e);
+            }
+            this.ffmpegProcess = null;
+        }
+
+        // 恢复后台节流
+        for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.setBackgroundThrottling(true);
+        }
+
+        // 关闭电源锁
+        if (this.powerSaveBlockerId !== null) {
+            powerSaveBlocker.stop(this.powerSaveBlockerId);
+            this.powerSaveBlockerId = null;
+        }
     }
     async start({ chartId, fps, outputPath, startTime, endTime }: RenderingConfig) {
         const chartPath = filesManager.getChartPath(chartId);
@@ -92,7 +134,7 @@ class VideoRenderer extends Manager {
                 "-c:v", "libx264",
                 "-preset", "slow",
                 "-crf", "22",
-                "-c:a", "aac",
+                "-c:a", "libmp3lame",
                 "-b:a", "192k",
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
@@ -121,6 +163,7 @@ class VideoRenderer extends Manager {
                 if (output.includes("ffmpeg version")) {
                     isProcessReady = true;
                     clearTimeout(startupTimeout);
+                    this.setupBlocker();
 
                     resolve();
                 }
@@ -196,7 +239,7 @@ class VideoRenderer extends Manager {
             const startTime = Date.now();
 
             // 生成合成后音频的文件名
-            const fileName = path.join("hitSoundMerge", `${num++}.aac`);
+            const fileName = path.join("hitSoundMerge", `${num++}.mp3`);
 
             // 取前 BATCH_SIZE 个音效进行合成，如果不够，就全部合成
             const sliced: readonly (string | HitSoundInfo)[] = arr.splice(0, BATCH_SIZE);
@@ -215,7 +258,7 @@ class VideoRenderer extends Manager {
         }
 
         // 直到只剩一个音频文件，这个文件就包含了所有的音效
-        const finalFileName = `${num - 1}.aac`;
+        const finalFileName = `${num - 1}.mp3`;
 
         // 把这个文件复制到 hitSoundFileName 中，作为 ffmpeg 的输入
         const finalFilePath = filesManager.getTempPath("hitSoundMerge", finalFileName);
@@ -233,29 +276,17 @@ class VideoRenderer extends Manager {
                 throw new Error("FFmpeg 进程未启动");
             }
 
-            // 1. 添加多重终止机制
-            const cleanup = () => {
-                if (this.ffmpegProcess) {
-                    try {
-                        this.ffmpegProcess.stdin.removeAllListeners();
-                        this.ffmpegProcess.stdout.destroy();
-                        this.ffmpegProcess.stderr.destroy();
-                        this.ffmpegProcess.kill("SIGKILL");
-                    }
-                    catch (e) {
-                        console.error("清理FFmpeg进程时出错", e);
-                    }
-                    this.ffmpegProcess = null;
-                }
-            };
             this.ffmpegProcess.stdin.end();
 
             this.ffmpegProcess.on("close", async (code) => {
-                cleanup();
+                this.cleanupAndRestore();
                 if (code === 0) {
                     const stats = fs.statSync(outputPath);
                     if (stats.size > 0) {
                         this.ffmpegProcess = null;
+                        for (const win of BrowserWindow.getAllWindows()) {
+                            win.webContents.setBackgroundThrottling(true);
+                        }
                         resolve(outputPath);
                     }
                     else {
@@ -267,25 +298,17 @@ class VideoRenderer extends Manager {
                 }
             });
             this.ffmpegProcess.on("error", (err) => {
-                cleanup();
+                this.cleanupAndRestore();
                 reject(`导出视频后 FFmpeg 错误：${err.message}`);
             });
         });
     }
     async cancel() {
-        if (this.ffmpegProcess) {
-            const isSucceeded = this.ffmpegProcess.kill();
-
-            await filesManager.clearDir(filesManager.getTempPath("hitSoundMerge"))
-                .catch((error) => {
-                    console.error(`无法清空缓存目录：${error}`);
-                });
-
-            if (!isSucceeded) {
-                throw new Error("无法终止 FFmpeg 进程");
-            }
-            this.ffmpegProcess = null;
-        }
+        this.cleanupAndRestore();
+        await filesManager.clearDir(filesManager.getTempPath("hitSoundMerge"))
+            .catch((error) => {
+                console.error(`无法清空缓存目录：${error}`);
+            });
     }
 
     /**
@@ -357,8 +380,8 @@ class VideoRenderer extends Manager {
             // 映射混合后的音频流
             "-map", "[mixed]",
 
-            // 音频编码格式设置为AAC
-            "-c:a", "aac",
+            // 音频编码格式设置为WAV
+            "-c:a", "libmp3lame",
 
             // 音频比特率设置为192kbps
             "-b:a", "192k",

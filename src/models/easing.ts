@@ -22,7 +22,9 @@ export enum EasingType {
     OutElastic, InElastic, OutBounce, InBounce, IOBounce, IOElastic
 }
 /* eslint-disable no-magic-numbers */
-/* 这段代码就像 magic 一样神奇，怎么可能没有 magic numbers */
+/**
+ * 缓动函数
+ */
 export const easingFuncs: Record<EasingType, (t: number) => number> = {
     [EasingType.Linear]: (t: number) => t,
     [EasingType.OutSine]: (t: number) => Math.sin(t * Math.PI / 2),
@@ -54,6 +56,27 @@ export const easingFuncs: Record<EasingType, (t: number) => number> = {
     [EasingType.IOBounce]: (t: number) => t < 0.5 ? (1 - easingFuncs[EasingType.OutBounce](1 - 2 * t)) / 2 : (1 + easingFuncs[EasingType.OutBounce](2 * t - 1)) / 2,
     [EasingType.IOElastic]: (t: number) => t < .5 ? 2 ** (20 * t - 11) * Math.sin((160 * t + 1) * Math.PI / 18) : 1 - 2 ** (9 - 20 * t) * Math.sin((160 * t + 1) * Math.PI / 18)
 } as const;
+
+/**
+ * 缓动函数的积分上限函数，下限固定为0
+ */
+export const easingFuncsIntegral: Partial<Record<EasingType, (t: number) => number>> = {
+    [EasingType.Linear]: (t: number) => t * t / 2,
+    [EasingType.OutSine]: (t: number) => 2 / Math.PI * (1 - Math.cos(Math.PI / 2 * t)),
+    [EasingType.InSine]: (t: number) => t - 2 / Math.PI * Math.sin(Math.PI / 2 * t),
+    [EasingType.IOSine]: (t: number) => (t - Math.sin(Math.PI * t) / Math.PI) / 2,
+    [EasingType.OutQuad]: (t: number) => t - (t - 1) ** 3 / 3 - 1 / 3,
+    [EasingType.InQuad]: (t: number) => t * t * t / 3,
+
+    [EasingType.OutCubic]: (t: number) => t - (t - 1) ** 4 / 4 + 1 / 4,
+    [EasingType.InCubic]: (t: number) => t ** 4 / 4,
+
+    [EasingType.OutQuart]: (t: number) => t - (t - 1) ** 5 / 5 - 1 / 5,
+    [EasingType.InQuart]: (t: number) => t ** 5 / 5,
+
+    [EasingType.OutQuint]: (t: number) => t + (t - 1) ** 6 / 6 + 1 / 6,
+    [EasingType.InQuint]: (t: number) => t ** 6 / 6,
+} as const;
 /* eslint-enable no-magic-numbers */
 
 /**
@@ -78,13 +101,14 @@ function integrateWithSimpson(f: (x: number) => number, a: number, b: number, n 
 }
 
 /**
- * 计算物体从时刻 t0 到时刻 t 的位移
+ * 计算物体从时刻 t0 到时刻 t （或从 t 到 t1）的位移
  * @param easingType - 缓动函数类型（如 EasingType.OutSine）
  * @param t0 - 开始时间
  * @param t1 - 结束时间
  * @param v0 - 初始速度
  * @param v1 - 末速度
  * @param t - 当前时间
+ * @param mode 计算的是从 t0 到 t，还是从 t 到 t1
  */
 export function calculateDisplacement(
     easingFunc: (t: number) => number,
@@ -92,7 +116,8 @@ export function calculateDisplacement(
     t1: number,
     v0: number,
     v1: number,
-    t: number
+    t: number,
+    mode = false
 ): number {
     const mappedT = (t - t0) / (t1 - t0);
     if (mappedT < 0 || mappedT > 1) {
@@ -100,10 +125,18 @@ export function calculateDisplacement(
     }
 
     // 计算 ∫₀^mappedT easingFunc(s) ds
-    const integral = integrateWithSimpson(easingFunc, 0, mappedT);
+    if (mode) {
+        const integral = integrateWithSimpson(easingFunc, mappedT, 1);
 
-    // 代入位移公式
-    return v0 * (t - t0) + (v1 - v0) * (t1 - t0) * integral;
+        // 代入位移公式
+        return v0 * (t1 - t) + (v1 - v0) * (t1 - t0) * integral;
+    }
+    else {
+        const integral = integrateWithSimpson(easingFunc, 0, mappedT);
+
+        // 代入位移公式
+        return v0 * (t - t0) + (v1 - v0) * (t1 - t0) * integral;
+    }
 }
 
 export function isEasingType(type: unknown): type is EasingType {

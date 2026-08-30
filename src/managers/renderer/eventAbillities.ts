@@ -8,7 +8,7 @@ import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { isEventLike } from "@/models/event";
+import { isEvent } from "@/models/event";
 
 export default class EventAbillitiesManager extends Manager {
     constructor() {
@@ -23,7 +23,7 @@ export default class EventAbillitiesManager extends Manager {
     disable() {
         const selectionManager = store.useManager("selectionManager");
         for (const selectedElement of selectionManager.selectedElements) {
-            if (isEventLike(selectedElement)) {
+            if (isEvent(selectedElement)) {
                 selectedElement.isDisabled = true;
             }
         }
@@ -31,7 +31,7 @@ export default class EventAbillitiesManager extends Manager {
     enable() {
         const selectionManager = store.useManager("selectionManager");
         for (const selectedElement of selectionManager.selectedElements) {
-            if (isEventLike(selectedElement)) {
+            if (isEvent(selectedElement)) {
                 selectedElement.isDisabled = false;
             }
         }

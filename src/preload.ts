@@ -23,7 +23,11 @@ const electronAPI: ElectronAPI = {
     addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
     saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
     deleteChart: (chartId) => ipcRenderer.invoke("delete-chart", chartId),
+    restoreChart: (chartId) => ipcRenderer.invoke("restore-chart", chartId),
+    permentlyDeleteChart: (chartId) => ipcRenderer.invoke("permantly-delete-chart", chartId),
+    readTips: () => ipcRenderer.invoke("read-tips"),
     readChartList: () => ipcRenderer.invoke("read-chart-list"),
+    readAllCharts: () => ipcRenderer.invoke("read-all-charts"),
     loadChart: (chartId) => ipcRenderer.invoke("load-chart", chartId),
     exportChart: (chartId, targetPath) => ipcRenderer.invoke("export-chart", chartId, targetPath),
     showSaveDialog: (name) => ipcRenderer.invoke("show-save-dialog", name),
@@ -130,11 +134,23 @@ interface ElectronAPI {
     /** 保存谱面 */
     saveChart: (chartId: string, chartContent: string, extraContent?: string) => Promise<void>
 
-    /** 删除谱面 */
+    /** 删除谱面（只是删除了chartList的引用） */
     deleteChart: (chartId: string) => Promise<void>
+
+    /** 恢复谱面 */
+    restoreChart: (chartId: string) => Promise<void>
+
+    /** 永久删除谱面 */
+    permentlyDeleteChart: (chartId: string) => Promise<void>
+
+    /** 读取软件根目录 tips.txt 的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
+    readTips: () => Promise<{ tips: string[]; created: boolean }>
 
     /** 读取谱面列表 */
     readChartList: () => Promise<string[]>
+
+    /** 读取所有谱面（包括被删除的） */
+    readAllCharts: () => Promise<string[]>
 
     /** 导出谱面 */
     exportChart: (chartId: string, targetPath: string) => Promise<void>

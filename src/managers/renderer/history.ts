@@ -35,6 +35,17 @@ export default class HistoryManager extends Manager {
         globalEventEmitter.on("REDO", createCatchErrorByMessage(() => {
             this.redo();
         }, "重做"));
+        globalEventEmitter.on("HISTORY_UPDATE", () => {
+            const chart = store.useChart();
+            const settingsManager = store.useManager("settingsManager");
+            for (const judgeLine of chart.judgeLineList) {
+                judgeLine.recalculateSpeedQZH();
+            }
+
+            if (settingsManager._settings.autoHighlight) {
+                chart.highlightNotes();
+            }
+        });
     }
     getSize() {
         function _getSize(stack: HistoryRecord[]) {

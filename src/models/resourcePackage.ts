@@ -12,21 +12,22 @@ interface IResourcePackage {
     flick: HTMLImageElement;
     drag: HTMLImageElement;
     hold: HTMLImageElement;
-    holdHead: HTMLCanvasElement;
-    holdEnd: HTMLCanvasElement;
-    holdBody: HTMLCanvasElement;
+    holdHead: OffscreenCanvas;
+    holdEnd: OffscreenCanvas;
+    holdBody: OffscreenCanvas;
     tapHL: HTMLImageElement;
     flickHL: HTMLImageElement;
     dragHL: HTMLImageElement;
     holdHL: HTMLImageElement;
-    holdHLHead: HTMLCanvasElement;
-    holdHLEnd: HTMLCanvasElement;
-    holdHLBody: HTMLCanvasElement;
+    holdHLHead: OffscreenCanvas;
+    holdHLEnd: OffscreenCanvas;
+    holdHLBody: OffscreenCanvas;
     tapSound: AudioBuffer;
     dragSound: AudioBuffer;
     flickSound: AudioBuffer;
-    perfectHitFxFrames: HTMLCanvasElement[];
-    goodHitFxFrames: HTMLCanvasElement[];
+    hitFxFrames: OffscreenCanvas[];
+    perfectHitFxFrames: OffscreenCanvas[];
+    goodHitFxFrames: OffscreenCanvas[];
     config: ResourceConfig;
 }
 interface ResourceConfig {
@@ -67,23 +68,24 @@ export class ResourcePackage implements IResourcePackage {
     flick: HTMLImageElement;
     drag: HTMLImageElement;
     hold: HTMLImageElement;
-    holdHead: HTMLCanvasElement;
-    holdEnd: HTMLCanvasElement;
-    holdBody: HTMLCanvasElement;
+    holdHead: OffscreenCanvas;
+    holdEnd: OffscreenCanvas;
+    holdBody: OffscreenCanvas;
     tapHL: HTMLImageElement;
     flickHL: HTMLImageElement;
     dragHL: HTMLImageElement;
     holdHL: HTMLImageElement;
-    holdHLHead: HTMLCanvasElement;
-    holdHLEnd: HTMLCanvasElement;
-    holdHLBody: HTMLCanvasElement;
+    holdHLHead: OffscreenCanvas;
+    holdHLEnd: OffscreenCanvas;
+    holdHLBody: OffscreenCanvas;
     tapSound: AudioBuffer;
     dragSound: AudioBuffer;
     flickSound: AudioBuffer;
-    perfectHitFxFrames: HTMLCanvasElement[];
-    goodHitFxFrames: HTMLCanvasElement[];
+    hitFxFrames: OffscreenCanvas[];
+    perfectHitFxFrames: OffscreenCanvas[];
+    goodHitFxFrames: OffscreenCanvas[];
     config: ResourceConfig;
-    getSkin(noteType: NoteType.Hold, highlight: boolean): { head: HTMLCanvasElement, body: HTMLCanvasElement, end: HTMLCanvasElement };
+    getSkin(noteType: NoteType.Hold, highlight: boolean): { head: OffscreenCanvas, body: OffscreenCanvas, end: OffscreenCanvas };
     getSkin(noteType: NoteType.Tap | NoteType.Drag | NoteType.Flick, highlight: boolean): HTMLImageElement;
     getSkin(noteType: NoteType, highlight: boolean) {
         if (noteType === NoteType.Drag) {
@@ -159,6 +161,7 @@ export class ResourcePackage implements IResourcePackage {
         this.tapSound = resourcePackage.tapSound;
         this.dragSound = resourcePackage.dragSound;
         this.flickSound = resourcePackage.flickSound;
+        this.hitFxFrames = resourcePackage.hitFxFrames;
         this.perfectHitFxFrames = resourcePackage.perfectHitFxFrames;
         this.goodHitFxFrames = resourcePackage.goodHitFxFrames;
         this.config = resourcePackage.config;

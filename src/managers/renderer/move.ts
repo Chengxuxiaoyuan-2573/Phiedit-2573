@@ -12,7 +12,7 @@ import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { ElMessageBox } from "element-plus";
 import { SelectableElement } from "@/models/element";
-import { isEventLike } from "@/models/event";
+import { isEvent } from "@/models/event";
 
 export default class MoveManager extends Manager {
     constructor() {
@@ -146,7 +146,7 @@ export default class MoveManager extends Manager {
                 elements.push(note);
                 historyManager.recordAddNote(element.id);
             }
-            else if (isEventLike(element)) {
+            else if (isEvent(element)) {
                 const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
                 elements.push(event);
                 historyManager.recordAddEvent(element.id);

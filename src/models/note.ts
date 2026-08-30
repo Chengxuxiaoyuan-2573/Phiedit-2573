@@ -5,12 +5,13 @@
  */
 
 import { beatsToSeconds, BPM, makeSureBeatsValid } from "./beats";
-import { isArrayOfNumbers,  Optional } from "../tools/typeTools";
+import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { Beats } from "./beats";
-import { isObject, isNumber } from "lodash";
+import { isObject, isNumber, isString } from "lodash";
 import ChartError from "./error";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
+import { RGBcolor } from "@/tools/color";
 export enum NoteAbove {
     Above = 1,
     Below = 0,
@@ -31,6 +32,10 @@ export interface INote {
     speed: number
     yOffset: number
     visibleTime: number
+    judgeArea: number
+    tint?: RGBcolor
+    tintHitEffects?: RGBcolor
+    hitsound?: string
 }
 export const noteAttributes = [
     "above",
@@ -43,7 +48,11 @@ export const noteAttributes = [
     "size",
     "speed",
     "yOffset",
-    "visibleTime"
+    "visibleTime",
+    "judgeArea",
+    "tint",
+    "tintHitEffects",
+    "hitsound"
 ] as const;
 export interface INoteExtendedOptions {
     judgeLineNumber: number,
@@ -80,13 +89,19 @@ export function isNoteLike(value: unknown): value is INote {
     return "isNote" in value;
 }
 
+const noteHitSoundMap: Record<string, NoteType> = {
+    ["tap.mp3"]: NoteType.Tap,
+    ["drag.mp3"]: NoteType.Drag,
+    ["flick.mp3"]: NoteType.Flick
+};
+
 const
     TAP_PERFECT = 0.08,
     TAP_GOOD = 0.16,
     TAP_BAD = 0.18,
     HOLD_PERFECT = 0.08,
     HOLD_GOOD = 0.16,
-    HOLD_BAD = 0.18,
+    HOLD_BAD = 0.16,
     DRAGFLICK_PERFECT = 0.18,
     DEFAULT_ABOVE = NoteAbove.Above,
     DEFAULT_ALPHA = 255,
@@ -98,7 +113,8 @@ const
     DEFAULT_START_TIME: Beats = [0, 0, 1],
     DEFAULT_END_TIME: Beats = [0, 0, 1],
     DEFAULT_VISIBLETIME = 999999,
-    DEFAULT_TYPE = NoteType.Tap;
+    DEFAULT_TYPE = NoteType.Tap,
+    DEFAULT_JUDGE_AREA = 1;
 
 export class Note extends TimeSegment implements INote, ITimeSegment, IObjectizable<INote>, INoteExtendedOptions, INoteIdentifier, INoteHighlight {
     above = DEFAULT_ABOVE;
@@ -112,9 +128,16 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
     _startTime: Beats = [...DEFAULT_START_TIME];
     _endTime: Beats = [...DEFAULT_END_TIME];
     type = DEFAULT_TYPE;
+    judgeArea = DEFAULT_JUDGE_AREA;
+    tint?: RGBcolor;
+    tintHitEffects?: RGBcolor;
+    hitsound?: string;
     cachedStartSeconds: number;
     cachedEndSeconds: number;
     cachedIsJudged: boolean = false;
+    cachedPosX: number = 0;
+    cachedPosY: number = 0;
+    cachedDir: number = 0;
     readonly isNote = true;
     readonly BPMList: BPM[];
 
@@ -141,10 +164,30 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
             size: this.size,
             isFake: this.isFake,
             visibleTime: this.visibleTime,
-            yOffset: this.yOffset
+            yOffset: this.yOffset,
+            judgeArea: this.judgeArea,
+            tint: this.tint?.map(Math.round) as RGBcolor | undefined,
+            tintHitEffects: this.tintHitEffects?.map(Math.round) as RGBcolor | undefined,
+            hitsound: this.hitsound
         };
     }
+
+    get hitSoundType() {
+        if (this.hitsound === undefined) {
+            return this.type;
+        }
+        return noteHitSoundMap[this.hitsound] ?? NoteType.Tap;
+    }
     hitSeconds: number | undefined = undefined;
+
+    /** 是否在预判状态，只对 Drag 和 Flick 有意义 */
+    prejudgedSeconds: number | undefined = undefined;
+
+    /** 是否已经 miss */
+    missed: boolean = false;
+
+    /** 是否已经完成判定，只对 Hold 有意义 */
+    holdJudged: boolean = false;
     hit(seconds: number) {
         if (this.isFake) {
             // 该音符是假音符，无法被击打
@@ -192,25 +235,7 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
         if (this.hitSeconds === undefined) return "none";
         const startSeconds = this.cachedStartSeconds;
         const delta = this.hitSeconds - startSeconds;
-        const { perfect, good, bad } = (() => {
-            switch (this.type) {
-                case NoteType.Tap: return {
-                    perfect: TAP_PERFECT,
-                    good: TAP_GOOD,
-                    bad: TAP_BAD
-                };
-                case NoteType.Hold: return {
-                    perfect: HOLD_PERFECT,
-                    good: HOLD_GOOD,
-                    bad: HOLD_BAD
-                };
-                default: return {
-                    perfect: DRAGFLICK_PERFECT,
-                    good: DRAGFLICK_PERFECT,
-                    bad: DRAGFLICK_PERFECT
-                };
-            }
-        })();
+        const { perfect, good, bad } = this.getJudgementRange();
         if (delta >= -perfect && delta < perfect) return "perfect";
         if (delta >= -good && delta < good) return "good";
         else if (delta >= -bad && delta < bad) return "bad";
@@ -475,6 +500,52 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
                     "error",
                     this
                 ));
+            }
+
+            if ("judgeArea" in note) {
+                if (isNumber(note.judgeArea)) {
+                    this.judgeArea = note.judgeArea;
+                }
+                else {
+                    this.errors.push(new ChartError(
+                        `${this.id}：音符的 judgeArea 属性必须是数字，但读取到了 ${note.judgeArea}。将会被替换为数字 1。`,
+                        "ChartReadError.TypeError",
+                        "error",
+                        this
+                    ));
+                }
+            }
+            else {
+                this.errors.push(new ChartError(
+                    `${this.id}：音符缺少 judgeArea 属性。将会被设为数字 1。`,
+                    "ChartReadError.MissingProperty",
+                    "error",
+                    this
+                ));
+            }
+
+            if ("tint" in note) {
+                if (isArrayOfNumbers(note.tint, 3)) {
+                    this.tint = note.tint;
+                }
+            }
+
+            if ("color" in note) {
+                if (isArrayOfNumbers(note.color, 3)) {
+                    this.tint = note.color;
+                }
+            }
+
+            if ("tintHitEffects" in note) {
+                if (isArrayOfNumbers(note.tintHitEffects, 3)) {
+                    this.tintHitEffects = note.tintHitEffects;
+                }
+            }
+
+            if ("hitsound" in note) {
+                if (isString(note.hitsound)) {
+                    this.hitsound = note.hitsound;
+                }
             }
         }
         else {

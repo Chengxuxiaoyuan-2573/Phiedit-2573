@@ -149,18 +149,9 @@
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
-                <p class="event-layer-hint-text">
+                <div>
                     点击右侧按钮切换事件层级
-                    <MyQuestionMark>
-                        事件层级是用来叠加不同的事件的，例如：<br>
-                        在0号事件层上写绕定点的圆周运动，1号事件层上写平移运动，<br>
-                        则实际效果会显示为判定线一边旋转一边平移。<br>
-                        内部实现逻辑为：把每个事件层级的事件值加一起作为最终事件值。<br>
-                        <br>
-                        上述说明针对的是普通事件层级，还有一层特殊事件层级。<br>
-                        特殊事件层级也被称为故事板，是用来写出一些比较高级的功能的。<br>
-                    </MyQuestionMark>
-                </p>
+                </div>
                 <MyGridContainer
                     class="event-layer-select"
                     :columns="5"
@@ -203,7 +194,25 @@
             @wheel.passive.stop
         >
             <div
-                v-if="selectionManager.selectedElements.length == 0"
+                v-if="!stateManager.state.autoplay"
+                class="left-inner default-panel flex-container"
+                style="justify-content: space-between;"
+            >
+                <div>
+                    <p>当前处于试玩模式，请使用键盘游玩</p>
+                    <p>Tap：落到判定线上时按下任意键</p>
+                    <p>Hold：落到判定线上时按住任意键直到其结束</p>
+                    <p>Drag、Flick：落到判定线上时有任意键被按下即可</p>
+                </div>
+                <MyButton
+                    type="primary"
+                    @click="exitPlayChart()"
+                >
+                    退出试玩
+                </MyButton>
+            </div>
+            <div
+                v-else-if="selectionManager.selectedElements.length == 0"
                 class="left-inner default-panel flex-container"
                 style="justify-content: space-between;"
             >
@@ -254,8 +263,11 @@
                                 v-if="isRenderingVideo"
                                 class="export-options"
                             >
-                                <span>{{ videoRenderingProgress.message }}（剩余{{
-                                    MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）</span>
+                                <p>
+                                    {{ videoRenderingProgress.message }}（剩余{{
+                                        MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）
+                                </p>
+                                <p>渲染过程中请不要将电脑锁屏或关机</p>
                                 <ElProgress
                                     :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)"
                                 />
@@ -271,6 +283,7 @@
                                 class="export-options"
                             >
                                 渲染完成！
+                                渲染谱面用时：{{ MathUtils.formatTime(renderVideoTime / 1000) }}
                                 <MyButton
                                     type="primary"
                                     @click="close()"
@@ -392,6 +405,12 @@
                             </div>
                         </template>
                     </MyDialog>
+                    <MyButton
+                        type="primary"
+                        @click="playChart()"
+                    >
+                        试玩
+                    </MyButton>
                 </div>
                 <div class="flex-container">
                     <MyButton
@@ -425,17 +444,17 @@
                     title-teleport=".title-left"
                 />
                 <NumberEventEditPanel
-                    v-else-if="isNumberEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isNumberEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <ColorEventEditPanel
-                    v-else-if="isColorEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isColorEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
                 <TextEventEditPanel
-                    v-else-if="isTextEventLike(selectionManager.selectedElements[0])"
+                    v-else-if="isTextEvent(selectionManager.selectedElements[0])"
                     v-model="selectionManager.selectedElements[0]"
                     title-teleport=".title-left"
                 />
@@ -453,8 +472,16 @@
             id="right"
             @wheel.passive.stop
         >
+            <div v-if="!stateManager.state.autoplay">
+                <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
+                <p>Good：{{ judgeManager.judgeInfo.good }}</p>
+                <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
+                <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
+                <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
+                <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+            </div>
             <div
-                v-if="stateManager.state.right == RightPanelState.Default"
+                v-else-if="stateManager.state.right == RightPanelState.Default"
                 class="right-inner default-panel"
             >
                 <MyGridContainer
@@ -646,7 +673,7 @@ import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
-import { isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
 import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/judgeLine";
 
@@ -681,7 +708,6 @@ import ShaderPanel from "@/panels/ShaderPanel.vue";
 
 import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
-import Constants from "@/constants";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
 
@@ -731,16 +757,18 @@ const { chart, textures } = store.chartPackageRef.value;
 const stateManager = store.useManager("stateManager");
 const settingsManager = store.useManager("settingsManager");
 const selectionManager = store.useManager("selectionManager");
-const autoplayManager = store.useManager("autoplayManager");
 const mouseManager = store.useManager("mouseManager");
 const coordinateManager = store.useManager("coordinateManager");
+const judgeManager = store.useManager("judgeManager");
 
 const fps = ref(0);
 const time = ref(0);
-const combo = ref(0);
-const score = ref(0);
 const audioIsPlaying = ref(false);
-const tip = ref(Constants.tips[Math.floor(Math.random() * Constants.tips.length)]);
+
+/** tip 完全来自软件根目录的 tips.txt（文件缺失或为空时显示空白） */
+const allTips = ref<string[]>([]);
+const getRandomTip = () => allTips.value.length === 0 ? "" : allTips.value[Math.floor(Math.random() * allTips.value.length)];
+const tip = ref(getRandomTip());
 const mouseIsInCanvas = ref(false);
 const mouseX = ref(0);
 const mouseY = ref(0);
@@ -749,6 +777,18 @@ const judgeLineFilter = ref("");
 const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
+    // 读取软件根目录 tips.txt 中的 tip，存在时以文件内容为准
+    window.electronAPI.readTips().then(({ tips, created }) => {
+        if (created) {
+            // 用户删除了 tips.txt：先显示俏皮提示，之后用自动重建的默认 tips 轮换
+            allTips.value = tips;
+            tip.value = "耶你还想删掉我？";
+        }
+        else if (tips.length > 0) {
+            allTips.value = tips;
+            tip.value = getRandomTip();
+        }
+    });
     globalEventEmitter.on("JUDGE_LINE_COUNT_CHANGED", updateJudgeLineList);
 });
 onBeforeUnmount(() => {
@@ -957,9 +997,24 @@ const videoRenderingProgress = reactive({
     remainingTime: 0
 });
 
+const renderVideoTime = ref(0);
+
 let windowIsFocused = true;
 let cachedRect: DOMRect;
 let canvasIsRendering = true;
+let renderStartTime: number;
+
+function playChart() {
+    stateManager.state.autoplay = false;
+    stateManager.state.isPreviewing = true;
+    store.playAudio();
+}
+
+function exitPlayChart() {
+    stateManager.state.autoplay = true;
+    stateManager.state.isPreviewing = false;
+    store.pauseAudio();
+}
 
 /** 检查更新 */
 function checkForUpdates() {
@@ -1003,6 +1058,7 @@ async function renderVideo() {
 
     try {
         pauseRenderLoop();
+        renderStartTime = Date.now();
         const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
         const filePath = await window.electronAPI.showSaveVideoDialog(chartName);
         if (!filePath) {
@@ -1056,6 +1112,7 @@ async function renderVideo() {
                     setTimeout(() => reject(new Error("视频渲染完成超时")), TIMEOUT * SEC_TO_MS)
                 )
             ]);
+            renderVideoTime.value = Date.now() - renderStartTime;
         }, undefined, false);
 
         // 开始处理
@@ -1084,7 +1141,7 @@ async function renderVideo() {
             .getAllNotes()
             .filter(note => !note.isFake)
             .map(note => ({
-                type: note.type,
+                type: note.hitSoundType,
                 time: note.cachedStartSeconds + chart.META.offset / SEC_TO_MS
             })));
 
@@ -1294,7 +1351,11 @@ function renderLoop() {
 
             catchErrorByMessage(() => {
                 globalEventEmitter.emit("RENDER_FRAME");
-                globalEventEmitter.emit("AUTOPLAY");
+
+                if (stateManager._state.autoplay) {
+                    globalEventEmitter.emit("AUTOPLAY");
+                }
+
                 if (stateManager.state.isPreviewing) {
                     globalEventEmitter.emit("RENDER_CHART");
                 }
@@ -1318,13 +1379,6 @@ function renderLoop() {
                 fps.value = 0;
             }
             renderTime = now;
-            if (combo.value !== autoplayManager.combo) {
-                combo.value = autoplayManager.combo;
-            }
-
-            if (score.value !== autoplayManager.score) {
-                score.value = autoplayManager.score;
-            }
             audio.volume = settingsManager._settings.musicVolume;
         }
 
@@ -1359,7 +1413,7 @@ onMounted(() => {
     audio.addEventListener("play", audioOnPlay);
 
     const tipInterval = setInterval(() => {
-        tip.value = Constants.tips[Math.floor(Math.random() * Constants.tips.length)];
+        tip.value = getRandomTip();
     }, TIP_SHOW_TIME);
 
     renderLoop();

@@ -138,6 +138,80 @@
                 </MyQuestionMark>
             </template>
         </MyInputNumber>
+        <MyInputNumber
+            ref="inputJudgeArea"
+            v-model="inputNote.judgeArea"
+            :min="0"
+            @change="createHistory()"
+            @input="updateModel('judgeArea')"
+        >
+            <template #prepend>
+                判定范围
+                <MyQuestionMark>
+                    音符的实际判定范围。1为正常大小。<br>
+                    该属性可以用于复刻其他音游中的大小键。<br>
+                </MyQuestionMark>
+            </template>
+        </MyInputNumber>
+        <MyInputColor
+            ref="inputTint"
+            v-model="inputNote.tint"
+            :min="0"
+            undefined-when-empty
+            @change="createHistory()"
+            @input="updateModel('tint')"
+        >
+            <template #prepend>
+                音符颜色
+                <MyQuestionMark>
+                    音符的颜色，格式为“R,G,B”。<br>
+                    若该属性存在，则音符会在原来的基础上，以正片叠底的方式叠加上该颜色。<br>
+                </MyQuestionMark>
+            </template>
+        </MyInputColor>
+        <MyInputColor
+            ref="inputTintHitEffects"
+            v-model="inputNote.tintHitEffects"
+            :min="0"
+            undefined-when-empty
+            @change="createHistory()"
+            @input="updateModel('tintHitEffects')"
+        >
+            <template #prepend>
+                打击特效颜色
+                <MyQuestionMark>
+                    打击特效的颜色，格式为“R,G,B”。<br>
+                    若该属性存在，则该音符被判定时，无论 Perfect 还是 Good，打击特效都是该颜色。<br>
+                </MyQuestionMark>
+            </template>
+        </MyInputColor>
+        <MySelect
+            ref="inputHitSound"
+            v-model="inputNote.hitsound"
+            :options="[
+                {
+                    value: undefined,
+                    label: '打击音效：默认音效',
+                    text: '默认音效',
+                },
+                {
+                    value: 'tap.mp3',
+                    label: '打击音效：tap.mp3',
+                    text: 'tap.mp3'
+                },
+                {
+                    value: 'drag.mp3',
+                    label: '打击音效：drag.mp3',
+                    text: 'drag.mp3'
+                },
+                {
+                    value: 'flick.mp3',
+                    label: '打击音效：flick.mp3',
+                    text: 'flick.mp3'
+                },
+            ]"
+            @change="updateModel('tint'), createHistory()"
+        />
         <MyButton @click="reverse">
             X坐标镜像（Alt + A）
         </MyButton>
@@ -146,15 +220,17 @@
 <script setup lang='ts'>
 import { formatBeats, makeSureBeatsValid, parseBeats } from "@/models/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef, watch } from "vue";
-import { INote, INoteExtendedOptions, NoteAbove, NoteFake, NoteType } from "../models/note";
+import { INote, INoteExtendedOptions, NoteAbove, noteAttributes, NoteFake, NoteType } from "../models/note";
 import MyInput from "@/myElements/MyInput.vue";
 import MyInputNumber from "../myElements/MyInputNumber.vue";
+import MyInputColor from "@/myElements/MyInputColor.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MyButton from "@/myElements/MyButton.vue";
 import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MySelectNoteType from "@/myElements/MySelectNoteType.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
+import MySelect from "@/myElements/MySelect.vue";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -171,6 +247,10 @@ const inputYOffset = useTemplateRef("inputYOffset");
 const inputVisibleTime = useTemplateRef("inputVisibleTime");
 const inputIsFake = useTemplateRef("inputIsFake");
 const inputAbove = useTemplateRef("inputAbove");
+const inputJudgeArea = useTemplateRef("inputJudgeArea");
+const inputTint = useTemplateRef("inputTint");
+const inputTintHitEffects = useTemplateRef("inputTintHitEffects");
+const inputHitSound = useTemplateRef("inputHitSound");
 interface NoteExtends {
     startEndTime: string;
 }
@@ -178,19 +258,7 @@ const historyManager = store.useManager("historyManager");
 
 // const mouseManager = store.useManager("mouseManager");
 const seperator = " ";
-const attributes = [
-    "startTime",
-    "endTime",
-    "positionX",
-    "speed",
-    "size",
-    "alpha",
-    "yOffset",
-    "visibleTime",
-    "isFake",
-    "above",
-    "type"
-] as const;
+const attributes = noteAttributes;
 watch(model, () => {
     for (const attr of attributes) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -206,6 +274,10 @@ watch(model, () => {
     inputVisibleTime.value?.updateShowedValue();
     inputIsFake.value?.updateShowedValue();
     inputAbove.value?.updateShowedValue();
+    inputJudgeArea.value?.updateShowedValue();
+    inputTint.value?.updateShowedValue();
+    inputTintHitEffects.value?.updateShowedValue();
+    inputHitSound.value?.updateShowedValue();
 });
 const inputNote: INote & NoteExtends = reactive({
     startTime: model.value.startTime,
@@ -219,6 +291,10 @@ const inputNote: INote & NoteExtends = reactive({
     isFake: model.value.isFake,
     above: model.value.above,
     type: model.value.type,
+    judgeArea: model.value.judgeArea,
+    tint: model.value.tint,
+    tintHitEffects: model.value.tintHitEffects,
+    hitsound: model.value.hitsound,
     get startEndTime() {
         // 如果开始时间和结束时间相同，返回这个相同的时间
         if (this.startTime === this.endTime) {
@@ -259,6 +335,10 @@ const oldValues = {
     isFake: model.value.isFake,
     above: model.value.above,
     type: model.value.type,
+    judgeArea: model.value.judgeArea,
+    tint: model.value.tint,
+    tintHitEffects: model.value.tintHitEffects,
+    hitsound: model.value.hitsound,
 };
 function updateModel<K extends keyof INote>(...attrNames: K[]) {
     for (const attrName of attrNames) {
@@ -301,6 +381,18 @@ function updateInput<K extends keyof INote>(...attrNames: K[]) {
                 break;
             case "type":
                 inputType.value?.updateShowedValue();
+                break;
+            case "judgeArea":
+                inputJudgeArea.value?.updateShowedValue();
+                break;
+            case "tint":
+                inputTint.value?.updateShowedValue();
+                break;
+            case "tintHitEffects":
+                inputTintHitEffects.value?.updateShowedValue();
+                break;
+            case "hitsound":
+                inputHitSound.value?.updateShowedValue();
                 break;
         }
     }

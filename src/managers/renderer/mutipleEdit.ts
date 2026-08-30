@@ -7,14 +7,14 @@
 import { addBeats, Beats, getBeatsValue } from "@/models/beats";
 import { easingFuncs } from "@/models/easing";
 import { baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
-import { NoteFake, NoteAbove, INote, INoteExtendedOptions, isNoteLike } from "@/models/note";
+import { NoteFake, NoteAbove, Note, isNoteLike } from "@/models/note";
 import store from "@/store";
 import { RGBcolor, invert } from "@/tools/color";
 import Manager from "./abstract";
 import { NoteNumberAttrs } from "./state";
 import globalEventEmitter from "@/eventEmitter";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { IEvent, IEventExtendedOptions, isColorEventLike, isEventLike, isNumberEventLike, isTextEventLike } from "@/models/event";
+import { AbstractEvent, ColorEvent, isColorEvent, isEvent, isNumberEvent, isTextEvent, NumberEvent, TextEvent } from "@/models/event";
 
 export default class MutipleEditManager extends Manager {
     constructor() {
@@ -28,7 +28,7 @@ export default class MutipleEditManager extends Manager {
         const stateManager = store.useManager("stateManager");
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
-        function modifyNoteWithNumber(note: INote & INoteExtendedOptions, attr: NoteNumberAttrs, value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        function modifyNoteWithNumber(note: Note, attr: NoteNumberAttrs, value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             let newValue: number;
             const randomRange = stateManager.cache.mutipleEdit.isRandom ? stateManager.cache.mutipleEdit.paramRandom : 0;
             const randomNumber = Math.random() * randomRange * 2 - randomRange;
@@ -52,7 +52,39 @@ export default class MutipleEditManager extends Manager {
             note[attr] = newValue;
         }
 
-        function modifyEventWithNumber(event: IEvent<number> & IEventExtendedOptions, attr: "start" | "end" | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        function modifyNoteWithColor(note: Note, attr: "tint" | "tintHitEffects", value: RGBcolor, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+            if (note[attr] === undefined && mode !== "to") return;
+            let newValue: RGBcolor;
+            switch (mode) {
+                case "to":
+                    newValue = value;
+                    break;
+                case "invert":
+                    newValue = invert(note[attr]!);
+                    break;
+                default:
+                    newValue = note[attr]!;
+            }
+            newValue = newValue.map(Math.round) as RGBcolor;
+            historyManager.recordModifyNote(note.id, attr, newValue, note[attr]);
+            note[attr] = newValue;
+        }
+
+        function modifyNoteWithText(note: Note, attr: "hitsound", value: string, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+            if (note[attr] === undefined && mode !== "to") return;
+            let newValue: string;
+            switch (mode) {
+                case "to":
+                    newValue = value;
+                    break;
+                default:
+                    newValue = note[attr]!;
+            }
+            historyManager.recordModifyNote(note.id, attr, newValue, note[attr]);
+            note[attr] = newValue;
+        }
+
+        function modifyEventWithNumber(event: NumberEvent, attr: "start" | "end" | "both", value: number, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             if (attr === "both") {
                 modifyEventWithNumber(event, "start", value, mode);
                 modifyEventWithNumber(event, "end", value, mode);
@@ -82,7 +114,7 @@ export default class MutipleEditManager extends Manager {
             event[attr] = newValue;
         }
 
-        function modifyEventWithColor(event: IEvent<RGBcolor> & IEventExtendedOptions, attr: "start" | "end" | "both", value: RGBcolor, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        function modifyEventWithColor(event: ColorEvent, attr: "start" | "end" | "both", value: RGBcolor, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             if (attr === "both") {
                 modifyEventWithColor(event, "start", value, mode);
                 modifyEventWithColor(event, "end", value, mode);
@@ -100,11 +132,12 @@ export default class MutipleEditManager extends Manager {
                 default:
                     newValue = event[attr];
             }
+            newValue = newValue.map(Math.round) as RGBcolor;
             historyManager.recordModifyEvent(event.id, attr, newValue, event[attr]);
             event[attr] = newValue;
         }
 
-        function modifyEventWithText(event: IEvent<string> & IEventExtendedOptions, attr: "start" | "end" | "both", value: string, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        function modifyEventWithText(event: TextEvent, attr: "start" | "end" | "both", value: string, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             if (attr === "both") {
                 modifyEventWithText(event, "start", value, mode);
                 modifyEventWithText(event, "end", value, mode);
@@ -123,7 +156,7 @@ export default class MutipleEditManager extends Manager {
             event[attr] = newValue;
         }
 
-        function modifyWithBeats(element: INote & INoteExtendedOptions | IEvent<unknown> & IEventExtendedOptions, attr: "startTime" | "endTime" | "bothTime", value: Beats, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
+        function modifyWithBeats(element: Note | AbstractEvent, attr: "startTime" | "endTime" | "bothTime", value: Beats, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             if (attr === "bothTime") {
                 modifyWithBeats(element, "startTime", value, mode);
                 modifyWithBeats(element, "endTime", value, mode);
@@ -169,9 +202,18 @@ export default class MutipleEditManager extends Manager {
                 throw new Error(`当前没有选中音符`);
             }
             notes.forEach((note, i) => {
+                const easing = stateManager.cache.mutipleEdit.paramEasing;
                 const value = stateManager.cache.mutipleEdit.isDynamic ?
                     stateManager.cache.mutipleEdit.paramStart + easingFuncs[stateManager.cache.mutipleEdit.paramEasing](length === 1 ? 0 : i / (length - 1)) * (stateManager.cache.mutipleEdit.paramEnd - stateManager.cache.mutipleEdit.paramStart) :
                     stateManager.cache.mutipleEdit.param;
+                const valueColor = stateManager.cache.mutipleEdit.isDynamic ?
+                    ([0, 1, 2] as const).map(num => {
+                        const start = stateManager.cache.mutipleEdit.paramStartColor[num];
+                        const end = stateManager.cache.mutipleEdit.paramEndColor[num];
+                        return easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start;
+                    }) as RGBcolor :
+                    stateManager.cache.mutipleEdit.paramColor;
+                const valueString = stateManager.cache.mutipleEdit.paramText;
                 const attrName = stateManager.cache.mutipleEdit.attributeNote;
                 if (attrName === "isFake") {
                     if (stateManager.cache.mutipleEdit.mode === "invert") {
@@ -200,6 +242,12 @@ export default class MutipleEditManager extends Manager {
                 else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
                     modifyWithBeats(note, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
                 }
+                else if (attrName === "tint" || attrName === "tintHitEffects") {
+                    modifyNoteWithColor(note, attrName, valueColor, stateManager.cache.mutipleEdit.mode);
+                }
+                else if (attrName === "hitsound") {
+                    modifyNoteWithText(note, attrName, valueString, stateManager.cache.mutipleEdit.mode);
+                }
                 else {
                     modifyNoteWithNumber(note, attrName, value, stateManager.cache.mutipleEdit.mode);
                 }
@@ -211,7 +259,7 @@ export default class MutipleEditManager extends Manager {
                 stateManager.cache.mutipleEdit.eventTypes;
             let isSucceeded = false;
             for (const eventType of eventTypes) {
-                const events = selectionManager.selectedElements.filter(element => isEventLike(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime)) as (IEvent & IEventExtendedOptions)[];
+                const events = selectionManager.selectedElements.filter(element => isEvent(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime)) as AbstractEvent[];
                 const length = events.length;
                 if (length > 0) {
                     isSucceeded = true;
@@ -228,7 +276,7 @@ export default class MutipleEditManager extends Manager {
                     else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
                         modifyWithBeats(event, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
                     }
-                    else if (isNumberEventLike(event)) {
+                    else if (isNumberEvent(event)) {
                         const start = stateManager.cache.mutipleEdit.paramStart;
                         const end = stateManager.cache.mutipleEdit.paramEnd;
                         const param = stateManager.cache.mutipleEdit.param;
@@ -240,7 +288,7 @@ export default class MutipleEditManager extends Manager {
 
                         modifyEventWithNumber(event, attrName, value, stateManager.cache.mutipleEdit.mode);
                     }
-                    else if (isColorEventLike(event)) {
+                    else if (isColorEvent(event)) {
                         const param: RGBcolor = stateManager.cache.mutipleEdit.paramColor;
                         const easing = stateManager.cache.mutipleEdit.paramEasing;
                         const value = stateManager.cache.mutipleEdit.isDynamic ?
@@ -253,7 +301,7 @@ export default class MutipleEditManager extends Manager {
 
                         modifyEventWithColor(event, attrName, value, stateManager.cache.mutipleEdit.mode);
                     }
-                    else if (isTextEventLike(event)) {
+                    else if (isTextEvent(event)) {
                         const param = stateManager.cache.mutipleEdit.paramText;
                         const value = param;
 

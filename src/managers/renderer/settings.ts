@@ -10,11 +10,6 @@ import { NotReadonly } from "@/tools/typeTools";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-export enum BottomText {
-    None,
-    Hint,
-    Info
-}
 export const defaultSettings = {
     hitSoundVolume: 1,
     musicVolume: 1,
@@ -25,7 +20,6 @@ export const defaultSettings = {
     noteSize: 175,
     wheelSpeed: 0.2,
     showJudgeLineNumber: true,
-    bottomText: BottomText.Hint,
     markCurrentJudgeLine: true,
     autoCheckErrors: false,
     autoHighlight: true,

@@ -13,7 +13,7 @@ import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, 
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import Constants from "@/constants";
 import { SEC_TO_MS } from "@/tools/mathUtils";
-import { isEventLike } from "@/models/event";
+import { isEvent } from "@/models/event";
 
 export default class ErrorManager extends Manager {
     errors: ChartError[] = [];
@@ -356,7 +356,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "ChartEditError.InvalidHoldTime":
-                    if (isEventLike(error.objects[0])) {
+                    if (isEvent(error.objects[0])) {
                         break;
                     }
 

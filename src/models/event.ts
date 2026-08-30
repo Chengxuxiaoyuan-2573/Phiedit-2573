@@ -9,7 +9,6 @@ import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
 import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
-import { checkAndSort } from "@/tools/algorithm";
 import ChartError from "./error";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
@@ -50,28 +49,28 @@ export function isBezier(value: unknown): value is Bezier {
     return value === Bezier.On || value === Bezier.Off;
 }
 
-export function isEventLike(value: unknown): value is IEvent {
+export function isEvent(value: unknown): value is AbstractEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isEvent" in value;
 }
 
-export function isNumberEventLike(value: unknown): value is IEvent<number> {
+export function isNumberEvent(value: unknown): value is NumberEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isNumberEvent" in value;
 }
 
-export function isColorEventLike(value: unknown): value is IEvent<RGBcolor> {
+export function isColorEvent(value: unknown): value is ColorEvent {
     if (!isObject(value)) {
         return false;
     }
     return "isColorEvent" in value;
 }
 
-export function isTextEventLike(value: unknown): value is IEvent<string> {
+export function isTextEvent(value: unknown): value is TextEvent {
     if (!isObject(value)) {
         return false;
     }
@@ -438,8 +437,8 @@ export class ColorEvent extends AbstractEvent<RGBcolor> {
     readonly isColorEvent = true;
     toObject() {
         const obj = super.toObject();
-        obj.start = [...this.start];
-        obj.end = [...this.end];
+        obj.start = this.start.map(Math.round) as RGBcolor;
+        obj.end = this.end.map(Math.round) as RGBcolor;
         return obj;
     }
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
@@ -1060,14 +1059,14 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
 }
 
 /** 找到开始时间不大于seconds的最大的事件。若不存在，返回null。*/
-export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): T | null {
-    checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
+export function findLastEventIndex<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): number {
+    // checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
 
     // 筛选所有未被禁用的事件
-    const validEvents = events.filter(event => !event.isDisabled);
+    const validEvents = events.map((event, i) => ({ event, i })).filter(event => !event.event.isDisabled);
 
     if (validEvents.length === 0) {
-        return null;
+        return -1;
     }
 
     // 二分查找
@@ -1077,7 +1076,7 @@ export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(
 
     while (left <= right) {
         const mid = Math.floor((left + right) / 2);
-        if (validEvents[mid].cachedStartSeconds <= seconds) {
+        if (validEvents[mid].event.cachedStartSeconds <= seconds) {
             resultIndex = mid;
             left = mid + 1;
         }
@@ -1086,5 +1085,9 @@ export function findLastEvent<T extends { isDisabled: boolean } & ITimeSegment>(
         }
     }
 
-    return resultIndex !== -1 ? validEvents[resultIndex] : null;
+    if (resultIndex === -1) {
+        return -1;
+    }
+
+    return validEvents[resultIndex].i;
 }

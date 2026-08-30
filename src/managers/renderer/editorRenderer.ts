@@ -5,9 +5,8 @@
  */
 
 import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { interpolateNumberEventValue, findLastEvent, interpolateColorEventValue, interpolateTextEventValue, isNumberEventLike, isColorEventLike, isTextEventLike } from "@/models/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
-import { checkAndSort } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
 import { floor, ceil } from "lodash";
@@ -18,8 +17,6 @@ import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
 import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
-import { BottomText } from "./settings";
-import { FullEvent } from "@/models/element";
 
 export default class EditorRenderer extends Manager {
     constructor() {
@@ -331,36 +328,24 @@ export default class EditorRenderer extends Manager {
             }
         }
 
-        if (settingsManager._settings.bottomText === BottomText.Info) {
-            writeText(`${stateManager._state.currentJudgeLineNumber}号判定线   名称${stateManager.currentJudgeLine.Name}`,
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-            writeText(`本判定线上共有${stateManager.currentJudgeLine.numOfNotes}个音符和${stateManager.currentJudgeLine.numOfEvents}个事件`,
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_SECOND_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-        }
-
-        if (settingsManager._settings.bottomText === BottomText.Hint) {
-            writeText("在此区域右键放置音符",
-                Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-        }
+        writeText(`线号：${stateManager._state.currentJudgeLineNumber}，名称：${stateManager.currentJudgeLine.Name}`,
+            Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
+            Constants.EDITOR_VIEW_FIRST_LINE_Y,
+            Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+            "white",
+            true);
+        writeText(`音符数：${stateManager.currentJudgeLine.numOfNotes}，事件数：${stateManager.currentJudgeLine.numOfEvents}`,
+            Constants.EDITOR_VIEW_NOTES_VIEWBOX.middleX,
+            Constants.EDITOR_VIEW_SECOND_LINE_Y,
+            Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+            "white",
+            true);
     }
 
     /** 显示事件 */
     private renderEvents() {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
-        const settingsManager = store.useManager("settingsManager");
         const coordinateManager = store.useManager("coordinateManager");
         const mouseManager = store.useManager("mouseManager");
 
@@ -387,11 +372,11 @@ export default class EditorRenderer extends Manager {
             const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (column + 0.5) / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
 
             // 确保事件按时间顺序排列
-            checkAndSort<FullEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
+            // checkAndSort<AbstractEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
 
             // 给事件分组，首尾相连的事件为一组
-            const eventGroups: FullEvent[][] = [];
-            let currentGroup: FullEvent[] = [];
+            const eventGroups: AbstractEvent[][] = [];
+            let currentGroup: AbstractEvent[] = [];
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
 
@@ -409,12 +394,12 @@ export default class EditorRenderer extends Manager {
             for (let i = 0; i < eventGroups.length; i++) {
                 const group = eventGroups[i];
                 const minValue = (() => {
-                    if (group.every(event => isNumberEventLike(event))) {
+                    if (group.every(event => isNumberEvent(event))) {
                         return Math.min(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
                 const maxValue = (() => {
-                    if (group.every(event => isNumberEventLike(event))) {
+                    if (group.every(event => isNumberEvent(event))) {
                         return Math.max(...group.flatMap(x => [x.start, x.end]));
                     }
                 })();
@@ -488,7 +473,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示数字事件的曲线
-                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && isNumberEventLike(event)) {
+                    if (minValue !== undefined && maxValue !== undefined && minValue !== maxValue && isNumberEvent(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 5;
                         ctx.beginPath();
@@ -527,7 +512,7 @@ export default class EditorRenderer extends Manager {
                     }
 
                     // 显示颜色事件的渐变条
-                    else if (isColorEventLike(event)) {
+                    else if (isColorEvent(event)) {
                         ctx.strokeStyle = colorToString(Constants.EDITOR_VIEW_EVENT_LINE_COLOR);
                         ctx.lineWidth = 1;
                         for (let sec = startSeconds; sec <= endSeconds; sec += Constants.EDITOR_VIEW_EVENT_LINE_PRECISION) {
@@ -562,14 +547,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (isNumberEventLike(event)) {
+                        if (isNumberEvent(event)) {
                             writeText(event.start.toFixed(2),
                                 eventX,
                                 eventStartY - 1,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (isTextEventLike(event)) {
+                        else if (isTextEvent(event)) {
                             writeText(event.start,
                                 eventX,
                                 eventStartY - 1,
@@ -586,14 +571,14 @@ export default class EditorRenderer extends Manager {
                         ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 0;
-                        if (isNumberEventLike(event)) {
+                        if (isNumberEvent(event)) {
                             writeText(event.end.toFixed(2),
                                 eventX,
                                 eventEndY,
                                 Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
                                 Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
                         }
-                        else if (isTextEventLike(event)) {
+                        else if (isTextEvent(event)) {
                             writeText(event.end,
                                 eventX,
                                 eventEndY,
@@ -605,24 +590,24 @@ export default class EditorRenderer extends Manager {
                 }
             }
 
-            if (!(settingsManager._settings.bottomText === BottomText.Info)) {
-                continue;
-            }
             writeText(type, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
             if (type === "color") {
-                const event = findLastEvent(events as FullEvent<RGBcolor>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as ColorEvent;
                 const color: RGBcolor = event ? interpolateColorEventValue(event, seconds) : [255, 255, 255];
                 writeText(colorToHex(color), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, color, true);
             }
             else if (type === "text") {
-                const event = findLastEvent(events as FullEvent<string>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as TextEvent;
                 const text = event ? interpolateTextEventValue(event, seconds) : "";
 
                 // writeText(text, eventX, 860, 30, "white", false);
                 writeText(text, eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
             else {
-                const event = findLastEvent(events as FullEvent<number>[], seconds);
+                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const event = events[eventIndex] as NumberEvent;
                 let currentEventValue = event ? interpolateNumberEventValue(event, seconds) : undefined;
                 switch (type) {
                     case "scaleX":
@@ -637,22 +622,6 @@ export default class EditorRenderer extends Manager {
                 // writeText(currentEventValue.toFixed(2), eventX, 860, 30, "white", false);
                 writeText(currentEventValue.toFixed(2), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
-        }
-
-        if (settingsManager._settings.bottomText === BottomText.Hint) {
-            writeText("在此区域右键放置事件",
-                Constants.EDITOR_VIEW_EVENTS_VIEWBOX.middleX,
-                Constants.EDITOR_VIEW_FIRST_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
-                "white",
-                true);
-
-            writeText(`前往“设置>界面底部文字”以设置此位置显示的文字`,
-                canvas.width / 2,
-                Constants.EDITOR_VIEW_SECOND_LINE_Y,
-                Constants.EDITOR_VIEW_FONT_SIZE_SMALL,
-                "white",
-                true);
         }
     }
 

@@ -5,14 +5,15 @@
  */
 
 import { isObject, isNumber, isString, isArray } from "lodash";
-import { calculateDisplacement, EasingType } from "./easing";
+import { calculateDisplacement, easingFuncsIntegral, EasingType } from "./easing";
 import { BaseEventLayer, baseEventTypes, ExtendedEventLayer, extendedEventTypes, IBaseEventLayer, IExtendedEventLayer } from "./eventLayer";
 import { INote, Note } from "./note";
-import { AbstractEvent, getEasingFunctionOfNumberEvent, NumberEvent } from "./event";
+import { AbstractEvent, findLastEventIndex, getEasingFunctionOfNumberEvent, NumberEvent } from "./event";
 import { beatsCompare, BPM } from "./beats";
 import ChartError from "./error";
 import { isArrayOfNumbers } from "@/tools/typeTools";
 import { IObjectizable } from "./objectizable";
+import { insert } from "@/tools/algorithm";
 export interface JudgeLineExtendedOptions {
     BPMList: BPM[],
     judgeLineNumber: number
@@ -258,7 +259,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
             noteNumber: this.noteNumber++,
             id
         });
-        this.notes.push(newNote);
+        insert(this.notes, newNote, (x, y) => beatsCompare(x.startTime, y.startTime));
         this.errors.push(...newNote.errors);
         return newNote;
     }
@@ -273,6 +274,16 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
         this.eventLayers.push(newEventLayer);
         return newEventLayer;
     }
+
+    /**
+     * 创建一个事件层级，并添加垫底事件。若对应的参数为 undefined，则不添加垫底事件。
+     * @param x 添加的垫底 moveX 事件的值
+     * @param y 添加的垫底 moveY 事件的值
+     * @param angle 添加的垫底 rotate 事件的值
+     * @param alpha 添加的垫底 alpha 事件的值
+     * @param speed 添加的垫底 speed 事件的值
+     * @returns 这个事件层级
+     */
     createAnInitializedEventLayer(x?: number, y?: number, angle?: number, alpha?: number, speed?: number) {
         return new BaseEventLayer({
             moveXEvents: x === undefined ?
@@ -322,29 +333,14 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
         });
     }
 
-    /**
-     * 获取某一个时刻的 floor position。
-     * floor position 的解释：若在某一个时刻有一个音符A，第0拍处有一个音符B，A到B的距离就是这个时刻的 floor position。
-     * @param seconds 时刻，以秒为单位
-     * @returns floor position
-     */
-    getFloorPositionOfSeconds(seconds: number) {
-        let position = 0;
-
-        /**
-         * 遍历所有事件层计算累积位移
-         * 每个事件层独立计算位移后累加到总位置
-         */
+    recalculateSpeedQZH() {
         for (const layer of this.eventLayers) {
+            const qzh: number[] = [];
             let distance = 0;
-            let currentSeconds = 0;
             let currentVelocity = 0;
+            let currentSeconds = 0;
 
-            /**
-             * 按开始时间排序速度事件
-             * 确保事件处理顺序正确
-             */
-            const speedEvents = layer.speedEvents.sort((event1, event2) => beatsCompare(event1.startTime, event2.startTime));
+            const speedEvents = layer.speedEvents;
 
             /**
              * 处理每个速度事件的时间段
@@ -358,75 +354,115 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                  * 因为这个事件的时间非法，有可能会出现错误
                  */
                 if (startSeconds >= endSeconds) {
+                    qzh.push(distance);
                     continue;
-                }
-
-                /**
-                 * 跳过开始时间在目标时间之后的事件
-                 * 后续事件必然在更晚时间发生，直接终止循环
-                 */
-                if (startSeconds >= seconds) {
-                    break;
                 }
 
                 /**
                  * 处理事件前的匀速运动阶段
                  * 计算当前时间段内的匀速运动位移
                  */
-                if (startSeconds > currentSeconds) {
-                    const duration = Math.min(startSeconds - currentSeconds, seconds - currentSeconds);
-                    distance += currentVelocity * duration * SPEED_RATIO;
-                    currentSeconds += duration;
-
-                    if (currentSeconds >= seconds) {
-                        break;
-                    }
-                }
+                const linearDuration = startSeconds - currentSeconds;
+                distance += currentVelocity * linearDuration * SPEED_RATIO;
+                currentSeconds += linearDuration;
 
                 /**
                  * 处理当前事件时间段内的变速运动
                  * 计算加速度和位移
                  */
-                const effectiveEndTime = Math.min(endSeconds, seconds);
-                const duration = effectiveEndTime - startSeconds;
+                const duration = endSeconds - startSeconds;
                 const acceleration = (end - start) / (endSeconds - startSeconds);
 
-                // eslint-disable-next-line no-magic-numbers
                 const displacement = (() => {
-                    if (seconds <= startSeconds) return 0;
-                    if (event.easingType === EasingType.Linear) {
-                        return (start * duration + 0.5 * acceleration * duration * duration) * SPEED_RATIO;
+                    const f = easingFuncsIntegral[event.easingType];
+                    if (f !== undefined) {
+                        // 直接采用公式计算
+                        const mappedT = duration / (endSeconds - startSeconds);
+                        return (start * duration + (f(mappedT) - f(0)) * (endSeconds - startSeconds) * (end - start)) * SPEED_RATIO;
                     }
                     else {
+                        // 数值计算
                         return calculateDisplacement(
                             getEasingFunctionOfNumberEvent(event),
                             startSeconds,
                             endSeconds,
                             start,
                             end,
-                            effectiveEndTime
+                            endSeconds
                         ) * SPEED_RATIO;
                     }
                 })();
 
                 distance += displacement;
                 currentVelocity = start + acceleration * duration;
-                currentSeconds = effectiveEndTime;
+                currentSeconds = endSeconds;
+                qzh.push(distance);
+            }
+            layer.cachedSpeedQZH = qzh;
+        }
+    }
 
-                if (currentSeconds >= seconds) {
-                    break;
-                }
+    /**
+     * 获取某一个时刻的 floor position。
+     * floor position 的解释：若在某一个时刻有一个音符A，第0拍处有一个音符B，A到B的距离就是这个时刻的 floor position。
+     * @param seconds 时刻，以秒为单位
+     * @returns floor position
+     */
+    getFloorPositionOfSeconds(seconds: number) {
+        let position = 0;
+        for (const layer of this.eventLayers) {
+            if (layer.cachedSpeedQZH === undefined) {
+                this.recalculateSpeedQZH();
+                break;
+            }
+        }
+
+        /**
+         * 遍历所有事件层计算累积位移
+         * 每个事件层独立计算位移后累加到总位置
+         */
+        for (const layer of this.eventLayers) {
+            const lastEventIndex = findLastEventIndex(layer.speedEvents, seconds);
+            if (lastEventIndex === -1) {
+                continue;
             }
 
-            /**
-             * 处理最后的恒定速度阶段
-             * 所有事件处理完成后剩余时间的匀速运动
-             */
-            if (currentSeconds < seconds) {
-                const duration = seconds - currentSeconds;
-                distance += currentVelocity * duration * SPEED_RATIO;
+            const qzhValue = layer.cachedSpeedQZH?.at(lastEventIndex) ?? 0;
+            const lastEvent = layer.speedEvents[lastEventIndex];
+            const { cachedStartSeconds: startSeconds, cachedEndSeconds: endSeconds, start, end } = lastEvent ?? {
+                cachedStartSeconds: 0,
+                cachedEndSeconds: 0,
+                start: 0,
+                end: 0
+            };
+            if (seconds > endSeconds) {
+                const linearValue = (seconds - endSeconds) * end * SPEED_RATIO;
+                position += qzhValue + linearValue;
             }
-            position += distance;
+            else {
+                const duration = seconds - startSeconds;
+                const extraValue = (() => {
+                    const f = easingFuncsIntegral[lastEvent.easingType];
+                    if (f !== undefined) {
+                        // 直接采用公式计算
+                        const mappedT = duration / (endSeconds - startSeconds);
+                        return (start * (endSeconds - seconds) + (f(1) - f(mappedT)) * (endSeconds - startSeconds) * (end - start)) * SPEED_RATIO;
+                    }
+                    else {
+                        // 数值计算
+                        return calculateDisplacement(
+                            getEasingFunctionOfNumberEvent(lastEvent),
+                            startSeconds,
+                            endSeconds,
+                            start,
+                            end,
+                            seconds,
+                            true
+                        ) * SPEED_RATIO;
+                    }
+                })();
+                position += qzhValue - extraValue;
+            }
         }
         return position;
     }

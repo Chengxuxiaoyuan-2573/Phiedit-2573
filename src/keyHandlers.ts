@@ -8,6 +8,7 @@ import globalEventEmitter, { GlobalEventMap } from "./eventEmitter";
 import { NoteType } from "./models/note";
 import { isArray, isObject, isString } from "lodash";
 import KeyboardUtils from "./tools/keyboardUtils";
+import store from "./store";
 
 const keyConfigs = {
     Space: "TOGGLE_PLAY",
@@ -71,10 +72,29 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
         }
     }
 
-    const EMPTY_FUNCTION = () => { };
+    const keydownup = (() => {
+        if (type === "keydown") {
+            return () => {
+                store.pressedKeys.add(e.key);
+                globalEventEmitter.emit("KEYDOWN", e.key);
+            };
+        }
+        else {
+            return () => {
+                store.pressedKeys.delete(e.key);
+                globalEventEmitter.emit("KEYUP", e.key);
+            };
+        }
+    })();
+
+    const stateManager = store.useManager("stateManager");
+
+    if (!stateManager._state.autoplay) {
+        return keydownup;
+    }
 
     if (!(key in keyConfigs)) {
-        return EMPTY_FUNCTION;
+        return keydownup;
     }
 
     let keyConfig: B = keyConfigs[key as keyof typeof keyConfigs];
@@ -84,18 +104,20 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
     }
     else {
         if (type === "keyup") {
-            return EMPTY_FUNCTION;
+            return keydownup;
         }
     }
 
     if (isString(keyConfig)) {
         return () => {
+            keydownup();
             globalEventEmitter.emit(keyConfig);
         };
     }
     else {
         const eventName = keyConfig[0];
         return () => {
+            keydownup();
             globalEventEmitter.emit(eventName, ...keyConfig.slice(1) as never);
         };
     }

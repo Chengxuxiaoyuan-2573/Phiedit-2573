@@ -302,7 +302,7 @@ import MyInput from "@/myElements/MyInput.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import { isColorEventLike, isEventLike, isNumberEventLike, isTextEventLike } from "@/models/event";
+import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/event";
 import { describeBeats } from "@/models/beats";
 const props = defineProps<{
     titleTeleport: string
@@ -383,6 +383,26 @@ const noteOptions = [
         label: "结束时间",
         text: "结束时间",
         value: "endTime",
+    },
+    {
+        label: "判定范围",
+        text: "判定范围",
+        value: "judgeArea",
+    },
+    {
+        label: "颜色",
+        text: "颜色",
+        value: "tint",
+    },
+    {
+        label: "打击特效颜色",
+        text: "打击特效颜色",
+        value: "tintHitEffects",
+    },
+    {
+        label: "打击音效",
+        text: "打击音效",
+        value: "hitsound",
     }
 ] as const;
 
@@ -446,7 +466,13 @@ const paramType = computed(() => {
         else if (stateManager.cache.mutipleEdit.attributeNote === "type") {
             return "NoteType";
         }
-        return  "number";
+        else if (stateManager.cache.mutipleEdit.attributeNote === "hitsound") {
+            return "text";
+        }
+        else if (stateManager.cache.mutipleEdit.attributeNote === "tint" || stateManager.cache.mutipleEdit.attributeNote === "tintHitEffects") {
+            return "color";
+        }
+        return "number";
     }
     else {
         if (stateManager.cache.mutipleEdit.attributeEvent === "startTime" || stateManager.cache.mutipleEdit.attributeEvent === "endTime" || stateManager.cache.mutipleEdit.attributeEvent === "bothTime") {
@@ -456,13 +482,13 @@ const paramType = computed(() => {
             return "easing";
         }
         else {
-            if (selectionManager.selectedElements.every(isNumberEventLike)) {
+            if (selectionManager.selectedElements.every(isNumberEvent)) {
                 return "number";
             }
-            else if (selectionManager.selectedElements.every(isColorEventLike)) {
+            else if (selectionManager.selectedElements.every(isColorEvent)) {
                 return "color";
             }
-            else if (selectionManager.selectedElements.every(isTextEventLike)) {
+            else if (selectionManager.selectedElements.every(isTextEvent)) {
                 return "text";
             }
             else {
@@ -545,6 +571,14 @@ const description = computed(() => {
                     return "起始时间";
                 case "endTime":
                     return "结束时间";
+                case "judgeArea":
+                    return "判定范围";
+                case "tint":
+                    return "颜色";
+                case "tintHitEffects":
+                    return "打击特效颜色";
+                case "hitsound":
+                    return "打击音效";
             }
         }
         else {
@@ -659,7 +693,7 @@ function selectionUpdateHandler() {
     if (selectedElements.every(element => isNoteLike(element))) {
         stateManager.cache.mutipleEdit.type = "note";
     }
-    else if (selectedElements.every(element => isEventLike(element))) {
+    else if (selectedElements.every(element => isEvent(element))) {
         stateManager.cache.mutipleEdit.type = "event";
         stateManager.cache.mutipleEdit.eventTypes.length = 0;
         for (const event of selectedElements) {

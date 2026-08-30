@@ -170,7 +170,7 @@
 </template>
 <script setup lang="ts">
 import MyButton from "@/myElements/MyButton.vue";
-import { Bezier, IEvent, IEventExtendedOptions } from "../models/event";
+import { Bezier, eventAttributes, IEvent, IEventExtendedOptions } from "../models/event";
 import MyInput from "../myElements/MyInput.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
@@ -204,17 +204,7 @@ interface EventExtends {
     easingLeftRight: number[];
 }
 const seperator = " ";
-const attributes = [
-    "startTime",
-    "endTime",
-    "start",
-    "end",
-    "bezier",
-    "bezierPoints",
-    "easingType",
-    "easingLeft",
-    "easingRight"
-] as const;
+const attributes = eventAttributes;
 const historyManager = store.useManager("historyManager");
 const canvas = store.useCanvas();
 

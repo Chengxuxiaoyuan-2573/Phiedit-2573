@@ -79,7 +79,7 @@
 import Constants from "@/constants";
 import globalEventEmitter from "@/eventEmitter";
 import { SelectableElement } from "@/models/element";
-import { isEventLike } from "@/models/event";
+import { isEvent } from "@/models/event";
 import { isNoteLike, NoteType } from "@/models/note";
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";
@@ -115,7 +115,7 @@ const errorTypes = [
 const errorNumberShowedDetails = ref(-1);
 function goto(object: SelectableElement) {
     stateManager.state.currentJudgeLineNumber = object.judgeLineNumber;
-    if (isEventLike(object)) {
+    if (isEvent(object)) {
         stateManager.state.currentEventLayerId = object.eventLayerId;
     }
 

@@ -235,25 +235,24 @@ export class ExpressionCalculator {
     }
 }
 
-// export function binarySearchInsertIndex<T>(arr: T[], target: T, compareFn: (a: T, b: T) => number): number {
-//     let left = 0;
-//     let right = arr.length - 1;
+export function insert<T>(arr: T[], target: T, compareFn: (a: T, b: T) => number) {
+    let left = 0;
+    let right = arr.length - 1;
 
-//     while (left <= right) {
-//         const mid = Math.floor((left + right) / 2);
-//         const comparison = compareFn(arr[mid], target);
+    while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const comparison = compareFn(arr[mid], target);
 
-//         if (comparison < 0) {
-//             left = mid + 1;
-//         } else if (comparison > 0) {
-//             right = mid - 1;
-//         } else {
-//             return mid; // 如果找到相同元素，插入到该位置
-//         }
-//     }
+        if (comparison <= 0) {
+            left = mid + 1;
+        }
+        else {
+            right = mid - 1;
+        }
+    }
+    arr.splice(left, 0, target);
+}
 
-//     return left; // 返回插入位置
-// }
 export function sortAndForEach<T>(a: T[], compare: (a: T, b: T) => number, forEach: (value: T, index: number) => void) {
     // 创建一个包含元素及其原始下标的数组
     const indexedArray = a.map((value, index) => ({ value, index }));

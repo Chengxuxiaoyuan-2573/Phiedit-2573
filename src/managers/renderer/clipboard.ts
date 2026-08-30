@@ -10,7 +10,7 @@ import { createCatchErrorByMessage } from "@/tools/catchError";
 import store from "@/store";
 import Manager from "./abstract";
 import { reactive } from "vue";
-import { isEventLike, isNumberEventLike } from "@/models/event";
+import { isEvent, isNumberEvent } from "@/models/event";
 import { SelectableElement } from "@/models/element";
 import { isNoteLike } from "@/models/note";
 
@@ -82,7 +82,7 @@ export default class ClipboardManager extends Manager {
         const isSameBaseEventLayer = (() => {
             let event = null;
             for (const element of this.clipboard) {
-                if (isEventLike(element)) {
+                if (isEvent(element)) {
                     if (event !== null && element.eventLayerId !== event.eventLayerId || element.eventLayerId === "X") {
                         return false;
                     }
@@ -124,7 +124,7 @@ export default class ClipboardManager extends Manager {
                 element.positionX = -element.positionX;
             }
             else {
-                if (isNumberEventLike(element) && (element.type === "moveX" || element.type === "moveY" || element.type === "rotate")) {
+                if (isNumberEvent(element) && (element.type === "moveX" || element.type === "moveY" || element.type === "rotate")) {
                     historyManager.recordModifyEvent(element.id, "start", -element.start, element.start);
                     historyManager.recordModifyEvent(element.id, "end", -element.end, element.end);
                     element.start = -element.start;

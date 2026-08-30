@@ -35,7 +35,7 @@
     2. 在输入框内输入提交信息，然后点击“Commit”按钮（第2步）
     3. 再点击“Sync Changes”或“Publish Branch”按钮（第3步）。
 
-11. 在 GitHub 上给我提交 Pull Request 并等待审核。若审核通过，我会把你 Fork 的仓库上的修改合并到我的仓库。我会根据 [Pull Request 审核标准](#pull-request-审核标准) 审核你的 Pull Request。
+11. 在 GitHub 上给我提交 Pull Request 并等待审核。（**目标分支一定要是 dev 分支！**）若审核通过，我会把你 Fork 的仓库上的修改合并到我的仓库。我会根据 [Pull Request 审核标准](#pull-request-审核标准) 审核你的 Pull Request。
 
 ## 文件目录结构解释
 
@@ -190,6 +190,10 @@ Pull Request 的目标分支必须是 dev（开发分支），而非 master（�
 - 要遵循 [commit 通用规范](https://www.conventionalcommits.org/zh-hans/)。
 - commit 信息的第一行结尾不加标点符号。
 
+### 其他
+
+- 不要擅自修改软件名称和版本号。
+
 ## 开发建议
 
 - 建议不要轻易升级或降级依赖，因为这可能会带来一些非常难解决的问题，例如编译不通过或者一打开就报错等等。
@@ -245,4 +249,6 @@ Pull Request 的目标分支必须是 dev（开发分支），而非 master（�
 
 ## 贡献者名单
 
-就我自己一个人 ~~（那还写这么长的文档有啥用）~~
+除了我以外，还有 1 人参与了贡献：
+
+[uzjhf-836](https://github.com/uzjhf-836)

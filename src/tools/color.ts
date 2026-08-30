@@ -96,7 +96,7 @@ export function parseRGBcolor(color: string): RGBcolor | null {
             return null;
         }
 
-        const r = +split[0], g = +split[1], b = +split[2];
+        const r = parseInt(split[0]), g = parseInt(split[1]), b = parseInt(split[2]);
         if (isNaN(r) || isNaN(g) || isNaN(b)) {
             return null;
         }
