@@ -207,22 +207,7 @@ export default class JudgeManager extends Manager {
             if (note.type === NoteType.Drag || note.type === NoteType.Flick) {
                 if (note.hitSeconds === undefined && note.prejudgedSeconds !== undefined && seconds >= startSeconds) {
                     note.hit(seconds);
-                    switch (note.hitsound) {
-                        case undefined:
-                            resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
-                            break;
-                        case "tap.mp3":
-                            resourcePackage.playSound(store.audioContext, NoteType.Tap, settingsManager._settings.hitSoundVolume);
-                            break;
-                        case "drag.mp3":
-                            resourcePackage.playSound(store.audioContext, NoteType.Drag, settingsManager._settings.hitSoundVolume);
-                            break;
-                        case "flick.mp3":
-                            resourcePackage.playSound(store.audioContext, NoteType.Flick, settingsManager._settings.hitSoundVolume);
-                            break;
-                        default:
-                            console.error(`WHAT??? (${note.hitsound})`);
-                    }
+                    resourcePackage.playSound(store.audioContext, note.hitSoundType, settingsManager._settings.hitSoundVolume);
                     this.judgeInfo.combo++;
                 }
             }

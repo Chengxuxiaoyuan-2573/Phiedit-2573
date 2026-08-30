@@ -7,7 +7,6 @@
 import store from "@/store";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
-import { NoteType } from "@/models/note";
 
 export default class AutoplayManager extends Manager {
     constructor() {
@@ -40,22 +39,7 @@ export default class AutoplayManager extends Manager {
                         if (hitted === "SUCCESS") {
                             // 为防止出现奇怪的打击音效，检查音频是否在播放中，只有播放中的时候才播放打击音效
                             if (audioIsPlaying) {
-                                switch (note.hitsound) {
-                                    case undefined:
-                                        resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
-                                        break;
-                                    case "tap.mp3":
-                                        resourcePackage.playSound(store.audioContext, NoteType.Tap, settingsManager._settings.hitSoundVolume);
-                                        break;
-                                    case "drag.mp3":
-                                        resourcePackage.playSound(store.audioContext, NoteType.Drag, settingsManager._settings.hitSoundVolume);
-                                        break;
-                                    case "flick.mp3":
-                                        resourcePackage.playSound(store.audioContext, NoteType.Flick, settingsManager._settings.hitSoundVolume);
-                                        break;
-                                    default:
-                                        console.error(`WHAT??? (${note.hitsound})`);
-                                }
+                                resourcePackage.playSound(store.audioContext, note.hitSoundType, settingsManager._settings.hitSoundVolume);
                             }
                         }
                     }

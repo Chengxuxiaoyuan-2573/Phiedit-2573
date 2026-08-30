@@ -89,6 +89,12 @@ export function isNoteLike(value: unknown): value is INote {
     return "isNote" in value;
 }
 
+const noteHitSoundMap: Record<string, NoteType> = {
+    ["tap.mp3"]: NoteType.Tap,
+    ["drag.mp3"]: NoteType.Drag,
+    ["flick.mp3"]: NoteType.Flick
+};
+
 const
     TAP_PERFECT = 0.08,
     TAP_GOOD = 0.16,
@@ -164,6 +170,13 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
             tintHitEffects: this.tintHitEffects?.map(Math.round) as RGBcolor | undefined,
             hitsound: this.hitsound
         };
+    }
+
+    get hitSoundType() {
+        if (this.hitsound === undefined) {
+            return this.type;
+        }
+        return noteHitSoundMap[this.hitsound] ?? NoteType.Tap;
     }
     hitSeconds: number | undefined = undefined;
 

@@ -1141,7 +1141,7 @@ async function renderVideo() {
             .getAllNotes()
             .filter(note => !note.isFake)
             .map(note => ({
-                type: note.type,
+                type: note.hitSoundType,
                 time: note.cachedStartSeconds + chart.META.offset / SEC_TO_MS
             })));
 
