@@ -263,8 +263,11 @@
                                 v-if="isRenderingVideo"
                                 class="export-options"
                             >
-                                <span>{{ videoRenderingProgress.message }}（剩余{{
-                                    MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）</span>
+                                <p>
+                                    {{ videoRenderingProgress.message }}（剩余{{
+                                        MathUtils.formatTime(videoRenderingProgress.remainingTime) }}）
+                                </p>
+                                <p>渲染过程中请不要将电脑锁屏或关机</p>
                                 <ElProgress
                                     :percentage="clamp(MathUtils.round(videoRenderingProgress.percent, 2), 0, 100)"
                                 />
@@ -280,6 +283,7 @@
                                 class="export-options"
                             >
                                 渲染完成！
+                                渲染谱面用时：{{ MathUtils.formatTime(renderVideoTime / 1000) }}
                                 <MyButton
                                     type="primary"
                                     @click="close()"
@@ -993,9 +997,12 @@ const videoRenderingProgress = reactive({
     remainingTime: 0
 });
 
+const renderVideoTime = ref(0);
+
 let windowIsFocused = true;
 let cachedRect: DOMRect;
 let canvasIsRendering = true;
+let renderStartTime: number;
 
 function playChart() {
     stateManager.state.autoplay = false;
@@ -1051,6 +1058,7 @@ async function renderVideo() {
 
     try {
         pauseRenderLoop();
+        renderStartTime = Date.now();
         const chartName = store.chartPackageRef.value?.chart.META.name || "untitled";
         const filePath = await window.electronAPI.showSaveVideoDialog(chartName);
         if (!filePath) {
@@ -1104,6 +1112,7 @@ async function renderVideo() {
                     setTimeout(() => reject(new Error("视频渲染完成超时")), TIMEOUT * SEC_TO_MS)
                 )
             ]);
+            renderVideoTime.value = Date.now() - renderStartTime;
         }, undefined, false);
 
         // 开始处理

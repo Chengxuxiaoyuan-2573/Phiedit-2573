@@ -14,7 +14,7 @@ import fs from "fs";
 import { NoteType } from "@/models/note";
 import { isString } from "lodash";
 import JSZip from "jszip";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, powerSaveBlocker } from "electron";
 
 export interface RenderingConfig {
 
@@ -48,6 +48,7 @@ const CHANNEL_LAYOUT = "stereo";
 
 class VideoRenderer extends Manager {
     ffmpegProcess: ChildProcessWithoutNullStreams | null = null;
+    powerSaveBlockerId: number | null = null;
     constructor() {
         super();
     }
@@ -62,6 +63,47 @@ class VideoRenderer extends Manager {
         }
 
         return ffmpegPath;
+    }
+
+    private setupBlocker() {
+        // 关闭后台节流
+        for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.setBackgroundThrottling(false);
+        }
+
+        // 开启电源锁
+        if (this.powerSaveBlockerId === null) {
+            this.powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+        }
+    }
+
+    /**
+     * 统一清理 FFmpeg 进程并恢复所有窗口的后台节流
+     */
+    private cleanupAndRestore() {
+        if (this.ffmpegProcess) {
+            try {
+                this.ffmpegProcess.stdin.removeAllListeners();
+                this.ffmpegProcess.stdout.destroy();
+                this.ffmpegProcess.stderr.destroy();
+                this.ffmpegProcess.kill("SIGKILL");
+            }
+            catch (e) {
+                console.error("清理 FFmpeg 进程时出错", e);
+            }
+            this.ffmpegProcess = null;
+        }
+
+        // 恢复后台节流
+        for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.setBackgroundThrottling(true);
+        }
+
+        // 关闭电源锁
+        if (this.powerSaveBlockerId !== null) {
+            powerSaveBlocker.stop(this.powerSaveBlockerId);
+            this.powerSaveBlockerId = null;
+        }
     }
     async start({ chartId, fps, outputPath, startTime, endTime }: RenderingConfig) {
         const chartPath = filesManager.getChartPath(chartId);
@@ -121,6 +163,7 @@ class VideoRenderer extends Manager {
                 if (output.includes("ffmpeg version")) {
                     isProcessReady = true;
                     clearTimeout(startupTimeout);
+                    this.setupBlocker();
 
                     resolve();
                 }
@@ -233,29 +276,17 @@ class VideoRenderer extends Manager {
                 throw new Error("FFmpeg 进程未启动");
             }
 
-            // 1. 添加多重终止机制
-            const cleanup = () => {
-                if (this.ffmpegProcess) {
-                    try {
-                        this.ffmpegProcess.stdin.removeAllListeners();
-                        this.ffmpegProcess.stdout.destroy();
-                        this.ffmpegProcess.stderr.destroy();
-                        this.ffmpegProcess.kill("SIGKILL");
-                    }
-                    catch (e) {
-                        console.error("清理FFmpeg进程时出错", e);
-                    }
-                    this.ffmpegProcess = null;
-                }
-            };
             this.ffmpegProcess.stdin.end();
 
             this.ffmpegProcess.on("close", async (code) => {
-                cleanup();
+                this.cleanupAndRestore();
                 if (code === 0) {
                     const stats = fs.statSync(outputPath);
                     if (stats.size > 0) {
                         this.ffmpegProcess = null;
+                        for (const win of BrowserWindow.getAllWindows()) {
+                            win.webContents.setBackgroundThrottling(true);
+                        }
                         resolve(outputPath);
                     }
                     else {
@@ -267,25 +298,17 @@ class VideoRenderer extends Manager {
                 }
             });
             this.ffmpegProcess.on("error", (err) => {
-                cleanup();
+                this.cleanupAndRestore();
                 reject(`导出视频后 FFmpeg 错误：${err.message}`);
             });
         });
     }
     async cancel() {
-        if (this.ffmpegProcess) {
-            const isSucceeded = this.ffmpegProcess.kill();
-
-            await filesManager.clearDir(filesManager.getTempPath("hitSoundMerge"))
-                .catch((error) => {
-                    console.error(`无法清空缓存目录：${error}`);
-                });
-
-            if (!isSucceeded) {
-                throw new Error("无法终止 FFmpeg 进程");
-            }
-            this.ffmpegProcess = null;
-        }
+        this.cleanupAndRestore();
+        await filesManager.clearDir(filesManager.getTempPath("hitSoundMerge"))
+            .catch((error) => {
+                console.error(`无法清空缓存目录：${error}`);
+            });
     }
 
     /**
