@@ -245,6 +245,12 @@
                     </MyButton>
                     <MyButton
                         type="primary"
+                        @click="openTipsFolder"
+                    >
+                        打开 tips.txt 文件夹
+                    </MyButton>
+                    <MyButton
+                        type="primary"
                         @click="checkForUpdates"
                     >
                         检查更新
@@ -765,7 +771,7 @@ const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
 
-/** tip 完全来自软件根目录的 tips.txt（文件缺失或为空时显示空白） */
+/** tip 完全来自 tips.txt（打包版放在 AppData 里；文件缺失或为空时显示空白） */
 const allTips = ref<string[]>([]);
 const getRandomTip = () => allTips.value.length === 0 ? "" : allTips.value[Math.floor(Math.random() * allTips.value.length)];
 const tip = ref(getRandomTip());
@@ -777,7 +783,7 @@ const judgeLineFilter = ref("");
 const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
-    // 读取软件根目录 tips.txt 中的 tip，存在时以文件内容为准
+    // 读取 tips.txt 中的 tip，存在时以文件内容为准
     window.electronAPI.readTips().then(({ tips, created }) => {
         if (created) {
             // 用户删除了 tips.txt：先显示俏皮提示，之后用自动重建的默认 tips 轮换
@@ -1025,6 +1031,11 @@ function checkForUpdates() {
 /** 打开谱面文件夹 */
 function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
+}
+
+/** 打开 tips.txt 所在的文件夹 */
+function openTipsFolder() {
+    window.electronAPI.openTipsFolder();
 }
 
 /** 渲染为视频 */

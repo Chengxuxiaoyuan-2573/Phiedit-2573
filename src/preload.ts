@@ -42,6 +42,7 @@ const electronAPI: ElectronAPI = {
     saveSettings: (settings: typeof defaultSettings) => ipcRenderer.invoke("save-settings", settings),
     addTextures: (chartId, texturePaths) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
     openChartFolder: (path) => ipcRenderer.invoke("open-chart-folder", path),
+    openTipsFolder: () => ipcRenderer.invoke("open-tips-folder"),
     renameChartId: (chartId, newChartId) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
     loadShaderFile: (shaderName) => ipcRenderer.invoke("load-shader-file", shaderName),
     openExternalLink: (url) => ipcRenderer.invoke("open-external-link", url),
@@ -143,7 +144,7 @@ interface ElectronAPI {
     /** 永久删除谱面 */
     permentlyDeleteChart: (chartId: string) => Promise<void>
 
-    /** 读取软件根目录 tips.txt 的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
+    /** 读取 tips.txt（打包版在 AppData 里）的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
     readTips: () => Promise<{ tips: string[]; created: boolean }>
 
     /** 读取谱面列表 */
@@ -205,6 +206,9 @@ interface ElectronAPI {
 
     /** 打开谱面文件夹 */
     openChartFolder: (chartId: string) => Promise<void>
+
+    /** 打开 tips.txt 所在的文件夹 */
+    openTipsFolder: () => Promise<void>
 
     /** 重命名谱面 ID */
     renameChartId: (chartId: string, newChartId: string) => Promise<void>
