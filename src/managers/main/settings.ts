@@ -25,6 +25,10 @@ class SettingsManager extends Manager {
     }
 
     async readSettings(): Promise<object> {
+        // 首次启动 settings.json 还不存在，直接回落默认值（渲染端会用 defaultSettings 兜底缺失键）
+        if (!fs.existsSync(this.settingsFile)) {
+            return {};
+        }
         const text = await fs.promises.readFile(this.settingsFile, Constants.ENCODING);
         try {
             return JSON.parse(text);
