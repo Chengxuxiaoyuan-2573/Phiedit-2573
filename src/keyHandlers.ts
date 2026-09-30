@@ -23,6 +23,7 @@ const keyConfigs = {
     D: "NEXT_JUDGE_LINE",
     Esc: "UNSELECT_ALL",
     Del: "DELETE",
+    Backspace: "DELETE",
     Up: "MOVE_UP",
     Down: "MOVE_DOWN",
     Left: "MOVE_LEFT",
@@ -49,6 +50,16 @@ const keyConfigs = {
     "Ctrl Shift V": "REPEAT",
     "Ctrl Z": "UNDO",
     "Ctrl Y": "REDO",
+
+    // Meta（macOS Command 键）
+    "Meta Z": "UNDO",
+    "Meta Y": "REDO",
+    "Meta Shift Z": "REDO",
+    "Meta A": "SELECT_ALL",
+    "Meta C": "COPY",
+    "Meta V": "PASTE",
+    "Meta X": "CUT",
+    "Meta S": "SAVE",
     "Ctrl D": "DISABLE",
     "Ctrl E": "ENABLE",
 
@@ -66,11 +77,6 @@ type B = A | {
 }
 export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup") {
     const key = KeyboardUtils.formatKey(e);
-    if (key.startsWith("Ctrl")) {
-        if (key !== "Ctrl R" && key !== "Ctrl Shift I") {
-            e.preventDefault();
-        }
-    }
 
     const keydownup = (() => {
         if (type === "keydown") {
@@ -86,6 +92,18 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
             };
         }
     })();
+
+    // 焦点位于输入框/文本框内时，保留浏览器与输入框的原生行为（文本撤销、删除字符等），
+    // 不触发谱面快捷键，以免误删选中的 note 或误撤销画布
+    if (KeyboardUtils.isEditableTarget(e)) {
+        return keydownup;
+    }
+
+    if (key.startsWith("Ctrl") || key.startsWith("Meta")) {
+        if (key !== "Ctrl R" && key !== "Ctrl Shift I" && key !== "Meta R" && key !== "Meta Shift I") {
+            e.preventDefault();
+        }
+    }
 
     const stateManager = store.useManager("stateManager");
 
