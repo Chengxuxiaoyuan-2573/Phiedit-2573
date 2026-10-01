@@ -198,6 +198,9 @@ export default class MouseManager extends Manager {
                     const beats = coordinateManager.attatchY(y);
                     if (isNoteLike(firstElement)) {
                         firstElement.startTime = beats;
+                        if (firstElement.type !== NoteType.Hold) {
+                            firstElement.endTime = beats;
+                        }
                         firstElement.positionX = coordinateManager.attatchX(x);
                     }
                     else {
@@ -223,6 +226,9 @@ export default class MouseManager extends Manager {
                     const beats = coordinateManager.attatchY(y);
                     if (isNoteLike(firstElement)) {
                         firstElement.endTime = beats;
+                        if (firstElement.type !== NoteType.Hold) {
+                            firstElement.startTime = beats;
+                        }
                         firstElement.positionX = coordinateManager.attatchX(x);
                     }
                     else {
