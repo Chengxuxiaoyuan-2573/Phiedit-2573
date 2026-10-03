@@ -9,6 +9,7 @@
 
 import { app, protocol, BrowserWindow, ipcMain, shell } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
+import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { autoUpdater } from "electron-updater";
