@@ -39,21 +39,56 @@ protocol.registerSchemesAsPrivileged([
     { scheme: "app", privileges: { secure: true, standard: true } }
 ]);
 
+/**
+ * 获取 tips.txt 的路径。里面的内容会显示在右下角，用户可以用它自定义 tip。
+ *
+ * 打包版放在 userData（AppData）里：软件通常被装在 Program Files 这类只读目录中，
+ * 往那儿写文件需要管理员权限、还会弹出 UAC 提示，所以不能放在软件根目录。
+ * 开发环境仍然读项目根目录下的 tips.txt，方便调试。
+ */
+function getTipsPath() {
+    return app.isPackaged ?
+
+        // 生产环境：用户数据目录
+        path.join(app.getPath("userData"), "tips.txt") :
+
+        // 开发环境：项目根目录
+        path.join(process.cwd(), "tips.txt");
+}
+
+/**
+ * 老版本会把 tips.txt 写在软件安装目录里。改用 userData 之后，首次启动时把它复制到新位置，
+ * 免得用户自己写的 tip 丢失。
+ * @param tipsPath tips.txt 的新路径
+ */
+function migrateLegacyTips(tipsPath: string) {
+    const legacyTipsPath = path.join(path.dirname(app.getPath("exe")), "tips.txt");
+    try {
+        if (!fs.existsSync(legacyTipsPath)) {
+            return;
+        }
+        fs.copyFileSync(legacyTipsPath, tipsPath);
+        console.log(`已将安装目录下的 tips.txt 迁移到 ${tipsPath}`);
+    }
+    catch (error) {
+        // 安装目录可能连读权限都没有，迁移失败就退回到默认 tip
+        console.error("迁移旧 tips.txt 失败：", error);
+    }
+}
+
 async function createWindow() {
     ipcMain.handle("get-version", async () => {
         return app.getVersion();
     });
 
     ipcMain.handle("read-tips", async () => {
-        // 软件根目录下的 tips.txt，用户可以用来自定义右下角的 tip
-        const tipsPath = app.isPackaged ?
-
-            // 生产环境：软件根目录（exe 所在目录）
-            path.join(path.dirname(app.getPath("exe")), "tips.txt") :
-
-            // 开发环境：项目根目录
-            path.join(process.cwd(), "tips.txt");
+        const tipsPath = getTipsPath();
         try {
+            // 老版本把 tips.txt 写在软件安装目录里，首次启动时先把它搬到新位置
+            if (app.isPackaged && !fs.existsSync(tipsPath)) {
+                migrateLegacyTips(tipsPath);
+            }
+
             // 检测不到 tips.txt：自动用默认内容重建文件，并让渲染进程先显示一条俏皮提示
             if (!fs.existsSync(tipsPath)) {
                 try {
@@ -203,6 +238,10 @@ async function createWindow() {
 
     ipcMain.handle("open-chart-folder", async (event, chartId: string) => {
         return await shell.openPath(filesManager.getChartPath(chartId));
+    });
+
+    ipcMain.handle("open-tips-folder", async () => {
+        return await shell.openPath(path.dirname(getTipsPath()));
     });
 
     ipcMain.handle("load-shader-file", async (event, shaderName: string) => {
@@ -356,48 +395,7 @@ app.on("activate", () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-
-/** 当前进程是否以管理员权限运行 */
-function isElevated(): Promise<boolean> {
-    return new Promise((resolve) => {
-        // net session 命令只有管理员权限才能成功
-        execFile("net", ["session"], { windowsHide: true }, (error) => resolve(!error));
-    });
-}
-
-/**
- * 以管理员权限重新启动本程序（会弹出 UAC 授权窗口）。
- * 用户拒绝授权时会调用 onDenied，让程序照常启动。
- */
-function relaunchAsAdmin(onDenied: () => void) {
-    const exePath = app.getPath("exe");
-    execFile("powershell.exe", [
-        "-NoProfile",
-        "-WindowStyle", "Hidden",
-        "-Command", `Start-Process -FilePath '${exePath}' -Verb RunAs`
-    ], { windowsHide: true }, (error) => {
-        if (error) {
-            // 用户拒绝了 UAC：无法创建文件，但照常启动（read-tips 会回退到默认提示）
-            onDenied();
-        }
-        else {
-            app.quit();
-        }
-    });
-}
-
-app.on("ready", async () => {
-    // 仅在打包版 + Windows 下：若软件根目录的 tips.txt 缺失（需要写入可能只读的安装目录），
-    // 自动以管理员权限重启一次来创建它
-    if (app.isPackaged && process.platform === "win32") {
-        const tipsPath = path.join(path.dirname(app.getPath("exe")), "tips.txt");
-        if (!fs.existsSync(tipsPath) && !await isElevated()) {
-            relaunchAsAdmin(() => {
-                createWindow();
-            });
-            return;
-        }
-    }
+app.on("ready", () => {
     createWindow();
 });
 

@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-/** 默认的 tips.txt 内容。当用户删除软件根目录的 tips.txt 后，会自动用这份内容重建文件 */
+/** 默认的 tips.txt 内容。当用户删除 tips.txt 后，会自动用这份内容重建文件 */
 export const DEFAULT_TIPS = [
     "Tip: 按右键添加音符，按Q、W、E、R键切换音符类型",
     "Tip: 按A、D键或左右方括号键切换判定线",
@@ -71,12 +71,11 @@ export const DEFAULT_TIPS = [
     "Tip: 没灵感写不下去了？那就先休息一会儿~",
     "Tip: 有些音乐就是只适合聆听，不适合写谱的，如果你写不下去了有可能不是你的问题",
     "Tip: 不必追求过于花的表演，一些很简单的表演可能也能够表达得很好",
-    "Tip: 你知道吗？在软件根目录可以创建tips.txt自定义tip！",
+    "Tip: 你知道吗？进入Appdata\\Roaming\\phiedit2573，创建tips.txt就能自定义tip！",
     "Tip: 这是一个来自v0.1.0的Tip!",
     "Tip: 我预览，我TUI",
     "Tip: FPS太低怎么办，换新电脑，新电脑上哪买，_________________________",
     "Tip: 你知道吗？Phiedit 2573有一个隐藏图标！你只要编译了，找到\\dist_electron\\bundled\\favicon.ico就能看到！",
     "Tip: UK是Unknown不是英国！",
-    "Tip: 写完谱后可以关掉Autoplay用键盘试玩哦！（如果你想用鼠标玩也可以）",
     "//你看不见我"
 ].join("\n");

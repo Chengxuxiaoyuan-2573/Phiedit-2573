@@ -31,6 +31,9 @@ export default class JudgeManager extends Manager {
     };
     judgeInfo = reactive(this._judgeInfo);
     private cachedAllNotes: Note[];
+
+    /** 上一帧的时间，用来判断用户是不是把时间轴往回拖了 */
+    private lastSeconds = Number.NEGATIVE_INFINITY;
     constructor() {
         super();
         const chart = store.useChart();
@@ -60,6 +63,12 @@ export default class JudgeManager extends Manager {
     }
     resetHitState() {
         const seconds = store.getSeconds();
+
+        // 时间比上一帧还早，说明用户把时间轴往回拖了，音符的击打状态会被下面这段代码重置，
+        // 此时 combo 也得跟着回退（它平时只在 framely() / click() 里单向累加）
+        const isRewinding = seconds < this.lastSeconds;
+        this.lastSeconds = seconds;
+
         for (const note of this.cachedAllNotes) {
             // 如果当前时间小于击打时间，说明用户在音符被击打以后把进度条往回拖动了，重新把该音符设置为未击打状态
             if (note.hitSeconds && seconds < note.hitSeconds) {
@@ -83,7 +92,72 @@ export default class JudgeManager extends Manager {
                 }
             }
         }
+
+        // autoplay 模式的 combo 由 autoplayManager 自己算，不在这里插手
+        if (isRewinding && !store.useManager("stateManager")._state.autoplay) {
+            this.recalculateCombo();
+        }
     }
+
+    /**
+     * 依据各音符当前保存的击打状态，从零开始推导 combo。
+     *
+     * combo 平时是在 framely() / click() 里随着击打累加的，没有回退的途径，
+     * 所以时间轴往回拖的时候需要重算：把音符按判定时刻排序，
+     * 排在当前时间之前的音符里、末尾连续「成功击打」的数量就是连击数，
+     * 中途出现 miss 或者 bad 就把连击清零。
+     */
+    recalculateCombo() {
+        const seconds = store.getSeconds();
+        const judgements: { seconds: number, success: boolean }[] = [];
+
+        for (const note of this.cachedAllNotes) {
+            if (note.isFake) {
+                continue;
+            }
+
+            // 已经 miss 的音符记一个「断连」时刻。音符在 startSeconds + bad 之后就会被判定为 miss
+            if (note.missed) {
+                judgements.push({
+                    seconds: note.cachedStartSeconds + note.getJudgementRange().bad,
+                    success: false
+                });
+                continue;
+            }
+
+            const hitSeconds = note.hitSeconds;
+            if (hitSeconds === undefined) {
+                continue;
+            }
+
+            const judgement = note.getJudgement();
+            const success = judgement === "perfect" || judgement === "good";
+
+            if (note.type === NoteType.Hold) {
+                // Hold 被击打时不计连击，只有完整按到判定点才算一次
+                if (note.holdJudged) {
+                    judgements.push({ seconds: note.cachedEndSeconds - HOLD_PREUNTOUCH, success });
+                }
+            }
+            else {
+                judgements.push({ seconds: hitSeconds, success });
+            }
+        }
+
+        judgements.sort((a, b) => a.seconds - b.seconds);
+
+        let combo = 0;
+        for (const judgement of judgements) {
+            if (judgement.seconds > seconds) {
+                // 判定时刻比当前时间还晚，后面的只会更晚，不用再看了
+                break;
+            }
+            combo = judgement.success ? combo + 1 : 0;
+        }
+
+        this.judgeInfo.combo = combo;
+    }
+
     calculate() {
         const seconds = store.getSeconds();
         let perfect = 0, good = 0, bad = 0, miss = 0, realNotes = 0;
