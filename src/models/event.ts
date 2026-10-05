@@ -9,7 +9,6 @@ import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
 import { isArrayOfNumbers, Optional } from "../tools/typeTools";
 import { RGBcolor } from "../tools/color";
 import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
-import ChartError from "./error";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "./objectizable";
 import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
@@ -123,7 +122,7 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
     /** 事件编号 */
     eventNumber: number;
 
-    readonly errors: ChartError[] = [];
+    readonly errorMessages: string[] = [];
     readonly isEvent = true;
     toObject(): IEvent<T> {
         return {
@@ -155,21 +154,11 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this.bezier = event.bezier;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 bezier 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 bezier 属性。将会被设为默认值 0。`);
             }
 
             // bezierPoints
@@ -178,21 +167,11 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this.bezierPoints = [...event.bezierPoints];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被替换为默认值 [0, 0, 0, 0]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被设为默认值 [0, 0, 1, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`);
             }
 
             // easingLeft and easingRight
@@ -203,30 +182,15 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                         this.easingRight = event.easingRight;
                     }
                     else {
-                        this.errors.push(new ChartError(
-                            `${this.id}：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
-                            "ChartReadError.OutOfRange",
-                            "error",
-                            this
-                        ));
+                        this.errorMessages.push(`${this.id}：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被设为默认值 0 和 1。`);
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被设为默认值 0 和 1。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`);
             }
 
             // easingType
@@ -235,21 +199,11 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this.easingType = event.easingType;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被替换为默认值 1（线性缓动）。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被设为默认值 1（线性缓动）。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`);
             }
 
             // startTime
@@ -258,21 +212,11 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this._startTime = makeSureBeatsValid(event.startTime);
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 startTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被替换为默认值 [0, 0, 1]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 startTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被设为默认值 [0, 0, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`);
             }
 
             // endTime
@@ -281,22 +225,12 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this._endTime = makeSureBeatsValid(event.endTime);
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 endTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被替换为 startTime 的值。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 endTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被设为 startTime 的值。`);
                     this._endTime = [...this._startTime];
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 endTime 属性。将会被设为 startTime 的值。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 endTime 属性。将会被设为 startTime 的值。`);
                 this._endTime = [...this._startTime];
             }
 
@@ -306,21 +240,11 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this.linkgroup = event.linkgroup;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：事件缺少 linkgroup 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：事件缺少 linkgroup 属性。将会被设为默认值 0。`);
             }
 
             // isDisabled
@@ -329,29 +253,15 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                     this.isDisabled = event.isDisabled;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被替换为 false。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被设为默认值 false。`);
                 }
             }
             else {
-                // this.errors.push(new ChartError(
-                //     `${this.id}：事件缺少 isDisabled 属性。将会被设为 false。`,
-                //     "ChartReadError.MissingProperty",
-                //     "error",
-                // ));
+                // this.errors.push(`${this.id}：事件缺少 isDisabled 属性。将会被设为默认值 false。`);
             }
         }
         else {
-            this.errors.push(new ChartError(
-                `${this.id}：事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
-                "ChartReadError.TypeError",
-                "error",
-                this
-            ));
+            this.errorMessages.push(`${this.id}：事件必须是一个对象，但读取到了 ${event}。将会被视为一个所有值都是默认值的事件。`);
         }
 
         this.BPMList = options.BPMList;
@@ -380,21 +290,11 @@ export class NumberEvent extends AbstractEvent<number> {
                     this.start = event.start;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 start 属性必须是数字，但读取到了 ${event.start}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 start 属性必须是数字，但读取到了 ${event.start}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 start 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 start 属性。将会被设为默认值 0。`);
             }
 
             // end
@@ -403,30 +303,12 @@ export class NumberEvent extends AbstractEvent<number> {
                     this.end = event.end;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 end 属性必须是数字，但读取到了 ${event.end}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 end 属性必须是数字，但读取到了 ${event.end}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 end 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 end 属性。将会被设为默认值 0。`);
             }
-        }
-        else {
-            this.errors.push(new ChartError(
-                `${this.id}：${this.type}事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
-                "ChartReadError.TypeError",
-                "error",
-                this
-            ));
         }
     }
 }
@@ -457,21 +339,11 @@ export class ColorEvent extends AbstractEvent<RGBcolor> {
                     this.start = [...event.start];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 start 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.start)}。将会被替换为默认值 [255, 255, 255]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 start 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.start)}。将会被设为默认值 [255, 255, 255]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 start 属性。将会被设为默认值 [255, 255, 255]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 start 属性。将会被设为默认值 [255, 255, 255]。`);
             }
 
             // end
@@ -480,30 +352,12 @@ export class ColorEvent extends AbstractEvent<RGBcolor> {
                     this.end = [...event.end];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 end 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.end)}。将会被替换为默认值 [255, 255, 255]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 end 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.end)}。将会被设为默认值 [255, 255, 255]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 end 属性。将会被设为默认值 [255, 255, 255]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 end 属性。将会被设为默认值 [255, 255, 255]。`);
             }
-        }
-        else {
-            this.errors.push(new ChartError(
-                `${this.id}：${this.type}事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
-                "ChartReadError.TypeError",
-                "error",
-                this
-            ));
         }
     }
 }
@@ -528,21 +382,11 @@ export class TextEvent extends AbstractEvent<string> {
                     this.start = event.start;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 start 属性必须是字符串，但读取到了 ${event.start}。将会被替换为空字符串。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 start 属性必须是字符串，但读取到了 ${event.start}。将会被设为空字符串。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 start 属性。将会被设为空字符串。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 start 属性。将会被设为空字符串。`);
             }
 
             // end
@@ -551,30 +395,12 @@ export class TextEvent extends AbstractEvent<string> {
                     this.end = event.end;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}：${this.type}事件的 end 属性必须是字符串，但读取到了 ${event.end}。将会被替换为空字符串。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                        this
-                    ));
+                    this.errorMessages.push(`${this.id}：${this.type}事件的 end 属性必须是字符串，但读取到了 ${event.end}。将会被设为空字符串。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}：${this.type}事件缺少 end 属性。将会被设为空字符串。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                    this
-                ));
+                this.errorMessages.push(`${this.id}：${this.type}事件缺少 end 属性。将会被设为空字符串。`);
             }
-        }
-        else {
-            this.errors.push(new ChartError(
-                `${this.id}：${this.type}事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
-                "ChartReadError.TypeError",
-                "error",
-                this
-            ));
         }
     }
 }
@@ -599,7 +425,7 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
     linkgroup = 0;
     isDisabled: boolean = false;
 
-    readonly errors: ChartError[] = [];
+    readonly errorMessages: string[] = [];
     BPMList: BPM[];
     shader: ShaderName;
     varName: string;
@@ -634,19 +460,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.bezier = event.bezier;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 bezier 属性必须是 0 或 1，但读取到了 ${event.bezier}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 bezier 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 bezier 属性。将会被设为默认值 0。`);
             }
 
             // bezierPoints
@@ -655,19 +473,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.bezierPoints = [...event.bezierPoints];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被替换为默认值 [0, 0, 0, 0]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 bezierPoints 属性必须是包含4个数字的数组，但读取到了 ${JSON.stringify(event.bezierPoints)}。将会被设为默认值 [0, 0, 0, 0]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 bezierPoints 属性。将会被设为默认值 [0, 0, 1, 1]。`);
             }
 
             // easingLeft and easingRight
@@ -678,27 +488,15 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                         this.easingRight = event.easingRight;
                     }
                     else {
-                        this.errors.push(new ChartError(
-                            `shader变量事件：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
-                            "ChartReadError.OutOfRange",
-                            "error",
-                        ));
+                        this.errorMessages.push(`shader变量事件：事件的 easingLeft 和 easingRight 属性必须满足 0 <= easingLeft < easingRight <= 1，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被设为默认值 0 和 1。`);
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被替换为默认值 0 和 1。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 easingLeft 和 easingRight 属性必须是数字，但读取到了 easingLeft=${event.easingLeft}, easingRight=${event.easingRight}。将会被设为默认值 0 和 1。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 easingLeft 或 easingRight 属性。将会被设为默认值 0 和 1。`);
             }
 
             // easingType
@@ -707,20 +505,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.easingType = event.easingType;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被替换为默认值 1（线性缓动）。`,
-                        "ChartReadError.TypeError",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 easingType 属性必须是 1 到 29 之间的整数，但读取到了 ${event.easingType}。将会被设为默认值 1（线性缓动）。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 easingType 属性。将会被设为默认值 1（线性缓动）。`);
             }
 
             // startTime
@@ -729,21 +518,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this._startTime = makeSureBeatsValid(event.startTime);
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 startTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被替换为默认值 [0, 0, 1]。`,
-                        "ChartReadError.TypeError",
-                        "error",
-
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 startTime 属性必须是一个含有 3 个数的数组，但读取到了 ${JSON.stringify(event.startTime)}。将会被设为默认值 [0, 0, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 startTime 属性。将会被设为默认值 [0, 0, 1]。`);
             }
 
             // endTime
@@ -752,22 +531,12 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this._endTime = makeSureBeatsValid(event.endTime);
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 endTime 属性必须是包含3个数字的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被替换为 startTime 的值。`,
-                        "ChartReadError.TypeError",
-                        "error",
-
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 endTime 属性必须是一个含有 3 个数的数组，但读取到了 ${JSON.stringify(event.endTime)}。将会被设为 startTime 的值。`);
                     this._endTime = [...this._startTime];
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 endTime 属性。将会被设为 startTime 的值。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 endTime 属性。将会被设为 startTime 的值。`);
                 this._endTime = [...this._startTime];
             }
 
@@ -776,19 +545,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.start = event.start;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 start 值必须是数字或矢量，但读取到了 ${event.start}。将会被设为 0。`,
-                        "ChartReadError.MissingProperty",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 start 值必须是数字或矢量，但读取到了 ${event.start}。将会被设为 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 start 值。将会被设为 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 start 值。将会被设为 0。`);
             }
 
             if ("end" in event) {
@@ -796,19 +557,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.end = event.end;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 end 值必须是数字或矢量，但读取到了 ${event.end}。将会被设为 0。`,
-                        "ChartReadError.MissingProperty",
-                        "error",
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 end 值必须是数字或矢量，但读取到了 ${event.end}。将会被设为 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 end 值。将会被设为 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 end 值。将会被设为 0。`);
             }
 
             // linkgroup
@@ -817,21 +570,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.linkgroup = event.linkgroup;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError",
-                        "error",
-
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 linkgroup 属性必须是整数，但读取到了 ${event.linkgroup}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `shader变量事件：事件缺少 linkgroup 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty",
-                    "error",
-
-                ));
+                this.errorMessages.push(`shader变量事件：事件缺少 linkgroup 属性。将会被设为默认值 0。`);
             }
 
             // isDisabled
@@ -840,28 +583,15 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
                     this.isDisabled = event.isDisabled;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `shader变量事件：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被替换为 false。`,
-                        "ChartReadError.TypeError",
-                        "error",
-
-                    ));
+                    this.errorMessages.push(`shader变量事件：事件的 isDisabled 属性必须是布尔值，但读取到了 ${event.isDisabled}。将会被设为默认值 false。`);
                 }
             }
             else {
-                // this.errors.push(new ChartError(
-                //     `shader变量事件：事件缺少 isDisabled 属性。将会被设为 false。`,
-                //     "ChartReadError.MissingProperty",
-                //     "error",
-                // ));
+                // this.errors.push(new ChartError(`shader变量事件：事件缺少 isDisabled 属性。将会被设为默认值 false。`);
             }
         }
         else {
-            this.errors.push(new ChartError(
-                `shader变量事件：事件必须是一个对象，但读取到了 ${event}。将会使用默认值。`,
-                "ChartReadError.TypeError",
-                "error",
-            ));
+            this.errorMessages.push(`shader变量事件：事件必须是一个对象，但读取到了 ${event}。将会被视为一个所有值都是默认值的事件。`);
         }
 
         this.BPMList = options.BPMList;

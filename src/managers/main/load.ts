@@ -40,7 +40,7 @@ class LoadManager extends Manager {
         const backgroundData = await fs.promises.readFile(backgroundWholePath);
         const chartContent = await fs.promises.readFile(chartWholePath, Constants.ENCODING).catch(() => "");
         const textureDatas = await Promise.all(textureWholePaths.map(texturePath => fs.promises.readFile(texturePath)));
-        const extraContent = await fs.promises.readFile(extraPath, Constants.ENCODING).catch(() => "");
+        const extraContent = await fs.promises.readFile(extraPath, Constants.ENCODING).catch(() => undefined);
 
         // 将texturePaths和textureDatas合并为一个对象
         const textures: Record<string, ArrayBuffer> = {};

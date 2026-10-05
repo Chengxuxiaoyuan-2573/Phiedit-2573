@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { ChartReadResult, ChartPackage, SYMBOL_CHART_JSON_ERROR, SYMBOL_EXTRA_JSON_ERROR } from "@/models/chartPackage";
+import { ChartReadResult, ChartPackage, SYMBOL_CHART_JSON_ERROR, SYMBOL_EXTRA_NOT_EXIST, SYMBOL_EXTRA_JSON_ERROR } from "@/models/chartPackage";
 import { ArrayedObject } from "@/tools/algorithm";
 import MediaUtils from "@/tools/mediaUtils";
 import Manager from "./abstract";
@@ -50,7 +50,11 @@ export default class ChartPackageLoader extends Manager {
             return SYMBOL_CHART_JSON_ERROR;
         }
     }
-    private loadExtra(extraContent: string) {
+    private loadExtra(extraContent: string | undefined) {
+        if (extraContent === undefined) {
+            return SYMBOL_EXTRA_NOT_EXIST;
+        }
+
         try {
             return JSON.parse(extraContent);
         }

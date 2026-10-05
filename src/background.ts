@@ -9,7 +9,6 @@
 
 import { app, protocol, BrowserWindow, ipcMain, shell } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
-import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { autoUpdater } from "electron-updater";
@@ -31,6 +30,7 @@ import shaderLoader from "./managers/main/shaderLoader";
 import dialogManager from "./managers/main/dialog";
 import { DEFAULT_TIPS } from "./managers/main/defaultTips";
 import deleteManager from "./managers/main/delete";
+import logManager from "./managers/main/log";
 
 // import installExtension, { VUEJS3_DEVTOOLS } from "electron-devtools-installer";
 
@@ -244,6 +244,24 @@ async function createWindow() {
         return await shell.openPath(path.dirname(getTipsPath()));
     });
 
+    ipcMain.handle("open-path", async (_event, filePath: unknown) => {
+        if (typeof filePath !== "string" || !filePath) {
+            return { ok: false, error: "invalid path" };
+        }
+
+        const ALLOWED_ROOT = path.resolve(filesManager.userDataDir);
+        const resolved = path.resolve(ALLOWED_ROOT, filePath);
+
+        const inside =
+            resolved === ALLOWED_ROOT ||
+            resolved.startsWith(ALLOWED_ROOT + path.sep);
+
+        if (!inside) return { ok: false, error: "forbidden" };
+
+        const err = await shell.openPath(resolved);
+        return err ? { ok: false, error: err } : { ok: true, error: "" };
+    });
+
     ipcMain.handle("load-shader-file", async (event, shaderName: string) => {
         return await shaderLoader.loadShaderFile(shaderName);
     });
@@ -270,6 +288,18 @@ async function createWindow() {
 
     ipcMain.handle("cancel-video-rendering", async () => {
         return await videoRenderer.cancel();
+    });
+
+    ipcMain.handle("open-log", async (event, fileName: string) => {
+        return await logManager.openLog(fileName);
+    });
+
+    ipcMain.handle("add-log", async (event, content: string) => {
+        return await logManager.addLog(content);
+    });
+
+    ipcMain.handle("close-log", async () => {
+        return await logManager.closeLog();
     });
 
     autoUpdater.autoDownload = false;

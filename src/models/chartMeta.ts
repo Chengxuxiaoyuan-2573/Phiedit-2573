@@ -5,7 +5,6 @@
  */
 
 import { isNumber, isObject, isString } from "lodash";
-import ChartError from "./error";
 import { IObjectizable } from "./objectizable";
 
 export interface IChartMeta {
@@ -51,7 +50,7 @@ export class ChartMeta implements IChartMeta, IObjectizable {
     offset = 0;
     readonly RPEVersion;
     readonly is2573 = true;
-    readonly errors: ChartError[] = [];
+    readonly errorMessages: string[] = [];
     toObject(): IChartMeta {
         return {
             charter: this.charter,
@@ -73,17 +72,11 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.name = meta.name;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.name 属性必须是字符串，但读取到了 ${meta.name}。将会替换为字符串 "unknown"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.name 属性必须是字符串，但读取到了 ${meta.name}。将会被设为 "unknown"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.name 属性。将会替换为字符串 "unknown"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.name 属性。将会被设为 "unknown"。`);
             }
 
             // level
@@ -92,17 +85,11 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.level = meta.level;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.level 属性必须是字符串，但读取到了 ${meta.level}。将会替换为字符串 "SP Lv.?"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.level 属性必须是字符串，但读取到了 ${meta.level}。将会被设为 "SP Lv.?"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.level 属性。将会替换为字符串 "SP Lv.?"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.level 属性。将会被设为 "SP Lv.?"。`);
             }
 
             if ("offset" in meta) {
@@ -110,17 +97,11 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.offset = meta.offset;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.offset 属性必须是数字，但读取到了 ${meta.offset}。将会替换为数字 0。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.offset 属性必须是数字，但读取到了 ${meta.offset}。将会被设为 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.offset 属性。将会替换为数字 0。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.offset 属性。将会被设为 0。`);
             }
 
             if ("charter" in meta) {
@@ -128,17 +109,11 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.charter = meta.charter;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.charter 属性必须是字符串，但读取到了 ${meta.charter}。将会替换为字符串 "unknown"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.charter 属性必须是字符串，但读取到了 ${meta.charter}。将会被设为 "unknown"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.charter 属性。将会替换为字符串 "unknown"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.charter 属性。将会被设为 "unknown"。`);
             }
 
             if ("composer" in meta) {
@@ -146,17 +121,11 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.composer = meta.composer;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.composer 属性必须是字符串，但读取到了 ${meta.composer}。将会替换为字符串 "unknown"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.composer 属性必须是字符串，但读取到了 ${meta.composer}。将会被设为 "unknown"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.composer 属性。将会替换为字符串 "unknown"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.composer 属性。将会被设为 "unknown"。`);
             }
 
             if ("RPEVersion" in meta) {
@@ -164,17 +133,8 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.RPEVersion = meta.RPEVersion;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.RPEVersion 属性必须是数字，但读取到了 ${meta.RPEVersion}。将会替换为数字 10。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.RPEVersion 属性必须是数字，但读取到了 ${meta.RPEVersion}。将会被设为 Phiedit 2573 的当前版本号 ${this.RPEVersion}。`);
                 }
-            }
-            else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.RPEVersion 属性。将会替换为数字 10。`,
-                    "ChartReadError.MissingProperty"
-                ));
             }
 
             if ("illustration" in meta) {
@@ -182,24 +142,15 @@ export class ChartMeta implements IChartMeta, IObjectizable {
                     this.illustration = meta.illustration;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `chart.META.illustration 属性必须是字符串，但读取到了 ${meta.illustration}。将会替换为字符串 "unknown"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`chart.META.illustration 属性必须是字符串，但读取到了 ${meta.illustration}。将会替换为字符串 "unknown"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `未找到 chart.META.illustration 属性。将会替换为字符串 "unknown"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`未找到 chart.META.illustration 属性。将会替换为字符串 "unknown"。`);
             }
         }
         else {
-            this.errors.push(new ChartError(
-                `chart.META 必须是一个对象，但读取到了 ${meta}。将会使用默认值。`,
-                "ChartReadError.TypeError"
-            ));
+            this.errorMessages.push(`chart.META 必须是一个对象，但读取到了 ${meta}。将会使用默认值。`);
         }
     }
 }

@@ -43,6 +43,7 @@ const electronAPI: ElectronAPI = {
     addTextures: (chartId, texturePaths) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
     openChartFolder: (path) => ipcRenderer.invoke("open-chart-folder", path),
     openTipsFolder: () => ipcRenderer.invoke("open-tips-folder"),
+    openPath: (filePath) => ipcRenderer.invoke("open-path", filePath),
     renameChartId: (chartId, newChartId) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
     loadShaderFile: (shaderName) => ipcRenderer.invoke("load-shader-file", shaderName),
     openExternalLink: (url) => ipcRenderer.invoke("open-external-link", url),
@@ -96,6 +97,9 @@ const electronAPI: ElectronAPI = {
     finishVideoRendering: (outputPath) => ipcRenderer.invoke("finish-video-rendering", outputPath),
     addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
     cancelVideoRendering: () => ipcRenderer.invoke("cancel-video-rendering"),
+    openLog: (fileName) => ipcRenderer.invoke("open-log", fileName),
+    addLog: (content) => ipcRenderer.invoke("add-log", content),
+    closeLog: () => ipcRenderer.invoke("close-log"),
     onWindowFocus(callback) {
         const listener = () => callback();
         ipcRenderer.on("window-focus", listener);
@@ -210,6 +214,9 @@ interface ElectronAPI {
     /** 打开 tips.txt 所在的文件夹 */
     openTipsFolder: () => Promise<void>
 
+    /** 打开文件或目录 */
+    openPath: (fileName: string) => Promise<{ ok: boolean, error: string }>
+
     /** 重命名谱面 ID */
     renameChartId: (chartId: string, newChartId: string) => Promise<void>
 
@@ -228,12 +235,12 @@ interface ElectronAPI {
     /** 退出并安装更新 */
     quitAndInstall: () => Promise<void>
 
-    onUpdateChecking: (callback: () => void) => ()=>void
-    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
-    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
-    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => ()=>void
-    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => ()=>void
-    onUpdateError: (callback: (error: Error) => void) => ()=>void
+    onUpdateChecking: (callback: () => void) => () => void
+    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => () => void
+    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => () => void
+    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => () => void
+    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => () => void
+    onUpdateError: (callback: (error: Error) => void) => () => void
 
     /** Start video export session */
     startVideoRendering: (config: RenderingConfig) => Promise<void>
@@ -248,9 +255,15 @@ interface ElectronAPI {
 
     cancelVideoRendering: () => Promise<void>
 
-    onWindowFocus: (callback: () => void) => ()=>void
+    openLog: (fileName: string) => Promise<string>
 
-    onWindowBlur: (callback: () => void) => ()=>void
+    addLog: (content: string) => Promise<void>
+
+    closeLog: () => Promise<string>
+
+    onWindowFocus: (callback: () => void) => () => void
+
+    onWindowBlur: (callback: () => void) => () => void
 
     on: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
     off: (name: string, callback: (event: unknown, ...args: any[]) => void) => void

@@ -32,18 +32,6 @@ export default class ErrorManager extends Manager {
             }
         });
     }
-    private checkChartReadErrors() {
-        // 获取谱面压缩包的所有错误
-        const chartPackage = store.useChartPackage();
-        for (let i = 0; i < chartPackage.errors.length; i++) {
-            if (i >= 100) {
-                return;
-            }
-
-            const error = chartPackage.errors[i];
-            this.errors.push(error);
-        }
-    }
     private checkChartEditErrors() {
         const chart = store.useChart();
         const audio = store.useAudio();
@@ -75,7 +63,7 @@ export default class ErrorManager extends Manager {
                 if (isLessThanOrEqualBeats(hold.endTime, hold.startTime)) {
                     this.errors.push(new ChartError(
                         `Hold 音符时间有误，结束时间应大于起始时间`,
-                        "ChartEditError.InvalidHoldTime",
+                        "InvalidHoldTime",
                         "error",
                         hold
                     ));
@@ -87,7 +75,7 @@ export default class ErrorManager extends Manager {
                 if (note.type !== NoteType.Hold && !isEqualBeats(note.endTime, note.startTime)) {
                     this.errors.push(new ChartError(
                         `${NoteType[note.type]} 音符时间有误，结束时间应等于起始时间`,
-                        "ChartEditError.InvalidNonHoldTime",
+                        "InvalidNonHoldTime",
                         "error",
                         note
                     ));
@@ -97,7 +85,7 @@ export default class ErrorManager extends Manager {
                 if (note.cachedEndSeconds + chart.META.offset / SEC_TO_MS < 0) {
                     this.errors.push(new ChartError(
                         `音符时间超出范围，位于音乐开始之前`,
-                        "ChartEditError.NoteOutOfRange",
+                        "NoteOutOfRange",
                         "error",
                         note
                     ));
@@ -106,7 +94,7 @@ export default class ErrorManager extends Manager {
                 if (note.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                     this.errors.push(new ChartError(
                         `音符时间超出范围，位于音乐结束之后`,
-                        "ChartEditError.NoteOutOfRange",
+                        "NoteOutOfRange",
                         "error",
                         note
                     ));
@@ -124,7 +112,7 @@ export default class ErrorManager extends Manager {
                         Math.abs(tap1.positionX - tap2.positionX) < settingsManager._settings.noteSize) {
                         this.errors.push(new ChartError(
                             `两个 Tap 音符重叠`,
-                            "ChartEditError.TapsOverlapped",
+                            "TapsOverlapped",
                             "warning",
                             tap1,
                             tap2
@@ -142,7 +130,7 @@ export default class ErrorManager extends Manager {
                         Math.abs(tap.positionX - hold.positionX) < settingsManager._settings.noteSize) {
                         this.errors.push(new ChartError(
                             `Tap 音符和 Hold 音符重叠`,
-                            "ChartEditError.TapAndHoldOverlapped",
+                            "TapAndHoldOverlapped",
                             "warning",
                             tap,
                             hold
@@ -163,7 +151,7 @@ export default class ErrorManager extends Manager {
                         Math.abs(hold1.positionX - hold2.positionX) < settingsManager._settings.noteSize) {
                         this.errors.push(new ChartError(
                             `两个 Hold 音符重叠`,
-                            "ChartEditError.HoldsOverlapped",
+                            "HoldsOverlapped",
                             "warning",
                             hold1,
                             hold2
@@ -181,7 +169,7 @@ export default class ErrorManager extends Manager {
                         tap.cachedStartSeconds - drag.cachedStartSeconds < Constants.ERROR_DRAG_TAP_THRESHOLD) {
                         this.errors.push(new ChartError(
                             `Drag 接 Tap，可能会影响手感`,
-                            "ChartEditError.TapAfterDrag",
+                            "TapAfterDrag",
                             "warning",
                             drag,
                             tap
@@ -196,7 +184,7 @@ export default class ErrorManager extends Manager {
                         tap.cachedStartSeconds - flick.cachedStartSeconds < Constants.ERROR_FLICK_TAP_THRESHOLD) {
                         this.errors.push(new ChartError(
                             `Flick 接 Tap，可能会影响手感`,
-                            "ChartEditError.TapAfterFlick",
+                            "TapAfterFlick",
                             "warning",
                             flick,
                             tap
@@ -220,7 +208,7 @@ export default class ErrorManager extends Manager {
                                 isLessThanBeats(event1.startTime, event2.endTime)) {
                                 this.errors.push(new ChartError(
                                     `两个 ${event1.type} 事件重叠`,
-                                    "ChartEditError.EventsOverlapped",
+                                    "EventsOverlapped",
                                     "error",
                                     event1,
                                     event2
@@ -236,7 +224,7 @@ export default class ErrorManager extends Manager {
                         if (isLessThanOrEqualBeats(event.endTime, event.startTime)) {
                             this.errors.push(new ChartError(
                                 `事件时间有误，结束时间应大于开始时间`,
-                                "ChartEditError.InvalidEventTime",
+                                "InvalidEventTime",
                                 "error",
                                 event
                             ));
@@ -245,7 +233,7 @@ export default class ErrorManager extends Manager {
                         if (event.type === "paint") {
                             this.errors.push(new ChartError(
                                 `出现了本软件不支持的 paint 事件`,
-                                "ChartEditError.NotSupported",
+                                "NotSupported",
                                 "info",
                                 event
                             ));
@@ -254,7 +242,7 @@ export default class ErrorManager extends Manager {
                         if (event.cachedEndSeconds + chart.META.offset / SEC_TO_MS < 0) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐开始之前`,
-                                "ChartEditError.EventOutOfRange",
+                                "EventOutOfRange",
                                 "error",
                                 event
                             ));
@@ -263,7 +251,7 @@ export default class ErrorManager extends Manager {
                         if (event.cachedStartSeconds + chart.META.offset / SEC_TO_MS > audio.duration) {
                             this.errors.push(new ChartError(
                                 `事件时间超出范围，位于音乐结束之后`,
-                                "ChartEditError.EventOutOfRange",
+                                "EventOutOfRange",
                                 "error",
                                 event
                             ));
@@ -272,7 +260,7 @@ export default class ErrorManager extends Manager {
                         if (event.easingLeft >= event.easingRight) {
                             this.errors.push(new ChartError(
                                 `事件缓动截取错误，左边界必须小于右边界`,
-                                "ChartEditError.InvalidEasingLeftRight",
+                                "InvalidEasingLeftRight",
                                 "error",
                                 event
                             ));
@@ -281,7 +269,7 @@ export default class ErrorManager extends Manager {
                         if (event.isDisabled) {
                             this.errors.push(new ChartError(
                                 `事件已禁用，请在导出谱面前删除该事件`,
-                                "ChartEditError.EventDisabled",
+                                "EventDisabled",
                                 "info",
                                 event
                             ));
@@ -292,20 +280,8 @@ export default class ErrorManager extends Manager {
         }
     }
     checkErrors() {
-        const stateManager = store.useManager("stateManager");
         this.errors.length = 0;
-        switch (stateManager.cache.error.errorType) {
-            case "ChartReadError":
-                this.checkChartReadErrors();
-                break;
-            case "ChartEditError":
-                this.checkChartEditErrors();
-                break;
-            case "All":
-                this.checkChartReadErrors();
-                this.checkChartEditErrors();
-                break;
-        }
+        this.checkChartEditErrors();
 
         // 按照 error > warning > info 的顺序排序
         const errorLevel = {
@@ -320,12 +296,11 @@ export default class ErrorManager extends Manager {
         let fixedErrors = 0;
         this.errors.length = 0;
         this.checkChartEditErrors();
-        this.checkChartReadErrors();
         for (let i = this.errors.length - 1; i >= 0; i--) {
             const error = this.errors[i];
             let isSucceeded = false;
             switch (error.code) {
-                case "ChartEditError.NoteOutOfRange":
+                case "NoteOutOfRange":
                     if (!(error.objects[0] instanceof Note)) {
                         break;
                     }
@@ -335,7 +310,7 @@ export default class ErrorManager extends Manager {
                     isSucceeded = true;
                     break;
 
-                case "ChartEditError.EventOutOfRange":
+                case "EventOutOfRange":
                     if (isNoteLike(error.objects[0])) {
                         break;
                     }
@@ -345,7 +320,7 @@ export default class ErrorManager extends Manager {
                     isSucceeded = true;
                     break;
 
-                case "ChartEditError.InvalidEventTime":
+                case "InvalidEventTime":
                     if (isNoteLike(error.objects[0])) {
                         break;
                     }
@@ -355,7 +330,7 @@ export default class ErrorManager extends Manager {
                     isSucceeded = true;
                     break;
 
-                case "ChartEditError.InvalidHoldTime":
+                case "InvalidHoldTime":
                     if (isEvent(error.objects[0])) {
                         break;
                     }
@@ -365,7 +340,7 @@ export default class ErrorManager extends Manager {
                     isSucceeded = true;
                     break;
 
-                case "ChartEditError.InvalidNonHoldTime":
+                case "InvalidNonHoldTime":
                     if (!(error.objects[0] instanceof Note)) {
                         break;
                     }

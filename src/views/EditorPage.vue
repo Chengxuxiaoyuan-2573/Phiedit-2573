@@ -668,8 +668,8 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElRadioButton, ElRadioGroup, ElProgress } from "element-plus";
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElRadioButton, ElRadioGroup, ElProgress, ElMessage } from "element-plus";
+import { computed, h, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { clamp, isNumber, mean } from "lodash";
 
@@ -716,6 +716,7 @@ import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
+import { formatDate } from "@/tools/date";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -756,9 +757,39 @@ new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
     store.setManager(managerName, new managerConstructor());
 });
 
-const { audioRef, canvasRef, resourcePackageRef, isRenderingVideo } = store;
+const { audioRef, canvasRef, chartPackageRef, resourcePackageRef, isRenderingVideo } = store;
 
 const { chart, textures } = store.chartPackageRef.value;
+
+const errorMessages = chartPackageRef.value!.errorMessages;
+const errorsCount = chartPackageRef.value!.errorMessages.length;
+if (errorsCount > 0) {
+    const logFileName = `${formatDate(new Date(), "YYYYMMDD_HHmmss")}_${chartId}.log`;
+    const logFilePath = await window.electronAPI.openLog(logFileName);
+    await window.electronAPI.addLog(`${formatDate(new Date(), "YYYY/MM/DD HH:mm:ss")} 读取谱面 ${chartId} 时出现了 ${errorsCount} 个文件错误：`);
+    for (const message of errorMessages) {
+        await window.electronAPI.addLog(message);
+    }
+    await window.electronAPI.closeLog();
+    ElMessage.warning({
+        message: h("p", null, [
+            `本次谱面加载存在文件错误，如有异常请查看`,
+            h("a", {
+                href: "#",
+                onClick: (e) => {
+                    e.preventDefault();
+                    window.electronAPI.openPath(logFilePath);
+                }
+            }, [
+                "日志文件"
+            ]),
+            "。"
+        ]),
+        dangerouslyUseHTMLString: true,
+        duration: 0,
+        showClose: true
+    });
+}
 
 const stateManager = store.useManager("stateManager");
 const settingsManager = store.useManager("settingsManager");

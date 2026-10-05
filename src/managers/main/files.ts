@@ -18,15 +18,22 @@ class FilesManager extends Manager {
     /** 包含谱面文件夹的文件夹 */
     readonly chartFoldersDir: string;
 
+    /** 日志文件的文件夹 */
+    readonly logsFolder: string;
+
+    /** 用户数据的文件夹 */
+    readonly userDataDir: string;
+
     constructor() {
         super();
-        const userDataDir = app.getPath("userData");
-        this.chartFoldersDir = path.join(userDataDir, "charts");
-        this.tempDir = path.join(userDataDir, "temp");
+        this.userDataDir = app.getPath("userData");
+        this.chartFoldersDir = path.join(this.userDataDir, "charts");
+        this.tempDir = path.join(this.userDataDir, "temp");
+        this.logsFolder = path.join(this.userDataDir, "logs");
 
         // 确保这些文件夹都是存在的
-        if (!fs.existsSync(userDataDir)) {
-            fs.mkdirSync(userDataDir);
+        if (!fs.existsSync(this.userDataDir)) {
+            fs.mkdirSync(this.userDataDir);
         }
 
         if (!fs.existsSync(this.tempDir)) {
@@ -35,6 +42,10 @@ class FilesManager extends Manager {
 
         if (!fs.existsSync(this.chartFoldersDir)) {
             fs.mkdirSync(this.chartFoldersDir);
+        }
+
+        if (!fs.existsSync(this.logsFolder)) {
+            fs.mkdirSync(this.logsFolder);
         }
     }
 

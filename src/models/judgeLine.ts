@@ -10,7 +10,6 @@ import { BaseEventLayer, baseEventTypes, ExtendedEventLayer, extendedEventTypes,
 import { INote, Note } from "./note";
 import { AbstractEvent, findLastEventIndex, getEasingFunctionOfNumberEvent, NumberEvent } from "./event";
 import { beatsCompare, BPM } from "./beats";
-import ChartError from "./error";
 import { isArrayOfNumbers } from "@/tools/typeTools";
 import { IObjectizable } from "./objectizable";
 import { insert } from "@/tools/algorithm";
@@ -205,7 +204,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
 
     /** 当前的音符编号排到第几号了，表示下一个被添加的音符的noteNumber */
     private noteNumber = 0;
-    readonly errors: ChartError[] = [];
+    errorMessages: string[] = [];
     getAllEvents() {
         const events: AbstractEvent[] = [];
         this.eventLayers.forEach(eventLayer => {
@@ -260,7 +259,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
             id
         });
         insert(this.notes, newNote, (x, y) => beatsCompare(x.startTime, y.startTime));
-        this.errors.push(...newNote.errors);
+        this.errorMessages = this.errorMessages.concat(newNote.errorMessages);
         return newNote;
     }
     addEventLayer() {
@@ -514,17 +513,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.Group = judgeLine.Group;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 Group 属性必须是数字，但读取到了 ${judgeLine.Group}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 Group 属性必须是数字，但读取到了 ${judgeLine.Group}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 Group 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 Group 属性。将会被设为默认值 0。`);
             }
 
             if ("Name" in judgeLine) {
@@ -532,17 +525,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.Name = judgeLine.Name;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 Name 属性必须是字符串，但读取到了 ${judgeLine.Name}。将会被替换为字符串 "${DEFAULT_NAME}"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 Name 属性必须是字符串，但读取到了 ${judgeLine.Name}。将会被设为默认值 "${DEFAULT_NAME}"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 Name 属性。将会被设为字符串 "${DEFAULT_NAME}"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 Name 属性。将会被设为默认值 "${DEFAULT_NAME}"。`);
             }
 
             if ("Texture" in judgeLine) {
@@ -550,17 +537,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.Texture = judgeLine.Texture;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 Texture 属性必须是字符串，但读取到了 ${judgeLine.Texture}。将会被替换为字符串 "${DEFAULT_TEXTURE}"。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 Texture 属性必须是字符串，但读取到了 ${judgeLine.Texture}。将会被设为默认值 "${DEFAULT_TEXTURE}"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 Texture 属性。将会被设为字符串 "${DEFAULT_TEXTURE}"。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 Texture 属性。将会被设为默认值 "${DEFAULT_TEXTURE}"。`);
             }
 
             if ("isCover" in judgeLine) {
@@ -569,24 +550,15 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                         this.isCover = judgeLine.isCover;
                     }
                     else {
-                        this.errors.push(new ChartError(
-                            `${this.id}号判定线：判定线的 isCover 属性必须是 0 或 1，但读取到了 ${judgeLine.isCover}。将会被替换为数字 ${DEFAULT_IS_COVER}。`,
-                            "ChartReadError.OutOfRange"
-                        ));
+                        this.errorMessages.push(`${this.id}号判定线：判定线的 isCover 属性必须是 0 或 1，但读取到了 ${judgeLine.isCover}。将会被设为默认值 ${DEFAULT_IS_COVER}。`);
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 isCover 属性必须是数字，但读取到了 ${judgeLine.isCover}。将会被替换为数字 ${DEFAULT_IS_COVER}。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 isCover 属性必须是数字，但读取到了 ${judgeLine.isCover}。将会被设为默认值 ${DEFAULT_IS_COVER}。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 isCover 属性。将会被设为数字 1。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 isCover 属性。将会被设为默认值 1。`);
             }
 
             if ("father" in judgeLine) {
@@ -594,17 +566,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.father = judgeLine.father;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 father 属性必须是数字，但读取到了 ${judgeLine.father}。将会被替换为数字 -1。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 father 属性必须是数字，但读取到了 ${judgeLine.father}。将会被设为默认值 -1。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 father 属性。将会被设为数字 -1。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 father 属性。将会被设为默认值 -1。`);
             }
 
             if ("zOrder" in judgeLine) {
@@ -612,17 +578,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.zOrder = judgeLine.zOrder;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 zOrder 属性必须是数字，但读取到了 ${judgeLine.zOrder}。将会被替换为数字 0。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 zOrder 属性必须是数字，但读取到了 ${judgeLine.zOrder}。将会被设为默认值 0。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 zOrder 属性。将会被设为数字 0。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 zOrder 属性。将会被设为默认值 0。`);
             }
 
             if ("attachUI" in judgeLine) {
@@ -636,10 +596,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.attachUI = judgeLine.attachUI;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 attachUI 属性若存在，则必须是字符串 combo、score、pause、combonumber、bar、name 或 level中的一个。但读取到了 ${judgeLine.attachUI}。该属性将会被忽略。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 attachUI 属性无效：${judgeLine.attachUI}。该属性将会被忽略。`);
                 }
             }
 
@@ -653,21 +610,15 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                             eventLayerId: i.toString()
                         });
                         this.eventLayers.push(newEventLayer);
-                        this.errors.push(...newEventLayer.errors);
+                        this.errorMessages = this.errorMessages.concat(newEventLayer.errorMessages);
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 eventLayers 属性必须是数组，但读取到了 ${judgeLine.eventLayers}。将会被替换为空数组。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 eventLayers 属性必须是数组，但读取到了 ${judgeLine.eventLayers}。将会被设为空数组。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 eventLayers 属性。将会被设为空数组。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 eventLayers 属性。将会被设为空数组。`);
             }
 
             if ("extended" in judgeLine) {
@@ -677,13 +628,10 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     eventLayerId: "X"
                 });
                 this.extended = newExtendedEventLayer;
-                this.errors.push(...newExtendedEventLayer.errors);
+                this.errorMessages = this.errorMessages.concat(newExtendedEventLayer.errorMessages);
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 extended 属性。将会被设为默认值。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 extended 属性。将会被设为默认值。`);
             }
 
             if ("notes" in judgeLine) {
@@ -693,17 +641,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 notes 属性必须是数组，但读取到了 ${judgeLine.notes}。将会被替换为空数组。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 notes 属性必须是数组，但读取到了 ${judgeLine.notes}。将会被设为空数组。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 notes 属性。将会被设为空数组。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 notes 属性。将会被设为空数组。`);
             }
 
             if ("bpmfactor" in judgeLine) {
@@ -711,17 +653,11 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.bpmfactor = judgeLine.bpmfactor;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 bpmfactor 属性必须是数字，但读取到了 ${judgeLine.bpmfactor}。将会被替换为数字 1。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 bpmfactor 属性必须是数字，但读取到了 ${judgeLine.bpmfactor}。将会被设为默认值 1。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 bpmfactor 属性。将会被设为数字 1。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 bpmfactor 属性。将会被设为默认值 1。`);
             }
 
             if ("anchor" in judgeLine) {
@@ -729,24 +665,15 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                     this.anchor = judgeLine.anchor;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `${this.id}号判定线：判定线的 anchor 属性必须是两个数字的数组，但读取到了 ${judgeLine.anchor}。将会被替换为默认值 [0.5, 0.5]。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 anchor 属性必须是两个数字的数组，但读取到了 ${judgeLine.anchor}。将会被设为默认值 [0.5, 0.5]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `${this.id}号判定线：判定线缺少 anchor 属性。将会被设为默认值 [0.5, 0.5]。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 anchor 属性。将会被设为默认值 [0.5, 0.5]。`);
             }
         }
         else {
-            this.errors.push(new ChartError(
-                `${this.id}号判定线：判定线必须是一个对象，但读取到了 ${judgeLine}。将会使用默认值。`,
-                "ChartReadError.TypeError"
-            ));
+            this.errorMessages.push(`${this.id}号判定线：判定线必须是一个对象，但读取到了 ${judgeLine}。将会被视为一条空判定线。`);
         }
 
         // 设置默认的空特殊事件层（如果extended未正确初始化）

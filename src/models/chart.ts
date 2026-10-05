@@ -11,7 +11,6 @@ import { IJudgeLine, JudgeLine } from "./judgeLine";
 import { Note } from "./note";
 import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
-import ChartError from "./error";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
 import { IObjectizable } from "./objectizable";
 
@@ -36,7 +35,7 @@ export class Chart implements IChart, IObjectizable {
     readonly META: ChartMeta;
     readonly judgeLineGroup: string[];
     readonly judgeLineList: JudgeLine[];
-    readonly errors: ChartError[] = [];
+    readonly errorMessages: string[] = [];
 
     /** 把谱面转为JSON对象 */
     toObject(): IChart {
@@ -121,13 +120,13 @@ export class Chart implements IChart, IObjectizable {
                 for (const bpm of chart.BPMList) {
                     const newBPM = new BPM(bpm);
                     this.BPMList.push(newBPM);
-                    this.errors.push(...newBPM.errors);
+                    this.errorMessages.push(...newBPM.errorMessages);
                 }
             }
 
             const newChartMeta = new ChartMeta("META" in chart ? chart.META : null, version);
             this.META = reactive(newChartMeta);
-            this.errors.push(...newChartMeta.errors);
+            this.errorMessages.push(...newChartMeta.errorMessages);
 
             if ("judgeLineGroup" in chart && isArray(chart.judgeLineGroup)) {
                 for (const group of chart.judgeLineGroup) {
@@ -136,10 +135,7 @@ export class Chart implements IChart, IObjectizable {
                         formatedGroup = group;
                     }
                     else {
-                        this.errors.push(new ChartError(
-                            `chart.judgeLineGroup 属性必须是字符串，但读取到了 ${group}。将会替换为字符串 "default"。`,
-                            "ChartReadError.TypeError"
-                        ));
+                        this.errorMessages.push(`chart.judgeLineGroup 属性必须是字符串，但读取到了 ${group}。将会替换为字符串 "default"。`,);
                     }
                     this.judgeLineGroup.push(formatedGroup);
                 }
@@ -152,7 +148,7 @@ export class Chart implements IChart, IObjectizable {
                         judgeLineNumber: i
                     });
                     this.judgeLineList.push(newJudgeLine);
-                    this.errors.push(...newJudgeLine.errors);
+                    this.errorMessages = this.errorMessages.concat(newJudgeLine.errorMessages);
                 }
             }
         }
@@ -162,32 +158,19 @@ export class Chart implements IChart, IObjectizable {
                 for (let i = 0; i < chart; i++) {
                     this.addNewJudgeLine();
                 }
-                this.errors.push(new ChartError(
-                    `谱面文件必须是一个对象，但读取到了数字${chart}。将会创建一个包含${this.judgeLineList.length}条判定线的谱面。`,
-                    "ChartReadError.TypeError",
-                    "info"
-                ));
+                this.errorMessages.push(`谱面文件必须是一个对象，但读取到了数字${chart}。将会创建一个包含${this.judgeLineList.length}条判定线的谱面。`);
             }
             else if (chart === SYMBOL_CHART_JSON_ERROR) {
-                this.errors.push(new ChartError(
-                    `谱面文件不存在或不能被 JSON 解析。请确保文件存在且格式正确。`,
-                    "ChartReadError.FormatError"
-                ));
+                this.errorMessages.push(`谱面文件不存在或不能被 JSON 解析。请确保文件存在且格式正确。`);
             }
             else {
-                this.errors.push(new ChartError(
-                    `谱面文件必须是一个对象，但读取到了${chart}。将会被替换为空谱面。`,
-                    "ChartReadError.TypeError"
-                ));
+                this.errorMessages.push(`谱面文件必须是一个对象，但读取到了${chart}。将会被替换为空谱面。`);
             }
         }
 
         if (this.judgeLineList.length === 0) {
             this.addNewJudgeLine();
-            this.errors.push(new ChartError(
-                `谱面没有任何判定线，将增加一条判定线。`,
-                "ChartReadError.MissingProperty"
-            ));
+            this.errorMessages.push(`谱面没有任何判定线，将增加一条判定线。`);
         }
         markRaw(this);
         this.highlightNotes();
