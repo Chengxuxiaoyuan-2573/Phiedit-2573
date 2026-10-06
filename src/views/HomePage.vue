@@ -11,8 +11,8 @@
         </em>
     </ElHeader>
     <MyGridContainer
-        :columns="2"
-        :gap="100"
+        :columns="3"
+        :gap="50"
         class="button-container"
     >
         <MyDialog open-text="创建新的谱面">
@@ -50,6 +50,12 @@
             @click="catchErrorByMessage(loadChart, '导入谱面')"
         >
             导入谱面（仅支持RPE格式，不支持官方谱面格式）
+        </MyButton>
+        <MyButton
+            type="primary"
+            @click="catchErrorByMessage(clearCache, '清理')"
+        >
+            清空缓存（{{ MathUtils.formatData(cacheSize) }}）
         </MyButton>
     </MyGridContainer>
     <ElMenu
@@ -168,6 +174,7 @@ import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage, confirm } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import MathUtils from "@/tools/mathUtils";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
@@ -186,6 +193,7 @@ const loadEnd = inject("loadEnd", () => {
 loadStart();
 const chartList = await window.electronAPI.readChartList();
 const allCharts = await window.electronAPI.readAllCharts();
+const cacheSize = ref(await window.electronAPI.getCacheSize());
 const backgroundSrcs: Record<string, string> = {};
 const chartNames: Record<string, string> = {};
 const levels: Record<string, string> = {};
@@ -283,6 +291,11 @@ async function permentlydeleteChart(chartId: string) {
 async function gotoChart(chartId: string) {
     const url = `/editor?chartId=${encodeURIComponent(chartId)}`;
     router.push(url);
+}
+
+async function clearCache() {
+    await window.electronAPI.clearCache();
+    cacheSize.value = await window.electronAPI.getCacheSize();
 }
 
 onBeforeUnmount(() => {

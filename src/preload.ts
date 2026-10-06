@@ -100,6 +100,8 @@ const electronAPI: ElectronAPI = {
     openLog: (fileName) => ipcRenderer.invoke("open-log", fileName),
     addLog: (content) => ipcRenderer.invoke("add-log", content),
     closeLog: () => ipcRenderer.invoke("close-log"),
+    getCacheSize: () => ipcRenderer.invoke("get-cache-size"),
+    clearCache: () => ipcRenderer.invoke("clear-cache"),
     onWindowFocus(callback) {
         const listener = () => callback();
         ipcRenderer.on("window-focus", listener);
@@ -260,6 +262,10 @@ interface ElectronAPI {
     addLog: (content: string) => Promise<void>
 
     closeLog: () => Promise<string>
+
+    getCacheSize: () => Promise<number>
+
+    clearCache: () => Promise<void>
 
     onWindowFocus: (callback: () => void) => () => void
 

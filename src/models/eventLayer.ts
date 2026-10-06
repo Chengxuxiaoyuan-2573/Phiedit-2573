@@ -23,7 +23,7 @@ export interface IBaseEventLayer {
     speedEvents?: IEvent<number>[]
 }
 abstract class AbstractEventLayer implements IObjectizable {
-    readonly errorMessages: string[] = [];
+    errorMessages: string[] = [];
     abstract getEventsByType(type: string): IEvent<unknown>[];
     abstract addEvent(event: unknown, type: string, id?: string): IEvent<unknown>;
     abstract toObject(): object;
@@ -113,35 +113,35 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "moveX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveX", id, eventNumber: this.eventNumbers.moveX++ });
                 insert(this.moveXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "moveY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveY", id, eventNumber: this.eventNumbers.moveY++ });
                 insert(this.moveYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "rotate": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "rotate", id, eventNumber: this.eventNumbers.rotate++ });
                 insert(this.rotateEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "alpha": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "alpha", id, eventNumber: this.eventNumbers.alpha++ });
                 insert(this.alphaEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "speed": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "speed", id, eventNumber: this.eventNumbers.speed++ });
                 insert(this.speedEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
             default:
@@ -245,28 +245,28 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "scaleX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleX", id, eventNumber: this.eventNumbers.scaleX++ });
                 insert(this.scaleXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "scaleY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleY", id, eventNumber: this.eventNumbers.scaleY++ });
                 insert(this.scaleYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "color": {
                 const newEvent = new ColorEvent(event, { ...baseConfig, type: "color", id, eventNumber: this.eventNumbers.color++ });
                 insert(this.colorEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
             case "paint": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "paint", id, eventNumber: this.eventNumbers.paint++ });
                 insert(this.paintEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
 
@@ -279,7 +279,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "incline": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "incline", id, eventNumber: this.eventNumbers.incline++ });
                 insert(this.inclineEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
-                this.errorMessages.push(...newEvent.errorMessages);
+                this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
             default:

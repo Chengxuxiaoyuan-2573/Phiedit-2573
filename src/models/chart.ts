@@ -47,16 +47,16 @@ export class Chart implements IChart, IObjectizable {
         };
     }
     getAllNotes() {
-        const notes: Note[] = [];
+        let notes: Note[] = [];
         this.judgeLineList.forEach(judgeLine => {
-            notes.push(...judgeLine.notes);
+            notes = notes.concat(judgeLine.notes);
         });
         return notes.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
     getAllEvents() {
-        const events: AbstractEvent[] = [];
+        let events: AbstractEvent[] = [];
         this.judgeLineList.forEach(judgeLine => {
-            events.push(...judgeLine.getAllEvents());
+            events = events.concat(judgeLine.getAllEvents());
         });
         return events.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
@@ -120,13 +120,13 @@ export class Chart implements IChart, IObjectizable {
                 for (const bpm of chart.BPMList) {
                     const newBPM = new BPM(bpm);
                     this.BPMList.push(newBPM);
-                    this.errorMessages.push(...newBPM.errorMessages);
+                    this.errorMessages = this.errorMessages.concat(newBPM.errorMessages);
                 }
             }
 
             const newChartMeta = new ChartMeta("META" in chart ? chart.META : null, version);
             this.META = reactive(newChartMeta);
-            this.errorMessages.push(...newChartMeta.errorMessages);
+            this.errorMessages = this.errorMessages.concat(newChartMeta.errorMessages);
 
             if ("judgeLineGroup" in chart && isArray(chart.judgeLineGroup)) {
                 for (const group of chart.judgeLineGroup) {

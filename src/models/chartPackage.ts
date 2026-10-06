@@ -44,7 +44,7 @@ export class ChartPackage implements IChartPackage {
 
         // 强制使 extra.bpm 与 chart.BPMList 相同
         this.extra.bpm.length = 0;
-        this.extra.bpm.push(...this.chart.BPMList);
+        this.extra.bpm = this.chart.BPMList.concat();
         this.extra.calculateSeconds();
     }
 }

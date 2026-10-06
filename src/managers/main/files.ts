@@ -13,7 +13,7 @@ import JSZip from "jszip";
 
 class FilesManager extends Manager {
     /** 包含临时文件的文件夹 */
-    private readonly tempDir: string;
+    readonly tempDir: string;
 
     /** 包含谱面文件夹的文件夹 */
     readonly chartFoldersDir: string;

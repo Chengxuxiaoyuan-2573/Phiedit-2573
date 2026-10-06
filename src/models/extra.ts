@@ -17,9 +17,9 @@ export interface IExtra {
 }
 
 export class Extra implements IExtra, IObjectizable {
-    readonly bpm: BPM[] = [];
-    readonly effects: Effect[] = [];
-    readonly errorMessages: string[] = [];
+    bpm: BPM[] = [];
+    effects: Effect[] = [];
+    errorMessages: string[] = [];
     private effectNumber = 0;
     toObject(): IExtra {
         const extraObject = {
@@ -39,7 +39,7 @@ export class Extra implements IExtra, IObjectizable {
             effectNumber: this.effectNumber++
         });
         this.effects.push(newEffect);
-        this.errorMessages.push(...newEffect.errorMessages);
+        this.errorMessages = this.errorMessages.concat(newEffect.errorMessages);
     }
     removeEffect(effect: Effect) {
         const index = this.effects.indexOf(effect);

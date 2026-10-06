@@ -31,6 +31,7 @@ import dialogManager from "./managers/main/dialog";
 import { DEFAULT_TIPS } from "./managers/main/defaultTips";
 import deleteManager from "./managers/main/delete";
 import logManager from "./managers/main/log";
+import cacheManager from "./managers/main/cache";
 
 // import installExtension, { VUEJS3_DEVTOOLS } from "electron-devtools-installer";
 
@@ -300,6 +301,14 @@ async function createWindow() {
 
     ipcMain.handle("close-log", async () => {
         return await logManager.closeLog();
+    });
+
+    ipcMain.handle("get-cache-size", async() => {
+        return await cacheManager.getCacheSize();
+    });
+
+    ipcMain.handle("clear-cache", async() => {
+        return await cacheManager.clearCache();
     });
 
     autoUpdater.autoDownload = false;
