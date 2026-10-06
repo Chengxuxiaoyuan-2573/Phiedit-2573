@@ -25,17 +25,17 @@
             </template>
         </MyInputBeats>
         <MyButton @click="globalEventEmitter.emit('PASTE', time)">
-            粘贴（Ctrl+V）
+            粘贴（Ctrl/⌘V）
         </MyButton>
         <MyButton @click="globalEventEmitter.emit('PASTE_MIRROR', time)">
-            镜像粘贴（Ctrl+B）
+            镜像粘贴（Ctrl/⌘B）
             <MyQuestionMark>
                 镜像粘贴会把音符镜像，事件值变为相反数。<br>
                 只对moveX、moveY、rotate事件有效。<br>
             </MyQuestionMark>
         </MyButton>
         <MyButton @click="globalEventEmitter.emit('REPEAT')">
-            连续粘贴（Ctrl+Shift+V）
+            连续粘贴（Ctrl/⌘+Shift+V）
             <MyQuestionMark>
                 连续粘贴会把选中的音符或事件重复一遍，使新的与原来的首尾相接。<br>
                 不会影响剪切板。<br>

@@ -26,7 +26,10 @@ export const defaultSettings = {
     unlimitFps: false,
     renderTimeStart: 0,
     renderTimeEnd: 0,
-    renderFPS: 60
+    renderFPS: 60,
+
+    /** 伴随创作输入延迟（秒，正数=用户偏晚按，音符放置时往前减这么多）。0=未校准 */
+    accompanimentLatency: 0
 };
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };

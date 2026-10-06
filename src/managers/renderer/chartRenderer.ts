@@ -22,6 +22,8 @@ import { ElMessage } from "element-plus";
 import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
+import { calibrationState } from "./calibration";
+import { CALIBRATION_JUDGE_TEXT } from "@/data/calibrationOnsets";
 import LimitedMap from "@/tools/limitedMap";
 
 interface ShaderInfo {
@@ -716,8 +718,8 @@ export default class ChartRenderer extends Manager {
                         break;
 
                     case "combo":
-                        if (shownCombo) {
-                            writeText(stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
+                        if (shownCombo || calibrationState.active) {
+                            writeText(calibrationState.active ? CALIBRATION_JUDGE_TEXT : stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
                                 0,
                                 0,
                                 Constants.CHART_VIEW_COMBO_SIZE,
@@ -891,8 +893,8 @@ export default class ChartRenderer extends Manager {
             ctx.translate(coordinateManager.convertXToCanvas(Constants.CHART_VIEW_COMBO_POSITION.x),
                 coordinateManager.convertYToCanvas(Constants.CHART_VIEW_COMBO_POSITION.y));
 
-            if (shownCombo) {
-                writeText(stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
+            if (shownCombo || calibrationState.active) {
+                writeText(calibrationState.active ? CALIBRATION_JUDGE_TEXT : stateManager._state.autoplay ? "AUTOPLAY" : "COMBO",
                     0,
                     0,
                     Constants.CHART_VIEW_COMBO_SIZE,

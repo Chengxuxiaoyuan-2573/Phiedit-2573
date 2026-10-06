@@ -24,3 +24,10 @@ pnpm-debug.log*
 
 # Electron-builder output
 /dist_electron
+
+/C6H5Li3O7_rubbish_files
+/.workbuddy
+
+# Python 提取脚本相关 (venv 已在 .workbuddy 内被忽略)
+__pycache__/
+*.py[cod]

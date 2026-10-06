@@ -9,7 +9,6 @@
 
 import { app, protocol, BrowserWindow, ipcMain, shell } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
-import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { autoUpdater } from "electron-updater";
@@ -396,6 +395,10 @@ app.on("activate", () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on("ready", () => {
+    // 启动时把隐藏校准谱面解包到本地（不进谱面列表），供延迟检测使用
+    void importChartManager.ensureCalibrationChart().catch((e) => {
+        console.error("解包隐藏校准谱面失败：", e);
+    });
     createWindow();
 });
 

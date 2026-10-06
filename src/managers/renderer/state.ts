@@ -55,6 +55,15 @@ export default class StateManager extends Manager {
 
         /** 是否为自动播放 */
         autoplay: true,
+
+        /** 伴随创作模式：是否已开启 */
+        accompanimentMode: false,
+
+        /** 伴随创作模式：倒计时结束后是否正在监听 Q/W/E/R 放置 note */
+        accompanimentListening: false,
+
+        /** 伴随创作模式：倒计时剩余秒数（null 表示不在倒计时） */
+        accompanimentCountdown: null as number | null,
     };
 
     /** 状态对象，响应式 */

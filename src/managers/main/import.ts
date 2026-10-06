@@ -70,6 +70,34 @@ class ImportChartManager extends Manager {
      * @param zip 谱面压缩包的 JSZip 对象
      * @returns 包含音乐、曲绘和谱面文件相对于压缩包根目录的路径
      */
+    /**
+     * 把随包发布的隐藏校准谱面（resources/calibrationChart.pez）解包到 chartFoldersDir 下，
+     * 固定 id 为 __calibration__。刻意不调用 chartListManager.addIdToChartList，
+     * 因此它不会出现在用户的谱面显示列表里，只能被校准流程按 id 直接打开。
+     * 幂等：目录已存在则跳过。
+     */
+    async ensureCalibrationChart(chartId = "__calibration__") {
+        const dir = filesManager.getChartPath(chartId);
+        if (fs.existsSync(dir)) return;
+        const pezPath = filesManager.getResourcePath("calibrationChart.pez");
+        if (!fs.existsSync(pezPath)) {
+            console.warn("校准谱面 pez 不存在，跳过解包：", pezPath);
+            return;
+        }
+
+        const buf = await fs.promises.readFile(pezPath);
+        const jszip = await JSZip.loadAsync(buf);
+        fs.mkdirSync(dir, { recursive: true });
+        for (const name of Object.keys(jszip.files)) {
+            const file = jszip.files[name];
+            if (file.dir) continue;
+            const data = await file.async("uint8array");
+            await fs.promises.writeFile(path.join(dir, name), data);
+        }
+
+        // 注意：不加入 chartList，保持隐藏
+    }
+
     async findFilesInZipChart(zip: JSZip) {
         let musicPath: string | undefined = undefined,
             backgroundPath: string | undefined = undefined,

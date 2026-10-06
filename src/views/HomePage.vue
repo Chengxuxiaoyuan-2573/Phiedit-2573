@@ -9,6 +9,14 @@
         <em class="version">
             当前版本：{{ version }}
         </em>
+        <MyButton
+            class="calibration-entry"
+            size="small"
+            type="warning"
+            @click="catchErrorByMessage(startCalibration, '延迟检测')"
+        >
+            延迟检测
+        </MyButton>
     </ElHeader>
     <MyGridContainer
         :columns="2"
@@ -168,6 +176,7 @@ import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage, confirm } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
+import { CALIBRATION_CHART_ID } from "@/data/calibrationOnsets";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
@@ -240,6 +249,11 @@ async function loadChart() {
     router.push(`/editor?chartId=${encodedId}`);
 }
 
+// ---- 延迟检测入口：打开隐藏校准谱面，走 calibration 模式 ----
+function startCalibration() {
+    router.push(`/editor?chartId=${encodeURIComponent(CALIBRATION_CHART_ID)}&calibration=1`);
+}
+
 async function addChart() {
     if (!musicFileUrl.value || !backgroundFileUrl.value) {
         throw new Error("请先选择音乐和背景");
@@ -293,9 +307,17 @@ onBeforeUnmount(() => {
 </script>
 <style>
 .header {
+    position: relative;
     display: flex;
     justify-content: center;
     padding: 10px 0;
+}
+
+.calibration-entry {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 12px;
 }
 
 .top-title {

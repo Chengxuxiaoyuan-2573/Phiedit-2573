@@ -23,6 +23,7 @@ const keyConfigs = {
     D: "NEXT_JUDGE_LINE",
     Esc: "UNSELECT_ALL",
     Del: "DELETE",
+    Backspace: "DELETE",
     Up: "MOVE_UP",
     Down: "MOVE_DOWN",
     Left: "MOVE_LEFT",
@@ -36,7 +37,7 @@ const keyConfigs = {
         keyup: "STOP_PREVIEW"
     },
 
-    // Ctrl
+    // Ctrl（Windows/Linux；Mac 下 Ctrl 同样可用，作 ⌘ 的兼容兜底）
     "Ctrl B": "PASTE_MIRROR",
     "Ctrl S": "SAVE",
     "Ctrl A": "SELECT_ALL",
@@ -52,6 +53,23 @@ const keyConfigs = {
     "Ctrl D": "DISABLE",
     "Ctrl E": "ENABLE",
 
+    // Meta（macOS Command 键）—— 与上面的 Ctrl 组合一一对应，便于 Mac 用户用 ⌘ 替代 Ctrl
+    "Meta Z": "UNDO",
+    "Meta Y": "REDO",
+    "Meta Shift Z": "REDO",
+    "Meta A": "SELECT_ALL",
+    "Meta C": "COPY",
+    "Meta V": "PASTE",
+    "Meta X": "CUT",
+    "Meta S": "SAVE",
+    "Meta B": "PASTE_MIRROR",
+    "Meta M": "MOVE_TO_JUDGE_LINE",
+    "Meta [": "MOVE_TO_PREVIOUS_JUDGE_LINE",
+    "Meta ]": "MOVE_TO_NEXT_JUDGE_LINE",
+    "Meta Shift V": "REPEAT",
+    "Meta D": "DISABLE",
+    "Meta E": "ENABLE",
+
     // Alt
     "Alt A": "REVERSE",
     "Alt S": "SWAP",
@@ -66,11 +84,6 @@ type B = A | {
 }
 export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup") {
     const key = KeyboardUtils.formatKey(e);
-    if (key.startsWith("Ctrl")) {
-        if (key !== "Ctrl R" && key !== "Ctrl Shift I") {
-            e.preventDefault();
-        }
-    }
 
     const keydownup = (() => {
         if (type === "keydown") {
@@ -87,7 +100,67 @@ export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup
         }
     })();
 
-    const stateManager = store.useManager("stateManager");
+    // 焦点位于输入框/文本框内时，保留浏览器与输入框的原生行为（文本撤销、删除字符等），
+    // 不触发谱面快捷键，以免误删选中的 note 或误撤销画布
+    if (KeyboardUtils.isEditableTarget(e)) {
+        return keydownup;
+    }
+
+    // stateManager 可能尚未初始化（应用启动、谱面/音频异步加载期间），
+    // 此时仅做按键追踪、不处理谱面快捷键，避免 useManager 抛错中断按键事件
+    const stateManager = (() => {
+        try {
+            return store.useManager("stateManager");
+        }
+        catch {
+            return null;
+        }
+    })();
+    if (!stateManager) {
+        return keydownup;
+    }
+
+    // 伴随创作模式监听中：Q/W/E/R 直接放置对应类型 note，而非切换类型。
+    // 非 Hold 类型按下即放置；Hold（R）类型按下为开始、抬起为结束（见 ACCOMPANIMENT_END_HOLD）
+    if (stateManager._state.accompanimentListening) {
+        const accompanimentTypeMap: Record<string, NoteType> = {
+            Q: NoteType.Tap,
+            W: NoteType.Drag,
+            E: NoteType.Flick,
+            R: NoteType.Hold,
+        };
+        if (key in accompanimentTypeMap) {
+            const noteType = accompanimentTypeMap[key];
+            if (type === "keydown") {
+                return () => {
+                    keydownup();
+                    globalEventEmitter.emit("ACCOMPANIMENT_PLACE", noteType, key);
+                };
+            }
+
+            return () => {
+                keydownup();
+                globalEventEmitter.emit("ACCOMPANIMENT_END_HOLD", key);
+            };
+        }
+    }
+
+    // 伴随创作模式激活时，ESC 随时退出（仅 keydown 触发，避免一次按键在 keyup 再发一次 STOP；
+    // 倒计时与监听阶段均生效，置于 autoplay 门控之前以保证可用）
+    if (key === "Esc" && stateManager._state.accompanimentMode) {
+        if (type === "keydown") {
+            return () => {
+                globalEventEmitter.emit("ACCOMPANIMENT_STOP");
+            };
+        }
+        return keydownup;
+    }
+
+    if (key.startsWith("Ctrl") || key.startsWith("Meta")) {
+        if (key !== "Ctrl R" && key !== "Ctrl Shift I" && key !== "Meta R" && key !== "Meta Shift I") {
+            e.preventDefault();
+        }
+    }
 
     if (!stateManager._state.autoplay) {
         return keydownup;

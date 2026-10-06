@@ -38,6 +38,15 @@ export class Chart implements IChart, IObjectizable {
     readonly judgeLineList: JudgeLine[];
     readonly errors: ChartError[] = [];
 
+    /**
+     * 更改区域 BPM 后，已放置音符的默认摆放方式。
+     * - "relative"：保持相对位置（音符保留原有拍数，BPM 改变后落在新的格点上），即当前默认行为
+     * - "absolute"：保持绝对位置（音符保留相对于 0:00 的绝对时间，可能偏离格点）
+     * - null：每次都询问用户
+     * 该字段不进入序列化，仅在当前铺面（chart 实例）内有效，铺面重新加载即恢复 null。
+     */
+    bpmRepositionMode: "relative" | "absolute" | null = null;
+
     /** 把谱面转为JSON对象 */
     toObject(): IChart {
         return {

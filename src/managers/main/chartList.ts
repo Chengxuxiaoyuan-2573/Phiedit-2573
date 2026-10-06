@@ -11,6 +11,7 @@ import Manager from "../renderer/abstract";
 import filesManager from "./files";
 import FileUtils from "@/tools/fileUtils";
 import Constants from "@/constants";
+import { CALIBRATION_CHART_ID } from "@/data/calibrationOnsets";
 
 class ChartListManager extends Manager {
     /** 谱面列表的文件，绝对路径 */
@@ -83,7 +84,13 @@ class ChartListManager extends Manager {
 
     async readAllCharts() {
         const charts = await fs.promises.readdir(filesManager.chartFoldersDir, { withFileTypes: true });
-        return charts.filter(file => file.isDirectory()).map(file => file.name);
+
+        // 隐藏校准谱面解包在 charts 目录下，但不属于用户的谱面，
+        // 必须在所有列表（包括"最近删除"）中排除，否则会被误判为已删除的谱面。
+        return charts
+            .filter(file => file.isDirectory())
+            .map(file => file.name)
+            .filter(name => name !== CALIBRATION_CHART_ID);
     }
 }
 

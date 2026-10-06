@@ -84,4 +84,18 @@ export default class KeyboardUtils {
 
         return str;
     }
+
+    /**
+     * 判断键盘事件是否发生在可编辑元素（输入框/文本框/下拉框/富文本）内。
+     * 在这些元素内应保留浏览器与输入框的原生行为（文本撤销、删除字符等），
+     * 不触发谱面快捷键。
+     */
+    static isEditableTarget(e: KeyboardEvent) {
+        const target = e.target as HTMLElement | null;
+        if (!target) return false;
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+        if (target.isContentEditable) return true;
+        return false;
+    }
 }

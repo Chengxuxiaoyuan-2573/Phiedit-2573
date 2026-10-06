@@ -95,13 +95,13 @@
             v-if="numOfEvents > 0"
             @click="globalEventEmitter.emit('DISABLE')"
         >
-            禁用选中的{{ numOfEvents }}个事件（Ctrl+D）
+            禁用选中的{{ numOfEvents }}个事件（Ctrl/⌘D）
         </MyButton>
         <MyButton
             v-if="numOfEvents > 0"
             @click="globalEventEmitter.emit('ENABLE')"
         >
-            启用选中的{{ numOfEvents }}个事件（Ctrl+E）
+            启用选中的{{ numOfEvents }}个事件（Ctrl/⌘E）
         </MyButton>
         <MySelect
             v-model="stateManager.cache.mutipleEdit.type"

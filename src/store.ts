@@ -40,6 +40,7 @@ import { ArrayedObject } from "./tools/algorithm";
 import { SEC_TO_MS } from "./tools/mathUtils";
 import MediaUtils from "./tools/mediaUtils";
 import JudgeManager from "./managers/renderer/judge";
+import AccompanimentManager from "./managers/renderer/accompaniment";
 
 /**
  * 用来存储 managers 的构造函数
@@ -68,7 +69,8 @@ export const managersMap = {
     errorManager: ErrorManager,
     coordinateManager: CoordinateManager,
     mutipleEditManager: MutipleEditManager,
-    judgeManager: JudgeManager
+    judgeManager: JudgeManager,
+    accompanimentManager: AccompanimentManager
 } as const;
 
 export type ManagersMap = {

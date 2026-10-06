@@ -3,16 +3,20 @@
 
 <template>
     <ElContainer>
-        <ElHeader id="header">
+        <!-- audio 元素放在 header 之外，保证校准模式（header 隐藏）下音频依然挂载、可播放、可读 currentTime -->
+        <audio
+            ref="audioRef"
+            :src="store.chartPackageRef.value?.musicSrc"
+        />
+        <ElHeader
+            v-if="!isCalibration"
+            id="header"
+        >
             <ElScrollbar
                 id="header-inner"
                 @wheel.passive.stop
             >
                 <div class="audio-player">
-                    <audio
-                        ref="audioRef"
-                        :src="store.chartPackageRef.value?.musicSrc"
-                    />
                     <template v-if="audioRef">
                         <ElIcon
                             class="play-icon"
@@ -190,6 +194,7 @@
             </ElScrollbar>
         </ElHeader>
         <ElAside
+            v-if="!isCalibration"
             id="left"
             @wheel.passive.stop
         >
@@ -417,6 +422,20 @@
                     >
                         试玩
                     </MyButton>
+                    <MyButton
+                        v-if="!stateManager.state.accompanimentMode"
+                        type="success"
+                        @click="globalEventEmitter.emit('ACCOMPANIMENT_TOGGLE')"
+                    >
+                        伴随创作
+                    </MyButton>
+                    <MyButton
+                        v-else
+                        type="danger"
+                        @click="globalEventEmitter.emit('ACCOMPANIMENT_STOP')"
+                    >
+                        停止伴随创作
+                    </MyButton>
                 </div>
                 <div class="flex-container">
                     <MyButton
@@ -473,8 +492,102 @@
                 :width="1350"
                 :height="900"
             />
+            <div
+                v-if="isCalibration"
+                class="calibration-hud"
+                :class="{ 'is-fading-out': !!calibrationResult }"
+                style="position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 3000; background: rgba(20, 22, 30, 0.78); color: #fff; padding: 14px 22px; border-radius: 12px; font-size: 15px; line-height: 1.7; text-align: center; pointer-events: none; backdrop-filter: blur(6px); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);"
+            >
+                <div style="font-size: 17px; font-weight: 600;">
+                    🎯 跟着鼓点按下任意键
+                </div>
+                <div>
+                    实时 offset：<b>{{ calibrationState.offsetMs === null ? "采样中…" : calibrationState.offsetMs + " ms" }}</b>
+                </div>
+                <div>有效样本：{{ calibrationState.validCount }} / {{ calibrationState.pressCount }} 次按键</div>
+                <div style="opacity: 0.75; font-size: 13px;">
+                    误差判定只依据鼓点真值 · 按 ESC 结束采样
+                </div>
+            </div>
+            <div
+                v-if="isCalibration && calibrationResult"
+                class="calibration-result"
+            >
+                <div class="calibration-result-center">
+                    <div class="calibration-ribbon">
+                        <div class="calibration-ribbon-bar" />
+                        <div class="calibration-ribbon-tie calibration-ribbon-tie-left" />
+                        <div class="calibration-ribbon-tie calibration-ribbon-tie-right" />
+                    </div>
+                    <div
+                        v-if="calibrationResult.offsetMs !== null"
+                        class="calibration-result-value"
+                    >
+                        {{ calibrationResult.offsetMs }}
+                    </div>
+                    <div
+                        v-else
+                        class="calibration-result-empty"
+                    >
+                        采样不足
+                    </div>
+                </div>
+                <div class="calibration-result-actions">
+                    <button
+                        class="calibration-action calibration-action-discard"
+                        title="放弃这次测出的 offset，不计入设置"
+                        @click="discardCalibration"
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            stroke-linecap="round"
+                        >
+                            <path d="M5 5 L19 19 M19 5 L5 19" />
+                        </svg>
+                    </button>
+                    <button
+                        class="calibration-action calibration-action-confirm"
+                        :disabled="calibrationResult.offsetMs === null"
+                        title="记录这次测出的 offset"
+                        @click="confirmCalibration"
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M4 12.5 L10 18.5 L20 6" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div
+                v-if="stateManager.state.accompanimentCountdown !== null || stateManager.state.accompanimentListening"
+                class="accompaniment-overlay"
+            >
+                <div
+                    v-if="stateManager.state.accompanimentCountdown !== null"
+                    class="accompaniment-countdown"
+                >
+                    {{ stateManager.state.accompanimentCountdown }}
+                </div>
+                <div
+                    v-else
+                    class="accompaniment-listening"
+                >
+                    <span class="accompaniment-dot" />
+                    监听中 · 按 Q / W / E / R 放置 Tap / Drag / Flick / Hold
+                </div>
+            </div>
         </ElMain>
         <ElAside
+            v-if="!isCalibration"
             id="right"
             @wheel.passive.stop
         >
@@ -716,6 +829,8 @@ import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
+import CalibrationManager, { calibrationState } from "@/managers/renderer/calibration";
+import { CALIBRATION_CHART_ID } from "@/data/calibrationOnsets";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -740,6 +855,11 @@ const resourcePackageLoader = store.useGlobalManager("resourcePackageLoader");
 loadStart();
 
 const chartId = store.getChartId();
+
+// 校准模式：由首页“延迟检测”入口以 ?calibration=1 打开，用 autoplay 做纯视觉引导，
+// 误差判定只依赖 Python 提取的 onset 数据（谱面本身不参与计算）。
+const isCalibration = ref(store.route.query.calibration === "1");
+const calibrationManager = new CalibrationManager();
 
 // 使用 chartPackageLoader 加载 chartPackage
 const readResult = await window.electronAPI.loadChart(chartId);
@@ -766,6 +886,149 @@ const selectionManager = store.useManager("selectionManager");
 const mouseManager = store.useManager("mouseManager");
 const coordinateManager = store.useManager("coordinateManager");
 const judgeManager = store.useManager("judgeManager");
+
+// ---- 延迟校准模式 ----
+const CALIBRATION_IGNORED_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab", "Escape"];
+
+// dev 后门：校准检测界面里连按 5 次 Alt（超时窗口内）进入该隐藏谱面的“普通编辑”模式，方便手动调整谱面
+const IS_DEV = process.env.NODE_ENV !== "production";
+const DEV_ALT_TRIGGER_COUNT = 5;
+const DEV_ALT_RESET_MS = 800;
+let altPressCount = 0;
+let altResetTimer: number | undefined;
+function tryDevAltCombo() {
+    if (!IS_DEV) {
+        return false;
+    }
+    altPressCount++;
+    if (altResetTimer !== undefined) window.clearTimeout(altResetTimer);
+
+    // 连按需在超时窗口内完成，超时则重新计数
+    altResetTimer = window.setTimeout(() => {
+        altPressCount = 0;
+    }, DEV_ALT_RESET_MS);
+    if (altPressCount >= DEV_ALT_TRIGGER_COUNT) {
+        altPressCount = 0;
+        if (altResetTimer !== undefined) window.clearTimeout(altResetTimer);
+
+        // 用整页重载切到普通编辑模式：同路由仅 query 变化不会重挂组件，
+        // 而 store 是单例、旧 EditorPage 的 onBeforeUnmount 会清空 store，
+        // 因此这里必须整页重载，让编辑模式从干净状态重新加载谱面。
+        window.location.hash = `#/editor?chartId=${encodeURIComponent(CALIBRATION_CHART_ID)}`;
+        window.location.reload();
+        return true;
+    }
+    return false;
+}
+
+/** 校准结果确认界面：歌曲放完或按 ESC 后进入，把「记录 / 放弃」的决定权交给用户 */
+const calibrationResult = ref<{
+    offsetMs: number | null;
+    validCount: number;
+    pressCount: number;
+} | null>(null);
+
+/** 进入结果确认界面：停止采样与播放，冻结当前统计 */
+function enterCalibrationResult() {
+    if (calibrationResult.value) return;
+    calibrationManager.onExit();
+    audioRef.value?.pause();
+    calibrationResult.value = {
+        offsetMs: calibrationState.offsetMs,
+        validCount: calibrationState.validCount,
+        pressCount: calibrationState.pressCount,
+    };
+}
+
+/** 音频播放结束时同样进入结果界面，而不是静静停住 */
+function onCalibrationAudioEnded() {
+    enterCalibrationResult();
+}
+
+/** ✓：记录这次测出的 offset（写入全局设置）后回首页；无有效样本时不动作 */
+function confirmCalibration() {
+    if (!calibrationResult.value || calibrationResult.value.offsetMs === null) return;
+    calibrationManager.saveIfEnough();
+    router.push("/");
+}
+
+/** ✕：放弃这次测出的 offset，不写入设置，直接回首页 */
+function discardCalibration() {
+    router.push("/");
+}
+
+function calibrationKeyDown(e: KeyboardEvent) {
+    // 结果确认界面：不再采样，也不响应 ESC，是否记录由 ✕ / ✓ 决定
+    if (calibrationResult.value) return;
+
+    if (e.key === "Escape") {
+        enterCalibrationResult();
+        return;
+    }
+
+    // dev 后门：连按 5 次 Alt 进入编辑模式（不计入校准采样）
+    if (e.key === "Alt" && tryDevAltCombo()) {
+        return;
+    }
+
+    if (CALIBRATION_IGNORED_KEYS.includes(e.key)) return;
+
+    // 音频元素理论上已挂载（模板里已移出 header），此处仍做防御性判空
+    const audio = audioRef.value;
+    if (!audio) return;
+
+    // 若音乐尚未播放（如自动播放被拦截），用这次按键启动音乐，这一次不计入样本
+    if (audio.paused) {
+        audio.play().catch(() => {
+            // 忽略：仍处于暂停，用户可继续按键重试
+        });
+        return;
+    }
+    calibrationManager.onKeyPress();
+}
+
+if (isCalibration.value) {
+    // autoplay=true → 渲染循环发 AUTOPLAY：音符自动击打，纯视觉、不做判定
+    // isPreviewing=true → 渲染循环走 RENDER_CHART：游戏视图（编辑 UI 由模板 v-if 隐藏）
+    stateManager.state.autoplay = true;
+    stateManager.state.isPreviewing = true;
+    calibrationManager.onStart();
+    onMounted(() => {
+        window.addEventListener("keydown", calibrationKeyDown);
+
+        // 等音频真正 canplay 后再播，避免刚挂载就 play() 触发 autoplay 拦截/未加载。
+        // 若被拦截，calibrationKeyDown 里检测到 paused 会在用户首次按键时兜底启动。
+        const audio = store.useAudio();
+        const tryPlay = () => {
+            if (audio.readyState === HTMLMediaElement.HAVE_NOTHING) {
+                return;
+            }
+            audio.play().catch((error) => {
+                console.warn("校准模式自动播放被拦截，等待用户按键启动：", error);
+            });
+        };
+
+        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+            tryPlay();
+        }
+        else {
+            audio.addEventListener("canplay", tryPlay, { once: true });
+        }
+
+        // 歌曲放完 → 进入结果确认界面（否则画面会静静停住、像是卡死）
+        audio.addEventListener("ended", onCalibrationAudioEnded);
+    });
+    onBeforeUnmount(() => {
+        window.removeEventListener("keydown", calibrationKeyDown);
+        try {
+            store.useAudio().removeEventListener("ended", onCalibrationAudioEnded);
+        }
+        catch {
+            // 音频已不可用，忽略
+        }
+        calibrationManager.onExit();
+    });
+}
 
 const fps = ref(0);
 const time = ref(0);
@@ -1299,11 +1562,22 @@ async function windowOnKeyDown(e: KeyboardEvent) {
         return;
     }
 
+    // 校准模式下禁用全部编辑器快捷键（T/U 预览、I 切换预览、QWER 改类型、A/D 切判定线、
+    // Del 删除、方向键移动、Ctrl/Meta 组合等），按键只交给 calibrationKeyDown 做延迟采样
+    if (isCalibration.value) {
+        return;
+    }
+
     const handler = getKeyHandler(e, "keydown");
     handler();
 }
 
 async function windowOnKeyUp(e: KeyboardEvent) {
+    // 校准模式下同样屏蔽，避免 PREVIEW 等 keyup 状态被解除触发
+    if (isCalibration.value) {
+        return;
+    }
+
     const handler = getKeyHandler(e, "keyup");
     handler();
 }
@@ -1597,6 +1871,8 @@ onMounted(() => {
 #main {
     grid-area: main;
     --el-main-padding: 0;
+    position: relative;
+    overflow: hidden;
 }
 
 .el-aside {
@@ -1650,6 +1926,253 @@ onMounted(() => {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+.accompaniment-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.accompaniment-countdown {
+    font-size: 160px;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    animation: accompaniment-pop 1s ease;
+}
+
+.accompaniment-listening {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 10px 22px;
+    border-radius: 999px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.accompaniment-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #67c23a;
+    box-shadow: 0 0 12px #67c23a;
+    animation: accompaniment-blink 1s infinite;
+}
+
+@keyframes accompaniment-pop {
+    from {
+        transform: scale(1.6);
+        opacity: 0.2;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes accompaniment-blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* ---- 校准结果确认界面 ---- */
+
+/* 校准过程中的顶部信息块：进入结果确认界面时渐隐，而不是硬切消失 */
+.calibration-hud {
+    transition: opacity 0.5s ease;
+}
+
+.calibration-hud.is-fading-out {
+    opacity: 0;
+}
+
+.calibration-result {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(48px, 8vh, 104px);
+    box-sizing: border-box;
+    padding: 12vh 6vw;
+    overflow: hidden;
+}
+
+/* 中间显示区域「慢慢变白」：白色幕布从透明渐入 */
+.calibration-result::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #ffffff;
+    animation: calibration-fade-to-white 1.6s ease-out forwards;
+}
+
+.calibration-result > * {
+    position: relative;
+    animation: calibration-result-rise 0.55s ease-out 0.65s both;
+}
+
+/* 居中舞台：紫色彩条 + 压在其上的数字 */
+.calibration-result-center {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 斜的紫色彩条，下移到数字的下半部分 */
+.calibration-ribbon {
+    position: relative;
+    width: min(23vw, 196px);
+    height: clamp(46px, 5.8vh, 72px);
+    transform: translateY(clamp(12px, 1.4vw, 22px));
+}
+
+.calibration-ribbon-bar {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    transform: skewX(-20deg);
+    background: linear-gradient(100deg,
+        rgba(167, 139, 250, 0.28) 0%,
+        rgba(139, 92, 246, 0.5) 48%,
+        rgba(196, 181, 253, 0.26) 100%);
+}
+
+/* 左右两条飘带：与彩条同角度倾斜，尺寸一致，只分居两端 */
+.calibration-ribbon-tie {
+    position: absolute;
+    top: 0%;
+    height: 100%;
+    width: 11px;
+    border-radius: 3px;
+    transform: skewX(-20deg);
+}
+
+.calibration-ribbon-tie-left {
+    left: 0;
+    background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
+    box-shadow: 0 0 16px rgba(139, 92, 246, 0.6);
+}
+
+.calibration-ribbon-tie-right {
+    right: 0;
+    background: linear-gradient(180deg, #8b5cf6, #c4b5fd);
+    box-shadow: 0 0 16px rgba(139, 92, 246, 0.6);
+}
+
+.calibration-result-value,
+.calibration-result-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #17171a;
+    line-height: 1;
+}
+
+.calibration-result-value {
+    font-size: clamp(68px, 8vw, 104px);
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    font-variant-numeric: tabular-nums;
+    transform: translateY(-20px);
+}
+
+.calibration-result-empty {
+    font-size: clamp(30px, 3.6vw, 48px);
+    font-weight: 700;
+    color: rgba(23, 23, 26, 0.35);
+}
+
+.calibration-result-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(64px, 12vw, 156px);
+}
+
+.calibration-action {
+    width: clamp(42px, 4.4vw, 56px);
+    height: clamp(42px, 4.4vw, 56px);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #17171a;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.calibration-action svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.calibration-action:hover {
+    transform: scale(1.1);
+}
+
+.calibration-action:active {
+    transform: scale(0.94);
+}
+
+.calibration-action-discard:hover {
+    color: #f56c6c;
+}
+
+.calibration-action-confirm:hover {
+    color: #7c3aed;
+}
+
+.calibration-action-confirm:disabled {
+    color: #c0c4cc;
+    cursor: not-allowed;
+}
+
+.calibration-action-confirm:disabled:hover {
+    transform: none;
+    color: #c0c4cc;
+}
+
+@keyframes calibration-fade-to-white {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes calibration-result-rise {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .el-button-group,
