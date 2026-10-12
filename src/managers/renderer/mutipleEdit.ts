@@ -169,10 +169,12 @@ export default class MutipleEditManager extends Manager {
                     newValue = value;
                     break;
                 case "by":
-                    newValue = addBeats(element.startTime, value);
+                    // 这里必须用 element[attr] 而不是 element.startTime。
+                    // 否则在修改 endTime 时会以 startTime 为基准，得到错误的结果。
+                    newValue = addBeats(element[attr], value);
                     break;
                 default:
-                    newValue = element.startTime;
+                    newValue = element[attr];
             }
 
             if (isNoteLike(element)) {
@@ -311,7 +313,8 @@ export default class MutipleEditManager extends Manager {
             }
 
             if (!isSucceeded) {
-                throw new Error(`当前没有选中${stateManager.cache.mutipleEdit.eventTypes.join("、")}事件`);
+                const suffix = stateManager.cache.mutipleEdit.eventTypes.length === 0 ? "" : stateManager.cache.mutipleEdit.eventTypes.join("、");
+                throw new Error(`当前没有选中${suffix}事件`);
             }
         }
         historyManager.ungroup();

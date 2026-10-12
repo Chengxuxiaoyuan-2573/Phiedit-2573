@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ElOption, ElSelect } from "element-plus";
 import { isArray, isObject } from "lodash";
-import { ref, useTemplateRef, watch } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 
 const UNDEFINED = -1;
 
@@ -80,7 +80,27 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
     change: [A | A[]]
 }>();
-const filteredOptions = ref([...props.options]);
+
+/**
+ * 当前的过滤关键字。
+ * 为空时表示不进行过滤，直接展示全部选项。
+ */
+const filterKeyword = ref("");
+
+/**
+ * 实际展示的选项。
+ *
+ * 注意：这里必须是 computed 而不是普通的 ref。
+ * 之前用 ref 只在初始化时赋值一次，且该 ref 只在模板的 v-for 中被读取，
+ * 导致外部传入的 props.options 变化时（例如批量编辑面板切换选中事件后
+ * 重新生成事件类型列表），下拉菜单中的选项永远不会更新。
+ */
+const filteredOptions = computed(() => {
+    if (filterKeyword.value === "") {
+        return props.options;
+    }
+    return props.options.filter(option => isSubsequence(filterKeyword.value.toLocaleLowerCase(), getLabel(option).toLocaleLowerCase()));
+});
 
 function isUNDEFINED(value: unknown): value is typeof UNDEFINED {
     return value === UNDEFINED;
@@ -114,10 +134,35 @@ function bb2aa(bb: B | B[]) {
     return b2a(bb);
 }
 
+/**
+ * 把外部传入的 model 同步到组件内部的 inputData。
+ *
+ * 多选时额外剔除掉已经不在候选列表中的值。
+ * 否则当候选列表收缩后（例如批量编辑面板中取消选中了某类事件），
+ * 已失效的值仍会被 ElSelect 当成选中项，导致输入框里显示出错误的标签。
+ */
+function syncFromModel() {
+    const bb = aa2bb(model.value);
+    if (isArray(bb)) {
+        const validValues = new Set(props.options.map(option => isObject(option) ? a2b(option.value) : a2b(option)));
+        inputData.value = bb.filter(value => validValues.has(value));
+    }
+    else {
+        inputData.value = bb;
+    }
+}
+
 watch(model, () => {
-    inputData.value = aa2bb(model.value);
+    syncFromModel();
 }, {
     immediate: true
+});
+
+// 候选列表变化时重新同步一次，避免残留已失效的选中值
+watch(() => props.options, () => {
+    if (isArray(inputData.value)) {
+        syncFromModel();
+    }
 });
 
 function onChange() {
@@ -142,29 +187,29 @@ function getValue(option: (A | {
     return isObject(option) ? option.value : option;
 }
 
-function filterMethod(value: string) {
-    // 不区分大小写，可以跳字符，有子序列即可
-    // 如value="ace", option="abcde"也可以
+/**
+ * 判断 value 是否为 label 的子序列（不区分大小写）
+ * 如 value="ace", label="abcde" 也可以匹配
+ */
+function isSubsequence(value: string, label: string) {
     if (value === "") {
-        filteredOptions.value = [...props.options];
-        return;
+        return true;
     }
-    filteredOptions.value = [];
-    for (const option of props.options) {
-        const lowerValue = value.toLocaleLowerCase();
-        const lowerLabel = getLabel(option).toLocaleLowerCase();
 
-        let valueIndex = 0;
-        for (let i = 0; i < lowerLabel.length; i++) {
-            if (lowerLabel[i] === lowerValue[valueIndex]) {
-                valueIndex++;
-                if (valueIndex === lowerValue.length) {
-                    filteredOptions.value.push(option);
-                    break;
-                }
+    let valueIndex = 0;
+    for (let i = 0; i < label.length; i++) {
+        if (label[i] === value[valueIndex]) {
+            valueIndex++;
+            if (valueIndex === value.length) {
+                return true;
             }
         }
     }
+    return false;
+}
+
+function filterMethod(value: string) {
+    filterKeyword.value = value;
 
     if (filteredOptions.value.length > 0) {
         inputData.value = aa2bb(getValue(filteredOptions.value[0]));
@@ -180,7 +225,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function updateShowedValue() {
-    inputData.value = aa2bb(model.value);
+    syncFromModel();
 }
 
 defineExpose({

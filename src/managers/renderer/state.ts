@@ -66,7 +66,7 @@ export default class StateManager extends Manager {
             /** 要编辑的是音符还是事件 */
             type: "note" as "note" | "event",
 
-            /** 要编辑哪些类型的事件 */
+            /** 要编辑哪些类型的事件。空数组表示"所有种类的事件" */
             eventTypes: [] as string[],
 
             /** 要编辑音符的哪个属性 */
