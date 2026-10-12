@@ -164,7 +164,7 @@ import globalEventEmitter from "@/eventEmitter";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { confirm } from "@/tools/catchError";
 import { computed, useTemplateRef } from "vue";
-import { JudgeLineCover } from "@/models/judgeLine";
+import { JudgeLineCover } from "@/models/rpe/judgeLine";
 import MyInput from "@/myElements/MyInput.vue";
 import { watch } from "vue";
 import MyInputCoordinate from "@/myElements/MyInputCoordinate.vue";

@@ -10,8 +10,8 @@ import chartInfoManager from "./chartInfo";
 import fs from "fs";
 import path from "path";
 import Constants from "@/constants";
-import { Chart } from "@/models/chart";
-import { baseEventTypes } from "@/models/eventLayer";
+import { Chart } from "@/models/rpe/chart";
+import { baseEventTypes } from "@/models/rpe/eventLayer";
 import { hashToDigits } from "@/tools/hash";
 import { app } from "electron";
 

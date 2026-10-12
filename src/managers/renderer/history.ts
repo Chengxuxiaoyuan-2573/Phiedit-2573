@@ -5,8 +5,8 @@
  */
 
 import globalEventEmitter from "@/eventEmitter";
-import { eventAttributes, IEvent } from "@/models/event";
-import { INote, noteAttributes } from "@/models/note";
+import { eventAttributes, IEvent } from "@/models/rpe/event";
+import { INote, noteAttributes } from "@/models/rpe/note";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";

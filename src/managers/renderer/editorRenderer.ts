@@ -4,9 +4,9 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/event";
-import { isNoteLike, NoteType } from "@/models/note";
+import { Beats, beatsToSeconds, getBeatsValue } from "@/models/rpe/beats";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/rpe/event";
+import { isNoteLike, NoteType } from "@/models/rpe/note";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
 import { floor, ceil } from "lodash";
@@ -16,7 +16,7 @@ import store from "@/store";
 import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
-import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
+import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/rpe/eventLayer";
 
 export default class EditorRenderer extends Manager {
     constructor() {

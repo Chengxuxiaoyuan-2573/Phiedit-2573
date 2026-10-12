@@ -8,12 +8,12 @@ import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import ChartError from "@/models/error";
 import store from "@/store";
-import { isNoteLike, Note, NoteType } from "@/models/note";
-import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats } from "@/models/beats";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { isNoteLike, Note, NoteType } from "@/models/rpe/note";
+import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats } from "@/models/rpe/beats";
+import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import Constants from "@/constants";
 import { SEC_TO_MS } from "@/tools/mathUtils";
-import { isEvent } from "@/models/event";
+import { isEvent } from "@/models/rpe/event";
 
 export default class ErrorManager extends Manager {
     errors: ChartError[] = [];

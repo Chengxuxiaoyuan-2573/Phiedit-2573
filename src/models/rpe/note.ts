@@ -5,11 +5,11 @@
  */
 
 import { beatsToSeconds, BPM, makeSureBeatsValid } from "./beats";
-import { isArrayOfNumbers, Optional } from "../tools/typeTools";
+import { isArrayOfNumbers, Optional } from "../../tools/typeTools";
 import { Beats } from "./beats";
 import { isObject, isNumber, isString } from "lodash";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { RGBcolor } from "@/tools/color";
 export enum NoteAbove {
     Above = 1,

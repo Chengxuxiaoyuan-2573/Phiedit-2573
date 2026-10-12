@@ -174,8 +174,8 @@
     </div>
 </template>
 <script setup lang="ts">
-import { formatBeats } from "@/models/beats";
-import { DEFAULT_VARS, Effect, isNumberOrVector, ShaderName } from "@/models/effect";
+import { formatBeats } from "@/models/rpe/beats";
+import { DEFAULT_VARS, Effect, isNumberOrVector, ShaderName } from "@/models/rpe/effect";
 import MyButton from "@/myElements/MyButton.vue";
 import MyDialog from "@/myElements/MyDialog.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";

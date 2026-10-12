@@ -11,7 +11,7 @@ import { INote, Note } from "./note";
 import { AbstractEvent, findLastEventIndex, getEasingFunctionOfNumberEvent, NumberEvent } from "./event";
 import { beatsCompare, BPM } from "./beats";
 import { isArrayOfNumbers } from "@/tools/typeTools";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { insert } from "@/tools/algorithm";
 export interface JudgeLineExtendedOptions {
     BPMList: BPM[],

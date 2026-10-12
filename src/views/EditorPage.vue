@@ -679,9 +679,9 @@ import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
-import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/event";
-import { isNoteLike, NoteType } from "@/models/note";
-import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/judgeLine";
+import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/rpe/event";
+import { isNoteLike, NoteType } from "@/models/rpe/note";
+import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/rpe/judgeLine";
 
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";

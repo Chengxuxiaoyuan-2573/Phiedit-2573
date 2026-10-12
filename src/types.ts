@@ -1,5 +1,5 @@
-import type { Note } from "@/models/note";
-import type { NumberEvent } from "./models/event";
+import type { Note } from "@/models/rpe/note";
+import type { NumberEvent } from "./models/rpe/event";
 export enum RightPanelState {
     Default, Clipboard, Settings, BPMList, Meta, JudgeLine, History, Calculator, NoteFill, EventFill, FastBind
 }

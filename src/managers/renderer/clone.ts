@@ -4,15 +4,15 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, Beats, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, MAX_BEATS, MIN_BEATS, subBeats } from "@/models/beats";
+import { addBeats, Beats, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, MAX_BEATS, MIN_BEATS, subBeats } from "@/models/rpe/beats";
 import store from "@/store";
-import { isNoteLike } from "@/models/note";
+import { isNoteLike } from "@/models/rpe/note";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils from "@/tools/mathUtils";
 import Constants from "@/constants";
-import { SelectableElement } from "@/models/element";
+import { SelectableElement } from "@/models/rpe/element";
 export default class CloneManager extends Manager {
     constructor() {
         super();

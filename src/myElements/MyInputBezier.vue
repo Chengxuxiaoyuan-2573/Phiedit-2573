@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import MyInput from "./MyInput.vue";
 import { reactive, useSlots, useTemplateRef, watch } from "vue";
-import { BezierPoints, formatBezierPoints, parseBezierPoints } from "@/models/easing";
+import { BezierPoints, formatBezierPoints, parseBezierPoints } from "@/models/rpe/easing";
 const inputBezier = useTemplateRef("inputBezier");
 const inputData = reactive({
     get bezierPoints() {

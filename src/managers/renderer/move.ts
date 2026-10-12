@@ -4,15 +4,15 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, subBeats } from "@/models/beats";
-import { isNoteLike } from "@/models/note";
+import { addBeats, subBeats } from "@/models/rpe/beats";
+import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { ElMessageBox } from "element-plus";
-import { SelectableElement } from "@/models/element";
-import { isEvent } from "@/models/event";
+import { SelectableElement } from "@/models/rpe/element";
+import { isEvent } from "@/models/rpe/event";
 
 export default class MoveManager extends Manager {
     constructor() {

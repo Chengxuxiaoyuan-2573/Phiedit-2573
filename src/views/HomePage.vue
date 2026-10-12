@@ -49,7 +49,7 @@
             type="primary"
             @click="catchErrorByMessage(loadChart, '导入谱面')"
         >
-            导入谱面（仅支持RPE格式，不支持官方谱面格式）
+            导入谱面（支持 RPE、官方谱面格式）
         </MyButton>
         <MyButton
             type="primary"
@@ -164,17 +164,20 @@
             </ElCard>
         </template>
     </div>
+
+    <SelectChartFormatDialog ref="formatDialogRef" />
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ElCard, ElHeader, ElInput, ElMenu, ElMenuItem } from "element-plus";
+import { ElCard, ElHeader, ElInput, ElMenu, ElMenuItem, ElMessage } from "element-plus";
 import MyButton from "@/myElements/MyButton.vue";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { h, inject, onBeforeUnmount, ref } from "vue";
 import MediaUtils from "@/tools/mediaUtils";
 import MyDialog from "@/myElements/MyDialog.vue";
 import { catchErrorByMessage, confirm } from "@/tools/catchError";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import MathUtils from "@/tools/mathUtils";
+import SelectChartFormatDialog from "@/myElements/SelectChartFormatDialog.vue";
 
 const router = useRouter();
 const musicFileUrl = ref<string | undefined>();
@@ -183,6 +186,7 @@ const menuOption = ref<string>("undeleted");
 const version = await window.electronAPI.getVersion();
 
 const name = ref("");
+const formatDialogRef = ref<InstanceType<typeof SelectChartFormatDialog>>();
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
 });
@@ -243,8 +247,40 @@ async function loadChart() {
     }
 
     const filePath = filePaths[0];
-    const chartId = await window.electronAPI.importChart(filePath);
-    const encodedId = encodeURIComponent(chartId);
+
+    // 选好文件后，立即弹出格式选择弹窗，让用户选择用哪种格式读取
+    const format = await formatDialogRef.value?.open();
+    if (!format) {
+        throw new Error("操作已取消");
+    }
+
+    const result = await window.electronAPI.importChart(filePath, format);
+
+    // 官方谱面转谱出错时，提示用户，并提供日志文件的入口
+    if (result.convertErrorMessages.length > 0) {
+        ElMessage.warning({
+            message: h("p", null, [
+                `本次官方谱面转谱出现了 ${result.convertErrorMessages.length} 个错误，如有异常请查看`,
+                h("a", {
+                    href: "#",
+                    onClick: (e) => {
+                        e.preventDefault();
+                        if (result.convertLogPath) {
+                            window.electronAPI.openPath(result.convertLogPath);
+                        }
+                    }
+                }, [
+                    "日志文件"
+                ]),
+                "。"
+            ]),
+            dangerouslyUseHTMLString: true,
+            duration: 0,
+            showClose: true
+        });
+    }
+
+    const encodedId = encodeURIComponent(result.chartId);
     router.push(`/editor?chartId=${encodedId}`);
 }
 

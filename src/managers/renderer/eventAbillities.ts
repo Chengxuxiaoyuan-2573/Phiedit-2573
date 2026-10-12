@@ -8,7 +8,7 @@ import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { isEvent } from "@/models/event";
+import { isEvent } from "@/models/rpe/event";
 
 export default class EventAbillitiesManager extends Manager {
     constructor() {

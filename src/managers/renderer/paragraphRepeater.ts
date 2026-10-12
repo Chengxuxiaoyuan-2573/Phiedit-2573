@@ -5,7 +5,7 @@
  */
 
 import globalEventEmitter from "@/eventEmitter";
-import { addBeats, Beats, getBeatsValue, subBeats } from "@/models/beats";
+import { addBeats, Beats, getBeatsValue, subBeats } from "@/models/rpe/beats";
 import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 export enum FlipOptions {

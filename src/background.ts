@@ -24,6 +24,7 @@ import loadManager from "./managers/main/load";
 import addChartManager from "./managers/main/add";
 import saveChartManager from "./managers/main/save";
 import importChartManager from "./managers/main/import";
+import type { ChartFormat } from "./managers/main/convert";
 import exportChartManager from "./managers/main/export";
 import addTexturesManager from "./managers/main/addTextures";
 import shaderLoader from "./managers/main/shaderLoader";
@@ -145,8 +146,8 @@ async function createWindow() {
         return await saveChartManager.saveChart(chartId, chartContent, extraContent);
     });
 
-    ipcMain.handle("import-chart", async (event, chartPackagePath: string) => {
-        return await importChartManager.importChart(chartPackagePath);
+    ipcMain.handle("import-chart", async (event, chartPackagePath: string, format: ChartFormat = "rpe") => {
+        return await importChartManager.importChart(chartPackagePath, format);
     });
 
     ipcMain.handle("rename-chart-id", async (event, chartId: string, newChartId: string) => {

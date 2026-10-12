@@ -74,7 +74,7 @@ import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import store from "@/store";
 import { catchErrorByMessage } from "@/tools/catchError";
 import MyButton from "@/myElements/MyButton.vue";
-import { easingFuncs, EasingType } from "@/models/easing";
+import { easingFuncs, EasingType } from "@/models/rpe/easing";
 
 import { Codemirror } from "vue-codemirror";
 import { autocompletion } from "@codemirror/autocomplete";

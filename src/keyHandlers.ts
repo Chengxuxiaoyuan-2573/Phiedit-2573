@@ -5,7 +5,7 @@
  */
 
 import globalEventEmitter, { GlobalEventMap } from "./eventEmitter";
-import { NoteType } from "./models/note";
+import { NoteType } from "./models/rpe/note";
 import { isArray, isObject, isString } from "lodash";
 import KeyboardUtils from "./tools/keyboardUtils";
 import store from "./store";

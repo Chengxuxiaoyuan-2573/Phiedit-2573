@@ -8,7 +8,7 @@ import { isArray, isObject } from "lodash";
 import { BPM, ExtraBPM } from "./beats";
 import { IEffect, Effect } from "./effect";
 import { SYMBOL_EXTRA_JSON_ERROR, SYMBOL_EXTRA_NOT_EXIST } from "./chartPackage";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { markRaw } from "vue";
 
 export interface IExtra {

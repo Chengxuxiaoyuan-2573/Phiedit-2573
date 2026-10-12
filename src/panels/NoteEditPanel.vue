@@ -218,9 +218,9 @@
     </div>
 </template>
 <script setup lang='ts'>
-import { formatBeats, makeSureBeatsValid, parseBeats } from "@/models/beats";
+import { formatBeats, makeSureBeatsValid, parseBeats } from "@/models/rpe/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef, watch } from "vue";
-import { INote, INoteExtendedOptions, NoteAbove, noteAttributes, NoteFake, NoteType } from "../models/note";
+import { INote, INoteExtendedOptions, NoteAbove, noteAttributes, NoteFake, NoteType } from "../models/rpe/note";
 import MyInput from "@/myElements/MyInput.vue";
 import MyInputNumber from "../myElements/MyInputNumber.vue";
 import MyInputColor from "@/myElements/MyInputColor.vue";

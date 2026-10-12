@@ -6,11 +6,11 @@
 
 import { BEZIER_POINTS_LENGTH, BezierPoints, cubicBezierEase, easingFuncs, EasingType, isEasingType } from "./easing";
 import { Beats, beatsToSeconds, makeSureBeatsValid, BPM } from "./beats";
-import { isArrayOfNumbers, Optional } from "../tools/typeTools";
-import { RGBcolor } from "../tools/color";
+import { isArrayOfNumbers, Optional } from "../../tools/typeTools";
+import { RGBcolor } from "../../tools/color";
 import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
 export interface IEvent<T = unknown> {
     bezier: 0 | 1;

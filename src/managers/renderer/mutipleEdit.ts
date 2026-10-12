@@ -4,17 +4,17 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, Beats, getBeatsValue } from "@/models/beats";
-import { easingFuncs } from "@/models/easing";
-import { baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
-import { NoteFake, NoteAbove, Note, isNoteLike } from "@/models/note";
+import { addBeats, Beats, getBeatsValue } from "@/models/rpe/beats";
+import { easingFuncs } from "@/models/rpe/easing";
+import { baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
+import { NoteFake, NoteAbove, Note, isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
 import { RGBcolor, invert } from "@/tools/color";
 import Manager from "./abstract";
 import { NoteNumberAttrs } from "./state";
 import globalEventEmitter from "@/eventEmitter";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { AbstractEvent, ColorEvent, isColorEvent, isEvent, isNumberEvent, isTextEvent, NumberEvent, TextEvent } from "@/models/event";
+import { AbstractEvent, ColorEvent, isColorEvent, isEvent, isNumberEvent, isTextEvent, NumberEvent, TextEvent } from "@/models/rpe/event";
 
 export default class MutipleEditManager extends Manager {
     constructor() {

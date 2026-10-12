@@ -5,7 +5,7 @@
  */
 
 import Constants from "@/constants";
-import { Beats, secondsToBeats } from "@/models/beats";
+import { Beats, secondsToBeats } from "@/models/rpe/beats";
 import store from "@/store";
 import { round, floor } from "lodash";
 import Manager from "./abstract";

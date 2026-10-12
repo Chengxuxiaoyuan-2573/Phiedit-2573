@@ -6,9 +6,9 @@
 
 import { isObject, isArray } from "lodash";
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event";
-import { RGBcolor } from "../tools/color";
+import { RGBcolor } from "../../tools/color";
 import { beatsCompare, BPM } from "./beats";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { insert } from "@/tools/algorithm";
 interface EventLayerOptions {
     BPMList: BPM[]

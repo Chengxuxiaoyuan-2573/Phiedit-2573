@@ -4,8 +4,8 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import type { Beats } from "./models/beats";
-import type { NoteType } from "./models/note";
+import type { Beats } from "./models/rpe/beats";
+import type { NoteType } from "./models/rpe/note";
 import EventEmitter from "./tools/eventEmitter";
 export type PositionX = number;
 export type PositionY = number;

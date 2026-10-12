@@ -6,9 +6,9 @@
 
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
-import { addBeats, Beats, getBeatsValue, isLessThanBeats } from "@/models/beats";
+import { addBeats, Beats, getBeatsValue, isLessThanBeats } from "@/models/rpe/beats";
 import store from "@/store";
-import { easingFuncs, EasingType } from "@/models/easing";
+import { easingFuncs, EasingType } from "@/models/rpe/easing";
 
 export default class EventFiller extends Manager {
     constructor() {

@@ -5,7 +5,7 @@
  */
 
 import { isNumber, isObject, isString } from "lodash";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 
 export interface IChartMeta {
 

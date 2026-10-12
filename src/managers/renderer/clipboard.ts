@@ -4,15 +4,15 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { Beats, getBeatsValue, subBeats, addBeats } from "@/models/beats";
+import { Beats, getBeatsValue, subBeats, addBeats } from "@/models/rpe/beats";
 import globalEventEmitter from "@/eventEmitter";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import store from "@/store";
 import Manager from "./abstract";
 import { reactive } from "vue";
-import { isEvent, isNumberEvent } from "@/models/event";
-import { SelectableElement } from "@/models/element";
-import { isNoteLike } from "@/models/note";
+import { isEvent, isNumberEvent } from "@/models/rpe/event";
+import { SelectableElement } from "@/models/rpe/element";
+import { isNoteLike } from "@/models/rpe/note";
 
 export default class ClipboardManager extends Manager {
     readonly clipboard: SelectableElement[] = reactive([]);

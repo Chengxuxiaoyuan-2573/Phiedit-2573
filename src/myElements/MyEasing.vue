@@ -17,8 +17,8 @@
 </template>
 
 <script setup lang="ts">
-import { BEZIER_X1_INDEX, BEZIER_X2_INDEX, BEZIER_Y1_INDEX, BEZIER_Y2_INDEX, BezierPoints, createBezierCurve, cubicBezierEase, easingFuncs, EasingType } from "@/models/easing";
-import { Bezier } from "@/models/event";
+import { BEZIER_X1_INDEX, BEZIER_X2_INDEX, BEZIER_Y1_INDEX, BEZIER_Y2_INDEX, BezierPoints, createBezierCurve, cubicBezierEase, easingFuncs, EasingType } from "@/models/rpe/easing";
+import { Bezier } from "@/models/rpe/event";
 import canvasUtils from "@/tools/canvasUtils";
 import MathUtils from "@/tools/mathUtils";
 import { ref, onMounted, onBeforeUnmount, watch, withDefaults } from "vue";

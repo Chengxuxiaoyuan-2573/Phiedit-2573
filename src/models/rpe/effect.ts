@@ -9,7 +9,7 @@ import { Beats, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSu
 import { IEvent, ShaderVariableEvent } from "./event";
 import { ArrayRepeat, DeepNotReadonly, isArrayOfNumbers, NotReadonly } from "@/tools/typeTools";
 import { ArrayedObject } from "@/tools/algorithm";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 import { RGBAcolor } from "@/tools/color";
 
 export interface IEffect {

@@ -4,9 +4,9 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { easingFuncs, EasingType } from "@/models/easing";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
-import { Note, NoteAbove, NoteType } from "@/models/note";
+import { easingFuncs, EasingType } from "@/models/rpe/easing";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/rpe/event";
+import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
@@ -19,7 +19,7 @@ import { ArrayRepeat, UnionToTuple } from "@/tools/typeTools";
 import EditableImage from "@/tools/editableImage";
 import Constants from "@/constants";
 import { ElMessage } from "element-plus";
-import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
+import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/rpe/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
 import LimitedMap from "@/tools/limitedMap";
@@ -46,6 +46,16 @@ const POSITION_COMPONENTS = 2;
 const TEXCOORD_OFFSET = POSITION_COMPONENTS * FLOAT_SIZE;
 
 const LIMIT = 4096;
+
+/**
+ * 比较 floor position 时使用的浮点误差容差。
+ *
+ * 音符与判定线的 floor position 差值是通过多个浮点数相减得到的，会存在浮点误差，
+ * 数学上应当为 0 的差值可能会变成一个极小的负数（例如 -9.094947017729282e-13），
+ * 从而使得本该正好落在判定线上的音符被误判为“在判定线下方”而被遮罩不显示。
+ * 因此凡是“判断差值是否小于 0”的地方都要带上这个容差。
+ */
+const FLOOR_POSITION_EPSILON = 1e-6;
 
 export default class ChartRenderer extends Manager {
     private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
@@ -1046,7 +1056,8 @@ export default class ChartRenderer extends Manager {
                     startPositionY = 0;
                 }
 
-                const isCovered = endPositionY < 0 && judgeLine.isCover === 1 && seconds < endSeconds;
+                // 用容差抵消浮点误差，避免把实际为 0 的差值误判为负数
+                const isCovered = endPositionY < -FLOOR_POSITION_EPSILON && judgeLine.isCover === 1 && seconds < endSeconds;
 
                 startPositionY = startPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                 endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;

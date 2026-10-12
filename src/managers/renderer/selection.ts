@@ -6,12 +6,12 @@
 
 import { reactive } from "vue";
 import globalEventEmitter from "@/eventEmitter";
-import { isNoteLike } from "@/models/note";
+import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
 import Manager from "./abstract";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { SelectableElement } from "@/models/element";
+import { SelectableElement } from "@/models/rpe/element";
 
 export default class SelectionManager extends Manager {
     /** 被选中的元素。有时也用“selection”来代替“selectedElements”。 */

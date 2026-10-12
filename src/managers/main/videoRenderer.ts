@@ -11,7 +11,7 @@ import filesManager from "./files";
 import chartInfoManager from "./chartInfo";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import fs from "fs";
-import { NoteType } from "@/models/note";
+import { NoteType } from "@/models/rpe/note";
 import { isString } from "lodash";
 import JSZip from "jszip";
 import { BrowserWindow, powerSaveBlocker } from "electron";

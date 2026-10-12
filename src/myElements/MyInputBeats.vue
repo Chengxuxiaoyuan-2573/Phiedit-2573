@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { Beats, formatBeats, parseBeats, makeSureBeatsValid } from "@/models/beats";
+import { Beats, formatBeats, parseBeats, makeSureBeatsValid } from "@/models/rpe/beats";
 import MyInput from "./MyInput.vue";
 import { reactive, useSlots, useTemplateRef, watch } from "vue";
 const inputBeats = useTemplateRef("inputBeats");

@@ -55,7 +55,7 @@
 </template>
 <script setup lang="ts">
 import { ElRow } from "element-plus";
-import { beatsCompare, BPM } from "../models/beats";
+import { beatsCompare, BPM } from "../models/rpe/beats";
 import MyButton from "@/myElements/MyButton.vue";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MyInputNumber from "../myElements/MyInputNumber.vue";

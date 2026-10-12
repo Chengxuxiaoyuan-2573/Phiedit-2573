@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { ResourcePackage } from "@/models/resourcePackage";
+import { ResourcePackage } from "@/models/rpe/resourcePackage";
 import { FileReaderExtends } from "@/tools/classExtends";
 import { RGBAcolor, parseRGBAfromNumber } from "@/tools/color";
 import EditableImage from "@/tools/editableImage";

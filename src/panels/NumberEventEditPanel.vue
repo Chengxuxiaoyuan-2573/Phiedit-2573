@@ -170,11 +170,11 @@
 </template>
 <script setup lang="ts">
 import MyButton from "@/myElements/MyButton.vue";
-import { Bezier, eventAttributes, IEvent, IEventExtendedOptions } from "../models/event";
+import { Bezier, eventAttributes, IEvent, IEventExtendedOptions } from "../models/rpe/event";
 import MyInput from "../myElements/MyInput.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
-import { addBeats, beatsCompare, formatBeats, isEqualBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/beats";
+import { addBeats, beatsCompare, formatBeats, isEqualBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/rpe/beats";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef } from "vue";
 import { watch } from "vue";
 import globalEventEmitter from "@/eventEmitter";

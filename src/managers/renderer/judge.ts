@@ -5,7 +5,7 @@
  */
 
 import globalEventEmitter from "@/eventEmitter";
-import { Note, NoteType } from "@/models/note";
+import { Note, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import Manager from "./abstract";
 import Constants from "@/constants";

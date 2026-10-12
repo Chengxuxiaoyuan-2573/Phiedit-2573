@@ -282,7 +282,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import { isNoteLike, Note, NoteType } from "@/models/note";
+import { isNoteLike, Note, NoteType } from "@/models/rpe/note";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyButton from "@/myElements/MyButton.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -291,19 +291,19 @@ import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MySwitch from "@/myElements/MySwitch.vue";
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import MySelect from "@/myElements/MySelect.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
 import MySelectNoteType from "@/myElements/MySelectNoteType.vue";
-import { baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { colorToHex } from "@/tools/color";
 import MyInputColor from "@/myElements/MyInputColor.vue";
 import MyInput from "@/myElements/MyInput.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/event";
-import { describeBeats } from "@/models/beats";
+import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/rpe/event";
+import { describeBeats } from "@/models/rpe/beats";
 const props = defineProps<{
     titleTeleport: string
 }>();

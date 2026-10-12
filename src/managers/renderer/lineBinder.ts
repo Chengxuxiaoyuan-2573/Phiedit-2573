@@ -7,11 +7,11 @@
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
-import { addBeats, Beats, beatsCompare, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, isLessThanOrEqualBeats, subBeats } from "@/models/beats";
+import { addBeats, Beats, beatsCompare, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, isLessThanOrEqualBeats, subBeats } from "@/models/rpe/beats";
 import store from "@/store";
-import { Note, NoteAbove, NoteType } from "@/models/note";
-import { EasingType } from "@/models/easing";
-import { Bezier } from "@/models/event";
+import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
+import { EasingType } from "@/models/rpe/easing";
+import { Bezier } from "@/models/rpe/event";
 
 export default class LineBinder extends Manager {
     constructor() {

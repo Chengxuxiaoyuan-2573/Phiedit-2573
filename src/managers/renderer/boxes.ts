@@ -5,12 +5,12 @@
  */
 
 import Constants from "@/constants";
-import { NoteType } from "@/models/note";
+import { NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import { BoxWithData } from "@/tools/box";
 import Manager from "./abstract";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
-import { SelectableElement } from "@/models/element";
+import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
+import { SelectableElement } from "@/models/rpe/element";
 
 export default class BoxesManager extends Manager {
     /**

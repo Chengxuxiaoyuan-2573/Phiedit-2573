@@ -5,10 +5,10 @@
  */
 
 import { Ref, ref } from "vue";
-import { ChartPackage } from "./models/chartPackage";
-import { ResourcePackage } from "./models/resourcePackage";
-import { INote } from "./models/note";
-import { IEvent } from "./models/event";
+import { ChartPackage } from "./models/rpe/chartPackage";
+import { ResourcePackage } from "./models/rpe/resourcePackage";
+import { INote } from "./models/rpe/note";
+import { IEvent } from "./models/rpe/event";
 import type { useRoute } from "vue-router";
 import ChartRenderer from "./managers/renderer/chartRenderer";
 import EditorRenderer from "./managers/renderer/editorRenderer";
@@ -35,7 +35,7 @@ import MutipleEditManager from "./managers/renderer/mutipleEdit";
 import ChartPackageLoader from "./managers/renderer/chartPackageLoader";
 import ResourcePackageLoader from "./managers/renderer/resourcePackageLoader";
 
-import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
+import { Beats, beatsToSeconds, secondsToBeats } from "./models/rpe/beats";
 import { ArrayedObject } from "./tools/algorithm";
 import { SEC_TO_MS } from "./tools/mathUtils";
 import MediaUtils from "./tools/mediaUtils";

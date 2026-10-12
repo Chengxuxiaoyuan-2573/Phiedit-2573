@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { useTemplateRef } from "vue";
 import MySelect from "./MySelect.vue";
-import { NoteType } from "@/models/note";
+import { NoteType } from "@/models/rpe/note";
 const model = defineModel<NoteType>({
     required: true
 });

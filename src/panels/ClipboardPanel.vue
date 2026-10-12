@@ -102,7 +102,7 @@
 </template>
 <script setup lang="ts">
 import globalEventEmitter from "@/eventEmitter";
-import { Beats } from "@/models/beats";
+import { Beats } from "@/models/rpe/beats";
 import MyDialog from "@/myElements/MyDialog.vue";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MySelect from "@/myElements/MySelect.vue";

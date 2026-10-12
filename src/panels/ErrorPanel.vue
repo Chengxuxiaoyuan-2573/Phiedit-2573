@@ -78,9 +78,9 @@
 <script setup lang="ts">
 import Constants from "@/constants";
 import globalEventEmitter from "@/eventEmitter";
-import { SelectableElement } from "@/models/element";
-import { isEvent } from "@/models/event";
-import { isNoteLike, NoteType } from "@/models/note";
+import { SelectableElement } from "@/models/rpe/element";
+import { isEvent } from "@/models/rpe/event";
+import { isNoteLike, NoteType } from "@/models/rpe/note";
 import MyButton from "@/myElements/MyButton.vue";
 import MySelect from "@/myElements/MySelect.vue";
 import store from "@/store";

@@ -12,7 +12,7 @@ import { Note } from "./note";
 import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 
 /** RPEJSON 格式谱面 */
 export interface IChart {

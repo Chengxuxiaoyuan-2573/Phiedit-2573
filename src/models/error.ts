@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { SelectableElement } from "./element";
+import { SelectableElement } from "./rpe/element";
 type ErrorCode = "InvalidHoldTime" | "InvalidNonHoldTime" | "NoteOutOfRange" |
     "TapsOverlapped" | "HoldsOverlapped" | "TapAndHoldOverlapped" |
     "InvalidEventTime" | "EventsOverlapped" | "EventOutOfRange" |

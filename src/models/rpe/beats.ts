@@ -5,9 +5,9 @@
  */
 
 import { isNumber, isObject } from "lodash";
-import MathUtils, { MIN_TO_SEC } from "../tools/mathUtils";
+import MathUtils, { MIN_TO_SEC } from "../../tools/mathUtils";
 import { isArrayOfNumbers } from "@/tools/typeTools";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 export interface IBPM {
     bpm: number
     startTime: Beats

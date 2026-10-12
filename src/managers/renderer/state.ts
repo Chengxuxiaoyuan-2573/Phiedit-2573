@@ -4,16 +4,16 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { NoteType } from "@/models/note";
+import { NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import { reactive } from "vue";
 import Manager from "./abstract";
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import { ElMessageBox } from "element-plus";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { RGBcolor } from "@/tools/color";
-import { Beats } from "@/models/beats";
+import { Beats } from "@/models/rpe/beats";
 
 /** 音符的属性中，类型为数字的属性 */
 export type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime" | "judgeArea";

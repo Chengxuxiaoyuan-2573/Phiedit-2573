@@ -12,14 +12,16 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 import type { defaultSettings } from "./managers/renderer/settings";
-import type { ChartReadResult } from "./models/chartPackage";
+import type { ChartReadResult } from "./models/rpe/chartPackage";
+import type { ImportChartResult } from "./managers/main/import";
+import type { ChartFormat } from "./managers/main/convert";
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
 import type { Replace } from "./tools/typeTools";
 import type { HitSoundInfo } from "./managers/main/videoRenderer";
 
 const electronAPI: ElectronAPI = {
     getVersion: () => ipcRenderer.invoke("get-version"),
-    importChart: (chartPackagePath) => ipcRenderer.invoke("import-chart", chartPackagePath),
+    importChart: (chartPackagePath, format) => ipcRenderer.invoke("import-chart", chartPackagePath, format),
     addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
     saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
     deleteChart: (chartId) => ipcRenderer.invoke("delete-chart", chartId),
@@ -129,8 +131,8 @@ interface ElectronAPI {
     /** 获取软件版本 */
     getVersion: () => Promise<string>
 
-    /** 导入谱面 */
-    importChart: (chartPackagePath: string) => Promise<string>
+    /** 导入谱面。format 指定压缩包内谱面文件的格式，选择 official 时会先转谱为 RPE 再存储 */
+    importChart: (chartPackagePath: string, format?: ChartFormat) => Promise<ImportChartResult>
 
     /** 加载谱面 */
     loadChart: (chartId: string) => Promise<ChartReadResult>

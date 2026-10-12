@@ -4,22 +4,22 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { isNoteLike, NoteAbove, NoteFake, NoteType } from "@/models/note";
+import { isNoteLike, NoteAbove, NoteFake, NoteType } from "@/models/rpe/note";
 import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
-import { AbstractEvent, Bezier } from "@/models/event";
+import { AbstractEvent, Bezier } from "@/models/rpe/event";
 import { clamp, floor } from "lodash";
 import Constants from "../../constants";
 import globalEventEmitter from "@/eventEmitter";
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import Manager from "./abstract";
 import store from "@/store";
-import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } from "@/models/beats";
-import { findLastEventIndex } from "@/models/event";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } from "@/models/rpe/beats";
+import { findLastEventIndex } from "@/models/rpe/event";
+import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { ElMessage } from "element-plus";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
-import { SelectableElement } from "@/models/element";
+import { SelectableElement } from "@/models/rpe/element";
 export enum MouseMoveMode {
     None, Drag, DragEnd, Select
 }
