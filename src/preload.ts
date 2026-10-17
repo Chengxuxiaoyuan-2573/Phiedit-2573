@@ -18,6 +18,7 @@ import type { ChartFormat } from "./managers/main/convert";
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
 import type { Replace } from "./tools/typeTools";
 import type { HitSoundInfo } from "./managers/main/videoRenderer";
+import type { BatchExportRequest } from "./managers/main/export";
 
 const electronAPI: ElectronAPI = {
     getVersion: () => ipcRenderer.invoke("get-version"),
@@ -32,6 +33,9 @@ const electronAPI: ElectronAPI = {
     readAllCharts: () => ipcRenderer.invoke("read-all-charts"),
     loadChart: (chartId) => ipcRenderer.invoke("load-chart", chartId),
     exportChart: (chartId, targetPath) => ipcRenderer.invoke("export-chart", chartId, targetPath),
+    batchExportCharts: (folderPath, requests) => ipcRenderer.invoke("batch-export-charts", folderPath, requests),
+    readExportFolderInfo: (folderPath) => ipcRenderer.invoke("read-export-folder-info", folderPath),
+    showOpenDirectoryDialog: (defaultPath) => ipcRenderer.invoke("show-open-directory-dialog", defaultPath),
     showSaveDialog: (name) => ipcRenderer.invoke("show-save-dialog", name),
     showOpenChartDialog: (multiple?) => ipcRenderer.invoke("show-open-chart-dialog", multiple),
     showOpenMusicDialog: (multiple?) => ipcRenderer.invoke("show-open-music-dialog", multiple),
@@ -163,6 +167,15 @@ interface ElectronAPI {
 
     /** 导出谱面 */
     exportChart: (chartId: string, targetPath: string) => Promise<void>
+
+    /** 批量导出谱面到某个文件夹（文件夹不存在时会自动创建） */
+    batchExportCharts: (folderPath: string, requests: BatchExportRequest[]) => Promise<void>
+
+    /** 读取导出文件夹的信息（是否存在、已有的文件名），用于检查重名 */
+    readExportFolderInfo: (folderPath: string) => Promise<{ exists: boolean, files: string[] }>
+
+    /** 显示选择文件夹的对话框 */
+    showOpenDirectoryDialog: (defaultPath?: string) => Promise<string[] | null>
 
     /** 显示保存谱面（pez/zip）文件的对话框 */
     showSaveDialog: (name: string) => Promise<string | null>

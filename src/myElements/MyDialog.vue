@@ -3,6 +3,7 @@
 
 <template>
     <MyButton
+        v-if="props.showTrigger"
         type="primary"
         @click="isShow = true"
     >
@@ -58,6 +59,9 @@ const props = withDefaults(defineProps<{
     closeOnPressEscape?: boolean
     showClose?: boolean
     draggable?: boolean
+
+    /** 是否显示用来打开弹窗的按钮。只在需要由代码控制弹窗时设为 false */
+    showTrigger?: boolean
 }>(), {
     title: "",
     openText: "打开",
@@ -65,7 +69,8 @@ const props = withDefaults(defineProps<{
     closeOnClickModal: true,
     closeOnPressEscape: true,
     showClose: true,
-    draggable: false
+    draggable: false,
+    showTrigger: true
 });
 const emit = defineEmits(["open", "opened", "close", "closed", "open-auto-focus", "close-auto-focus"]);
 function close() {

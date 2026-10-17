@@ -25,7 +25,7 @@
                 RPE 谱面格式
             </MyButton>
             <MyButton
-                type="success"
+                type="primary"
                 flex
                 class="format-option"
                 @click="choose('official')"

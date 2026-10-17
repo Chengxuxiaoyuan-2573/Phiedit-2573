@@ -26,6 +26,7 @@ import saveChartManager from "./managers/main/save";
 import importChartManager from "./managers/main/import";
 import type { ChartFormat } from "./managers/main/convert";
 import exportChartManager from "./managers/main/export";
+import type { BatchExportRequest } from "./managers/main/export";
 import addTexturesManager from "./managers/main/addTextures";
 import shaderLoader from "./managers/main/shaderLoader";
 import dialogManager from "./managers/main/dialog";
@@ -172,6 +173,22 @@ async function createWindow() {
 
     ipcMain.handle("export-chart", async (event, chartId: string, targetPath: string) => {
         return await exportChartManager.export(chartId, targetPath);
+    });
+
+    ipcMain.handle("batch-export-charts", async (event, folderPath: string, requests: BatchExportRequest[]) => {
+        return await exportChartManager.batchExport(folderPath, requests);
+    });
+
+    ipcMain.handle("read-export-folder-info", async (event, folderPath: string) => {
+        return await exportChartManager.readFolderInfo(folderPath);
+    });
+
+    ipcMain.handle("show-open-directory-dialog", async (event, defaultPath?: string) => {
+        return await dialogManager.showOpenDialog({
+            title: "选择文件夹",
+            defaultPath: defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined,
+            directory: true
+        });
     });
 
     ipcMain.handle("show-save-dialog", async (event, name: string) => {
