@@ -8,8 +8,32 @@ import { isObject, isArray } from "lodash";
 import { NumberEvent, ColorEvent, TextEvent, IEvent } from "./event";
 import { RGBcolor } from "../../tools/color";
 import { beatsCompare, BPM } from "./beats";
+import { EasingType } from "./easing";
 import { IObjectizable } from "../objectizable";
 import { insert } from "@/tools/algorithm";
+
+/**
+ * 创建一个默认的 incline 事件：数值恒为 0，表示判定线不倾斜。
+ *
+ * RPE 谱面允许判定线不带 incline 事件，但本编辑器需要至少一个事件才能正常工作，
+ * 因此在没有读到 incline 事件时补充一个。这里必须写全所有字段，
+ * 否则事件解析时会把缺失的字段当作错误上报。
+ */
+function createDefaultInclineEvent(): IEvent<number> {
+    return {
+        bezier: 0,
+        bezierPoints: [0, 0, 1, 1],
+        easingLeft: 0,
+        easingRight: 1,
+        easingType: EasingType.Linear,
+        start: 0,
+        end: 0,
+        startTime: [0, 0, 1],
+        endTime: [1, 0, 1],
+        linkgroup: 0,
+        isDisabled: false
+    };
+}
 interface EventLayerOptions {
     BPMList: BPM[]
     judgeLineNumber: number
@@ -331,7 +355,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
         }
 
         if (this.inclineEvents.length === 0) {
-            this.addEvent({ startTime: [0, 0, 1], endTime: [1, 0, 1], start: 0, end: 0 }, "incline");
+            this.addEvent(createDefaultInclineEvent(), "incline");
         }
     }
 }

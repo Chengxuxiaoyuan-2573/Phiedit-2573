@@ -13,6 +13,7 @@ import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
 import { IObjectizable } from "../objectizable";
+import { BlockArea, IBlockArea } from "./blockArea";
 
 /** RPEJSON 格式谱面 */
 export interface IChart {
@@ -28,6 +29,9 @@ export interface IChart {
 
     /** 判定线列表 */
     judgeLineList: IJudgeLine[]
+
+    /** 噪域列表（Phigros 4.0.0 新增的噪域功能） */
+    blockAreaList: IBlockArea[]
 }
 
 export class Chart implements IChart, IObjectizable {
@@ -35,6 +39,7 @@ export class Chart implements IChart, IObjectizable {
     readonly META: ChartMeta;
     readonly judgeLineGroup: string[];
     readonly judgeLineList: JudgeLine[];
+    readonly blockAreaList: BlockArea[] = [];
     readonly errorMessages: string[] = [];
 
     /** 把谱面转为JSON对象 */
@@ -43,7 +48,8 @@ export class Chart implements IChart, IObjectizable {
             BPMList: this.BPMList.map(bpm => bpm.toObject()),
             META: this.META.toObject(),
             judgeLineGroup: this.judgeLineGroup,
-            judgeLineList: this.judgeLineList.map(judgeLine => judgeLine.toObject())
+            judgeLineList: this.judgeLineList.map(judgeLine => judgeLine.toObject()),
+            blockAreaList: this.blockAreaList.map(blockArea => blockArea.toObject())
         };
     }
     getAllNotes() {
@@ -86,6 +92,13 @@ export class Chart implements IChart, IObjectizable {
         for (const event of this.getAllEvents()) {
             event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
             event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
+        }
+
+        for (const blockArea of this.blockAreaList) {
+            for (const event of blockArea.getAllEvents()) {
+                event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
+                event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
+            }
         }
     }
     deleteJudgeLine(judgeLineNumber: number) {
@@ -149,6 +162,17 @@ export class Chart implements IChart, IObjectizable {
                     });
                     this.judgeLineList.push(newJudgeLine);
                     this.errorMessages = this.errorMessages.concat(newJudgeLine.errorMessages);
+                }
+            }
+
+            if ("blockAreaList" in chart && isArray(chart.blockAreaList)) {
+                for (const [i, blockArea] of chart.blockAreaList.entries()) {
+                    const newBlockArea = new BlockArea(blockArea, {
+                        BPMList: this.BPMList,
+                        index: i
+                    });
+                    this.blockAreaList.push(newBlockArea);
+                    this.errorMessages = this.errorMessages.concat(newBlockArea.errorMessages);
                 }
             }
         }

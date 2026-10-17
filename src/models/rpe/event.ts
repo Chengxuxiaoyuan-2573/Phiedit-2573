@@ -75,7 +75,12 @@ export function isTextEvent(value: unknown): value is TextEvent {
     }
     return "isTextEvent" in value;
 }
-export const eventTypes = ["moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text", "incline"] as const;
+
+// 噪域的缩放中心 / 旋转中心（锚点）也使用数值事件表示，它们的类型名追加在末尾，避免影响已有类型的下标
+export const eventTypes = [
+    "moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text", "incline",
+    "scaleAnchorX", "scaleAnchorY", "rotateAnchorX", "rotateAnchorY"
+] as const;
 type EventType = typeof eventTypes[number];
 export const eventAttributes = [
     "bezier",
@@ -272,7 +277,8 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
 export class NumberEvent extends AbstractEvent<number> {
     start: number = 0;
     end: number = 0;
-    type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline";
+    type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline"
+        | "scaleAnchorX" | "scaleAnchorY" | "rotateAnchorX" | "rotateAnchorY";
     readonly isNumberEvent = true;
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);

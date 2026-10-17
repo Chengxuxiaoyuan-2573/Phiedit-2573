@@ -179,6 +179,24 @@ export default class Constants {
     /** 被判定为 Miss 的 Hold 音符是普通音符的透明度的多少倍 */
     static readonly CHART_VIEW_MISS_ALPHA = 0.5;
 
+    /** 噪域已经激活时的填充颜色（带边框的红色半透明矩形） */
+    static readonly CHART_VIEW_BLOCK_AREA_ACTIVE_FILL_COLOR: RGBAcolor = [255, 0, 0, 0.35] as const;
+
+    /** 噪域已经激活时的边框颜色 */
+    static readonly CHART_VIEW_BLOCK_AREA_ACTIVE_BORDER_COLOR: RGBAcolor = [255, 0, 0, 1] as const;
+
+    /** 噪域未激活时的填充颜色（不带边框的粉色半透明矩形） */
+    static readonly CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR: RGBAcolor = [255, 105, 180, 0.3] as const;
+
+    /** 噪域在激活之前闪烁时的另一种填充颜色（白色半透明），与未激活的粉色交替 */
+    static readonly CHART_VIEW_BLOCK_AREA_FLASH_FILL_COLOR: RGBAcolor = [255, 255, 255, 0.3] as const;
+
+    /** 噪域边框的宽度 */
+    static readonly CHART_VIEW_BLOCK_AREA_BORDER_WIDTH = 4;
+
+    /** 噪域在激活之前闪烁的半周期，单位为秒（每经过该时长在粉色与白色之间切换一次） */
+    static readonly CHART_VIEW_BLOCK_AREA_FLASH_PERIOD = 0.1;
+
     /** Good 判定所获得的分数是 Perfect 的多少倍 */
     static readonly CHART_VIEW_GOOD_RATE = 0.65;
 

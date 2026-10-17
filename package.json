@@ -39,6 +39,7 @@
         "lodash": "^4.17.21",
         "mathjs": "^14.2.0",
         "path": "^0.12.7",
+        "polygon-clipping": "^0.15.7",
         "vue": "^3.2.13",
         "vue-codemirror": "^6.1.1",
         "vue-router": "^4.5.1"

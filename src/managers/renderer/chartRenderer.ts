@@ -5,13 +5,16 @@
  */
 
 import { easingFuncs, EasingType } from "@/models/rpe/easing";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/rpe/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue, NumberEvent } from "@/models/rpe/event";
 import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
+import { BlockArea } from "@/models/rpe/blockArea";
+import { beatsToSeconds } from "@/models/rpe/beats";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
-import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
+import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBAcolor, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
+import { computeBlockAreaRegion, getBlockAreaCorners as computeBlockAreaCorners } from "@/tools/blockAreaGeometry";
 import { ceil, isNull } from "lodash";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
@@ -23,6 +26,7 @@ import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVar
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
 import LimitedMap from "@/tools/limitedMap";
+import type { MultiPolygon, Pair, Polygon } from "polygon-clipping";
 
 interface ShaderInfo {
     name: ShaderName;
@@ -57,6 +61,38 @@ const LIMIT = 4096;
  */
 const FLOOR_POSITION_EPSILON = 1e-6;
 
+/**
+ * 噪域在某一时刻的显示状态。
+ *
+ * - `active`：已激活。参与「普通噪域并集 ⊕ 减算噪域并集」的布尔运算，绘制为带边框的红色区域
+ * - `flashing`：激活前的预备状态。不参与布尔运算，直接绘制为粉白交替的矩形
+ * - `inactive`：未激活。不参与布尔运算，直接绘制为粉色矩形
+ */
+type BlockAreaState = "active" | "flashing" | "inactive";
+
+/** 噪域在某一时刻的显示信息 */
+interface BlockAreaDisplay {
+
+    /** 噪域此刻的显示状态 */
+    state: BlockAreaState
+
+    /** 噪域此刻在画布坐标系下的四个角，依次为左上、右上、右下、左下 */
+    corners: Pair[]
+
+    /** 闪烁开始的时间，单位为秒。仅当 state 为 `flashing` 时有意义 */
+    flashStartSeconds: number
+}
+
+/** 未激活或闪烁中的噪域在直接叠加绘制时使用的信息 */
+interface BlockAreaOverlay {
+
+    /** 噪域在画布坐标系下的四个角 */
+    corners: Pair[]
+
+    /** 直接叠加绘制时使用的填充颜色 */
+    color: RGBAcolor
+}
+
 export default class ChartRenderer extends Manager {
     private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
     private shaderCanvas: HTMLCanvasElement | null = null;
@@ -84,10 +120,13 @@ export default class ChartRenderer extends Manager {
         const canvas = store.useCanvas();
         const ctx = canvasUtils.getContext(canvas);
 
-        // 把背景、判定线和音符绘制到离屏 canvas 上
+        // 把背景、判定线、音符和噪域绘制到离屏 canvas 上
         this.drawBackground();
         this.drawJudgeLines();
         this.drawNotes();
+
+        // 噪域显示在判定线与音符之上
+        this.drawBlockAreas();
 
         // 把屏幕 canvas 全部清空
         ctx.fillStyle = "black";
@@ -1503,6 +1542,242 @@ export default class ChartRenderer extends Manager {
                 func();
             }
         }
+    }
+
+    /**
+     * 绘制噪域图层，显示在判定线与音符之上。
+     *
+     * 已激活的噪域会参与布尔运算：先对所有普通噪域取并集，再与所有减算噪域的并集取对称差，
+     * 得到最终的噪域区域。区域可能含有洞（例如中间被挖空），因此它的边界可能由多段组成，
+     * 这些边界会连同内部一起绘制。
+     *
+     * 未激活与闪烁中的噪域不参与布尔运算，直接按矩形叠加绘制。
+     */
+    private drawBlockAreas() {
+        const chart = store.useChart();
+        if (chart.blockAreaList.length === 0) {
+            return;
+        }
+
+        const ctx = canvasUtils.getOffscreenCanvasContext(this.offscreenCanvas);
+        const seconds = store.getSeconds();
+
+        // 已激活的普通噪域，作为并集的成员
+        const normalPolygons: Polygon[] = [];
+
+        // 已激活的减算噪域，作为并集的成员
+        const subtractPolygons: Polygon[] = [];
+
+        // 未激活与闪烁中的噪域，直接叠加绘制
+        const overlays: BlockAreaOverlay[] = [];
+
+        for (const blockArea of chart.blockAreaList) {
+            const display = this.getBlockAreaDisplay(blockArea, seconds);
+            if (display === null) {
+                continue;
+            }
+
+            if (display.state === "active") {
+                const polygon: Polygon = [display.corners];
+                if (blockArea.isInvert) {
+                    subtractPolygons.push(polygon);
+                }
+                else {
+                    normalPolygons.push(polygon);
+                }
+            }
+            else {
+                overlays.push({
+                    corners: display.corners,
+                    color: this.getBlockAreaOverlayColor(display, seconds)
+                });
+            }
+        }
+
+        // 合成可见区域：普通噪域至少覆盖一次即有效；
+        // 反转噪域只在恰好被一个覆盖时反转该处（被两个及以上覆盖的部分不反转）
+        const region = computeBlockAreaRegion(normalPolygons, subtractPolygons);
+
+        if (region !== null && region.length > 0) {
+            this.drawBlockAreaRegion(ctx, region);
+        }
+
+        // 未激活与闪烁中的噪域直接叠加在噪域区域之上
+        for (const overlay of overlays) {
+            this.drawBlockAreaQuad(ctx, overlay.corners, overlay.color);
+        }
+    }
+
+    /**
+     * 计算噪域在某一时刻的显示信息。
+     * @param blockArea 噪域
+     * @param seconds 当前时间，单位为秒
+     * @returns 显示信息。噪域此刻不显示时返回 null
+     */
+    private getBlockAreaDisplay(blockArea: BlockArea, seconds: number): BlockAreaDisplay | null {
+        const chart = store.useChart();
+        const { BPMList } = chart;
+
+        // 噪域只在出现时间与消失时间之间显示
+        const appearSeconds = beatsToSeconds(BPMList, blockArea.appearTime);
+        const disappearSeconds = beatsToSeconds(BPMList, blockArea.disappearTime);
+        if (seconds < appearSeconds || seconds > disappearSeconds) {
+            return null;
+        }
+
+        // 判断激活状态：已经激活、激活前闪烁、还是普通的未激活
+        let state: BlockAreaState = "inactive";
+        let flashStartSeconds = 0;
+        for (const interval of blockArea.activeIntervals) {
+            const startSeconds = beatsToSeconds(BPMList, interval.startTime);
+            const endSeconds = beatsToSeconds(BPMList, interval.endTime);
+
+            if (seconds >= startSeconds && seconds <= endSeconds) {
+                state = "active";
+                break;
+            }
+
+            // 激活前的 readyFlash 秒内闪烁提示
+            if (seconds >= startSeconds - interval.readyFlash && seconds < startSeconds) {
+                state = "flashing";
+                flashStartSeconds = startSeconds - interval.readyFlash;
+            }
+        }
+
+        return {
+            state,
+            corners: this.getBlockAreaCorners(blockArea, seconds),
+            flashStartSeconds
+        };
+    }
+
+    /**
+     * 计算噪域在某一时刻的四个角，以画布坐标系为准。
+     *
+     * 噪域的形状以基准中心为支点缩放、旋转，基准中心沿着由锚点驱动的中心轨迹运动，
+     * 最后叠加移动事件的偏移，具体的变换方式见 getBlockAreaCorners。
+     * 锚点通道缺失时锚点取噪域中心，此时与「以中心缩放、绕中心旋转、中心移动到目标位置」一致。
+     *
+     * @param blockArea 噪域
+     * @param seconds 当前时间，单位为秒
+     * @returns 依次为左上、右上、右下、左下的四个角
+     */
+    private getBlockAreaCorners(blockArea: BlockArea, seconds: number): Pair[] {
+        const coordinateManager = store.useManager("coordinateManager");
+
+        // 噪域的中心（基准矩形的中心），也是锚点通道缺失时的默认锚点
+        const baseCenterX = (blockArea.bottomLeft.x + blockArea.topRight.x) / 2;
+        const baseCenterY = (blockArea.bottomLeft.y + blockArea.topRight.y) / 2;
+
+        const moveX = this.getBlockAreaEventValue(blockArea.moveXEvents, seconds, baseCenterX);
+        const moveY = this.getBlockAreaEventValue(blockArea.moveYEvents, seconds, baseCenterY);
+        const angle = this.getBlockAreaEventValue(blockArea.rotateEvents, seconds, 0);
+        const scaleX = this.getBlockAreaEventValue(blockArea.scaleXEvents, seconds, 1);
+        const scaleY = this.getBlockAreaEventValue(blockArea.scaleYEvents, seconds, 1);
+
+        // 几何计算在谱面坐标系（y 轴向上）中完成，这里把结果转换回画布坐标
+        const corners = computeBlockAreaCorners({
+            seconds,
+            baseCenter: [baseCenterX, baseCenterY],
+            halfSize: [
+                Math.abs(blockArea.topRight.x - blockArea.bottomLeft.x) / 2,
+                Math.abs(blockArea.topRight.y - blockArea.bottomLeft.y) / 2
+            ],
+            position: [moveX, moveY],
+            radians: MathUtils.degToRad(angle),
+            scale: [scaleX, scaleY],
+            scaleXEvents: blockArea.scaleXEvents,
+            scaleYEvents: blockArea.scaleYEvents,
+            rotateEvents: blockArea.rotateEvents,
+            scaleAnchorXEvents: blockArea.scaleAnchorXEvents,
+            scaleAnchorYEvents: blockArea.scaleAnchorYEvents,
+            rotateAnchorXEvents: blockArea.rotateAnchorXEvents,
+            rotateAnchorYEvents: blockArea.rotateAnchorYEvents,
+            sample: interpolateNumberEventValue,
+            findEventIndex: findLastEventIndex
+        });
+
+        return corners.map(([x, y]): Pair => [
+            coordinateManager.convertXToCanvas(x),
+            coordinateManager.convertYToCanvas(y)
+        ]);
+    }
+
+    /** 获取噪域某个事件在某一时刻的值，没有事件时使用 fallback */
+    private getBlockAreaEventValue(events: NumberEvent[], seconds: number, fallback: number): number {
+        const eventIndex = findLastEventIndex(events, seconds);
+        const event = events[eventIndex];
+        return event ? interpolateNumberEventValue(event, seconds) : fallback;
+    }
+
+    /** 计算未激活或闪烁中的噪域在直接叠加绘制时使用的填充颜色 */
+    private getBlockAreaOverlayColor(display: BlockAreaDisplay, seconds: number): RGBAcolor {
+        if (display.state === "flashing") {
+            // 激活之前在粉色与白色之间闪烁
+            const elapsed = seconds - display.flashStartSeconds;
+            const isWhite = Math.floor(elapsed / Constants.CHART_VIEW_BLOCK_AREA_FLASH_PERIOD) % 2 === 1;
+            return isWhite ? Constants.CHART_VIEW_BLOCK_AREA_FLASH_FILL_COLOR : Constants.CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR;
+        }
+        return Constants.CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR;
+    }
+
+    /**
+     * 绘制噪域区域的内部与边框。
+     * @param ctx 绘制上下文
+     * @param region 噪域区域，可能含有多个多边形与洞
+     */
+    private drawBlockAreaRegion(ctx: OffscreenCanvasRenderingContext2D, region: MultiPolygon) {
+        const path = this.createPolygonPath(region.flat());
+
+        ctx.save();
+        ctx.resetTransform();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = colorToString(Constants.CHART_VIEW_BLOCK_AREA_ACTIVE_FILL_COLOR);
+
+        // 用 evenodd 规则填充，这样区域内部的洞不会被填充
+        ctx.fill(path, "evenodd");
+
+        // 描边会把外边界与洞的边界一起画出来
+        ctx.strokeStyle = colorToString(Constants.CHART_VIEW_BLOCK_AREA_ACTIVE_BORDER_COLOR);
+        ctx.lineWidth = Constants.CHART_VIEW_BLOCK_AREA_BORDER_WIDTH;
+        ctx.stroke(path);
+        ctx.restore();
+    }
+
+    /**
+     * 把一个由角点组成的矩形直接叠加绘制到噪域图层上。
+     * @param ctx 绘制上下文
+     * @param corners 矩形的四个角
+     * @param color 填充颜色
+     */
+    private drawBlockAreaQuad(ctx: OffscreenCanvasRenderingContext2D, corners: Pair[], color: RGBAcolor) {
+        const path = this.createPolygonPath([corners]);
+
+        ctx.save();
+        ctx.resetTransform();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = colorToString(color);
+        ctx.fill(path);
+        ctx.restore();
+    }
+
+    /**
+     * 把若干个环转换成 Path2D。
+     * @param rings 每个环是一组依次相连的点
+     */
+    private createPolygonPath(rings: Pair[][]) {
+        const path = new Path2D();
+        for (const ring of rings) {
+            if (ring.length === 0) {
+                continue;
+            }
+            path.moveTo(ring[0][0], ring[0][1]);
+            for (let i = 1; i < ring.length; i++) {
+                path.lineTo(ring[i][0], ring[i][1]);
+            }
+            path.closePath();
+        }
+        return path;
     }
 
     /** 获取判定线的事件信息 */

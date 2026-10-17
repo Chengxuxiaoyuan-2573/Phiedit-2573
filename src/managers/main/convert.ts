@@ -26,10 +26,12 @@ import { EasingType } from "@/models/rpe/easing";
 import { IJudgeLine, JudgeLineCover } from "@/models/rpe/judgeLine";
 import { IBaseEventLayer } from "@/models/rpe/eventLayer";
 import { INote, NoteAbove, NoteFake, NoteType } from "@/models/rpe/note";
+import { IBlockArea } from "@/models/rpe/blockArea";
 import { OfficialChart } from "@/models/official/chart";
 import { OfficialJudgeLine } from "@/models/official/judgeLine";
 import { OfficialNote, OfficialNoteType } from "@/models/official/note";
 import { OfficialEvent } from "@/models/official/event";
+import { OfficialBlockArea } from "@/models/official/blockArea";
 
 /**
  * 支持导入的谱面格式。
@@ -89,6 +91,59 @@ const NOTE_TYPE_MAP: Record<OfficialNoteType, NoteType> = {
 /** 没有速度事件时，为判定线补充的默认 RPE 流速（等价于官方的 1.0） */
 const DEFAULT_SPEED = SPEED_SCALE;
 
+/** 官方噪域激活之前的默认反应（闪烁）时长，单位为秒。与原版一致，谱面无法修改 */
+const DEFAULT_BLOCK_AREA_READY_FLASH = 0.5;
+
+/**
+ * 官方噪域事件的 easeType 编号 → RPE 缓动类型。
+ *
+ * 官方声明的枚举名与实际曲线并不一致（例如 InSine 实际上是二次幂），
+ * 因此下表按「实际曲线」映射到 RPE 中曲线相同的缓动，出处见官方文档：
+ * https://teamflos.github.io/phira-docs/chart-standard/chart-format/phi/blockArea.html#easetype
+ *
+ * 官方缓动共 0 ~ 14 共 15 种：0 为线性，1 ~ 12 为幂函数缓动（指数 n = (type - 1) / 3 + 2）。
+ * 其中 12（五次幂的缓入缓出，RPE 没有对应缓动）与 13、14 两种特殊缓动无法用本表表示，
+ * 由 createBlockAreaEvents 单独处理。
+ */
+const OFFICIAL_EASING_TYPES: Record<number, EasingType> = {
+    // Linear
+    0: EasingType.Linear,
+
+    // InSine / OutSine / InOutSine，实际曲线为二次幂
+    1: EasingType.InQuad,
+    2: EasingType.OutQuad,
+    3: EasingType.IOQuad,
+
+    // InQuad / OutQuad / InOutQuad，实际曲线为三次幂
+    4: EasingType.InCubic,
+    5: EasingType.OutCubic,
+    6: EasingType.IOCubic,
+
+    // InCubic / OutCubic / InOutCubic，实际曲线为四次幂
+    7: EasingType.InQuart,
+    8: EasingType.OutQuart,
+    9: EasingType.IOQuart,
+
+    // InQuart / OutQuart，实际曲线为五次幂
+    10: EasingType.InQuint,
+    11: EasingType.OutQuint
+};
+
+/** 官方噪域缓动 12（InOutQuart，实际曲线为五次幂的缓入缓出） */
+const OFFICIAL_EASE_IN_OUT_QUINT = 12;
+
+/** 官方噪域缓动 13（Zero）：曲线恒为 0，区间内保持上一个事件的值，到事件时间点才跳到目标值 */
+const OFFICIAL_EASE_ZERO = 13;
+
+/** 官方噪域缓动 14（One）：曲线恒为 1，区间开始时立即跳到目标值 */
+const OFFICIAL_EASE_ONE = 14;
+
+/**
+ * 把缓动拆成两段时使用的比例，缓入缓出型缓动在正中间的位置刚好是一半。
+ * 官方 12 号缓动在 p = 0.5 处的取值为 0.5，因此可以从正中间切开。
+ */
+const EASE_MIDDLE_RATIO = 0.5;
+
 /** 保留小数的位数，避免出现 0.30000000000000004 之类的值 */
 const DECIMAL_PLACES = 6;
 
@@ -119,6 +174,19 @@ export interface ConvertResult {
     errorMessages: string[];
 }
 
+/** 官方噪域中某一个通道（如 moveX）上的一个关键帧，数值已换算为 RPE 单位 */
+interface BlockAreaKeyframe {
+
+    /** 事件的时间，单位为秒 */
+    seconds: number;
+
+    /** 事件的目标值 */
+    value: number;
+
+    /** 官方的缓动编号 */
+    easeType: number;
+}
+
 class ConvertManager {
     /** 官方一个时间单位（128 分音符）对应的秒数 */
     private officialSecondsPerUnit(bpm: number) {
@@ -131,14 +199,14 @@ class ConvertManager {
         return Math.round(value * factor) / factor;
     }
 
-    /** 创建一个线性的 RPE 数值事件 */
-    private createLinearEvent(startTime: Beats, endTime: Beats, start: number, end: number): IEvent<number> {
+    /** 创建一个 RPE 数值事件 */
+    private createEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType = EasingType.Linear): IEvent<number> {
         return {
             bezier: 0,
             bezierPoints: [0, 0, 1, 1],
             easingLeft: 0,
             easingRight: 1,
-            easingType: EasingType.Linear,
+            easingType,
             start,
             end,
             startTime,
@@ -273,7 +341,7 @@ class ConvertManager {
         const speedEvents: IEvent<number>[] = [];
         for (const event of judgeLine.speedEvents) {
             if (event.startTime > event.endTime) continue;
-            speedEvents.push(this.createLinearEvent(
+            speedEvents.push(this.createEvent(
                 timeToBeats(event.startTime),
                 timeToBeats(event.endTime),
                 this.round(event.value * SPEED_SCALE),
@@ -283,7 +351,7 @@ class ConvertManager {
 
         if (speedEvents.length === 0) {
             errorMessages.push(`${context}：官方谱面缺少速度事件，将会补充一个默认速度事件。`);
-            speedEvents.push(this.createLinearEvent([0, 0, 1], [0, 0, 1], DEFAULT_SPEED, DEFAULT_SPEED));
+            speedEvents.push(this.createEvent([0, 0, 1], [0, 0, 1], DEFAULT_SPEED, DEFAULT_SPEED));
         }
         eventLayer.speedEvents = speedEvents;
 
@@ -295,8 +363,8 @@ class ConvertManager {
             const { x, y } = this.convertMoveEvent(event, formatVersion);
             const startTime = timeToBeats(event.startTime);
             const endTime = timeToBeats(event.endTime);
-            moveXEvents.push(this.createLinearEvent(startTime, endTime, this.round(x[0]), this.round(x[1])));
-            moveYEvents.push(this.createLinearEvent(startTime, endTime, this.round(y[0]), this.round(y[1])));
+            moveXEvents.push(this.createEvent(startTime, endTime, this.round(x[0]), this.round(x[1])));
+            moveYEvents.push(this.createEvent(startTime, endTime, this.round(y[0]), this.round(y[1])));
         }
         if (moveXEvents.length > 0) eventLayer.moveXEvents = moveXEvents;
         if (moveYEvents.length > 0) eventLayer.moveYEvents = moveYEvents;
@@ -306,7 +374,7 @@ class ConvertManager {
         for (const event of judgeLine.judgeLineRotateEvents) {
             if (event.startTime > event.endTime) continue;
             const { start, end } = this.convertRotateEvent(event);
-            rotateEvents.push(this.createLinearEvent(timeToBeats(event.startTime), timeToBeats(event.endTime), this.round(start), this.round(end)));
+            rotateEvents.push(this.createEvent(timeToBeats(event.startTime), timeToBeats(event.endTime), this.round(start), this.round(end)));
         }
         if (rotateEvents.length > 0) eventLayer.rotateEvents = rotateEvents;
 
@@ -315,7 +383,7 @@ class ConvertManager {
         for (const event of judgeLine.judgeLineDisappearEvents) {
             if (event.startTime > event.endTime) continue;
             const { start, end } = this.convertAlphaEvent(event);
-            alphaEvents.push(this.createLinearEvent(timeToBeats(event.startTime), timeToBeats(event.endTime), this.round(start), this.round(end)));
+            alphaEvents.push(this.createEvent(timeToBeats(event.startTime), timeToBeats(event.endTime), this.round(start), this.round(end)));
         }
         if (alphaEvents.length > 0) eventLayer.alphaEvents = alphaEvents;
 
@@ -349,6 +417,227 @@ class ConvertManager {
     }
 
     /**
+     * 创建一个由官方噪域的关键帧事件转换而来的 RPE 数值事件。
+     * @param startTime 事件开始时间
+     * @param endTime 事件结束时间
+     * @param start 事件开始时的数值
+     * @param end 事件结束时的数值
+     * @param easingType 缓动类型
+     */
+    private createKeyframeEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType): IEvent<number> {
+        // 起始时间不早于结束时间时退化为瞬时事件，避免出现 startTime 大于 endTime 的非法事件
+        if (beatsCompare(startTime, endTime) >= 0) {
+            return this.createEvent(endTime, endTime, this.round(end), this.round(end), easingType);
+        }
+        return this.createEvent(startTime, endTime, this.round(start), this.round(end), easingType);
+    }
+
+    /**
+     * 取官方缓动编号对应的 RPE 缓动类型，遇到未知编号时退化为线性缓动并记录下来。
+     * @param easeType 官方的缓动编号
+     * @param unknownEasingTypes 用于收集未知缓动编号的集合
+     */
+    private getBlockAreaEasingType(easeType: number, unknownEasingTypes: Set<number>): EasingType {
+        const easingType = OFFICIAL_EASING_TYPES[easeType];
+        if (easingType === undefined) {
+            unknownEasingTypes.add(easeType);
+            return EasingType.Linear;
+        }
+        return easingType;
+    }
+
+    /**
+     * 把官方噪域中某一个通道的关键帧序列转换为 RPE 的数值事件序列。
+     *
+     * 官方噪域的事件是「关键帧」形式：每一段连接相邻两个关键帧，
+     * 段的缓动取该段**起始**关键帧的缓动编号（与 RPE Next 的实现一致；
+     * 官方文档的措辞更像取结束关键帧，若游戏内表现不符只需交换这里的取值方向）。
+     * 第一个关键帧之前数值保持默认值，到第一个关键帧的时间点才变为它的值。
+     *
+     * 官方有三种缓动无法直接用 RPE 的缓动函数表示，需要单独处理：
+     *
+     * 官方 12 号缓动是「五次幂的缓入缓出」，而 RPE 没有五次幂的缓入缓出。
+     * 但缓入缓出型缓动在正中间的取值恰好是 0.5，因此可以从正中间把它切成两段，
+     * 用 RPE 的五次幂缓入（InQuint）与缓出（OutQuint）精确表示。
+     *
+     * 官方的缓动 13（Zero）与 14（One）是两种特殊缓动：
+     *  - Zero：曲线恒为 0，整段保持该关键帧的值，到下一个关键帧的时间点才跳到它的值。
+     *    这里用一个数值恒定的区间事件表示「保持」，跳变则由下一段的起始值完成；
+     *  - One：曲线恒为 1，该段一开始就跳到下一个关键帧的值并保持，
+     *    用一个数值恒等于目标值的区间事件表示即可。
+     *
+     * 最后一个关键帧的时间点会补一个瞬时事件固定它的值，
+     * 使链尾（包括 Zero / One 的跳变）之后的数值保持在最后一个关键帧的值上。
+     *
+     * @param keyframes 按时间升序排列的关键帧
+     * @param toRpeTime 把官方噪域的时间（秒）转换为 RPE 拍数的函数
+     * @param unknownEasingTypes 用于收集未知缓动编号的集合
+     */
+    private createBlockAreaEvents(
+        keyframes: BlockAreaKeyframe[],
+        toRpeTime: (seconds: number) => Beats,
+        unknownEasingTypes: Set<number>
+    ): IEvent<number>[] {
+        const events: IEvent<number>[] = [];
+
+        for (let i = 0; i < keyframes.length - 1; i++) {
+            const keyframe = keyframes[i];
+            const next = keyframes[i + 1];
+            const startTime = toRpeTime(keyframe.seconds);
+            const endTime = toRpeTime(next.seconds);
+            const startValue = keyframe.value;
+            const endValue = next.value;
+
+            if (keyframe.easeType === OFFICIAL_EASE_ZERO) {
+                // 保持该关键帧的值，到下一个关键帧的时间点才跳到它的值
+                events.push(this.createKeyframeEvent(startTime, endTime, startValue, startValue, EasingType.Linear));
+            }
+            else if (keyframe.easeType === OFFICIAL_EASE_ONE) {
+                // 该段一开始就跳到下一个关键帧的值并保持
+                events.push(this.createKeyframeEvent(startTime, endTime, endValue, endValue, EasingType.Linear));
+            }
+            else if (keyframe.easeType === OFFICIAL_EASE_IN_OUT_QUINT) {
+                // 从正中间切成两段：前半段用五次幂缓入，后半段用五次幂缓出
+                const middleSeconds = keyframe.seconds + (next.seconds - keyframe.seconds) * EASE_MIDDLE_RATIO;
+                const middleTime = toRpeTime(middleSeconds);
+                const middleValue = startValue + (endValue - startValue) * EASE_MIDDLE_RATIO;
+
+                events.push(this.createKeyframeEvent(startTime, middleTime, startValue, middleValue, EasingType.InQuint));
+                events.push(this.createKeyframeEvent(middleTime, endTime, middleValue, endValue, EasingType.OutQuint));
+            }
+            else {
+                events.push(this.createKeyframeEvent(
+                    startTime,
+                    endTime,
+                    startValue,
+                    endValue,
+                    this.getBlockAreaEasingType(keyframe.easeType, unknownEasingTypes)
+                ));
+            }
+        }
+
+        // 链尾：最后一个关键帧的时间点补一个瞬时事件固定它的值
+        const last = keyframes[keyframes.length - 1];
+        if (last !== undefined) {
+            const lastTime = toRpeTime(last.seconds);
+            events.push(this.createKeyframeEvent(lastTime, lastTime, last.value, last.value, EasingType.Linear));
+        }
+
+        return events;
+    }
+
+    /**
+     * 把官方的一个噪域转换为 RPE 噪域。
+     *
+     * 官方噪域的坐标以渲染范围的左下角为原点、0.0 ~ 1.0 对应渲染范围，
+     * 四个时间点与事件的 time 均为秒；转换后会变成 RPE 坐标（x ∈ [-675, 675]，y ∈ [-450, 450]）与拍数。
+     *
+     * 官方噪域在第一个事件之前，位置取方块中心、缩放取 (1, 1)、旋转取 0，与文档一致。
+     *
+     * 官方噪域的旋转 / 缩放事件带有各自的锚点（anchor），锚点与 bottomLeftPercentage / topRightPercentage
+     * 使用同一套坐标（渲染范围归一化坐标），表示缩放 / 旋转的支点。RPE 噪域没有锚点字段，
+     * 因此这里把锚点转成四条额外的数值事件通道（scaleAnchorX / scaleAnchorY / rotateAnchorX / rotateAnchorY），
+     * 由渲染器在缩放与旋转时以它们为支点。第一个事件之前锚点取方块中心。
+     *
+     * @param unknownEasingTypes 用于收集未知缓动编号的集合
+     */
+    private convertBlockArea(
+        blockArea: OfficialBlockArea,
+        globalBpm: number,
+        index: number,
+        unknownEasingTypes: Set<number>
+    ): IBlockArea {
+        const secondsToBeats = (seconds: number) => seconds * globalBpm / SECONDS_PER_MINUTE;
+        const toRpeTime = (seconds: number) => toBeats(secondsToBeats(seconds));
+        const toRpeX = (x: number) => x * RPE_WIDTH - RPE_WIDTH / 2;
+        const toRpeY = (y: number) => y * RPE_HEIGHT - RPE_HEIGHT / 2;
+
+        const bottomLeft = {
+            x: this.round(toRpeX(blockArea.bottomLeftPercentage[0])),
+            y: this.round(toRpeY(blockArea.bottomLeftPercentage[1]))
+        };
+        const topRight = {
+            x: this.round(toRpeX(blockArea.topRightPercentage[0])),
+            y: this.round(toRpeY(blockArea.topRightPercentage[1]))
+        };
+
+        // 官方噪域的关键帧事件按时间顺序排列，但为了稳妥，转换前先按时间排序
+        const byTime = <T extends { time: number }>(events: T[]) => [...events].sort((a, b) => a.time - b.time);
+
+        // 移动事件 → moveX / moveY
+        const moveEvents = byTime(blockArea.moveEvents);
+        const moveXEvents = this.createBlockAreaEvents(
+            moveEvents.map(event => ({ seconds: event.time, value: toRpeX(event.endPosition[0]), easeType: event.easeTypeX })),
+            toRpeTime, unknownEasingTypes
+        );
+        const moveYEvents = this.createBlockAreaEvents(
+            moveEvents.map(event => ({ seconds: event.time, value: toRpeY(event.endPosition[1]), easeType: event.easeTypeY })),
+            toRpeTime, unknownEasingTypes
+        );
+
+        // 缩放事件 → scaleX / scaleY
+        const scaleEvents = byTime(blockArea.scaleEvents);
+        const scaleXEvents = this.createBlockAreaEvents(
+            scaleEvents.map(event => ({ seconds: event.time, value: event.scale[0], easeType: event.easeTypeX })),
+            toRpeTime, unknownEasingTypes
+        );
+        const scaleYEvents = this.createBlockAreaEvents(
+            scaleEvents.map(event => ({ seconds: event.time, value: event.scale[1], easeType: event.easeTypeY })),
+            toRpeTime, unknownEasingTypes
+        );
+
+        // 旋转事件 → rotate（官方与 RPE 的旋转方向相反，需要取相反数，与判定线一致）
+        const rotateKeyframes = byTime(blockArea.rotateEvents);
+        const rotateEvents = this.createBlockAreaEvents(
+            rotateKeyframes.map(event => ({ seconds: event.time, value: -event.rotation, easeType: event.easeType })),
+            toRpeTime, unknownEasingTypes
+        );
+
+        // 缩放中心 / 旋转中心（锚点）→ scaleAnchorX / scaleAnchorY / rotateAnchorX / rotateAnchorY
+        // 锚点是关键帧上的一个属性，与同一关键帧的数值一样从上一个关键帧的锚点缓动过来
+        const scaleAnchorXEvents = this.createBlockAreaEvents(
+            scaleEvents.map(event => ({ seconds: event.time, value: toRpeX(event.anchor[0]), easeType: event.easeTypeX })),
+            toRpeTime, unknownEasingTypes
+        );
+        const scaleAnchorYEvents = this.createBlockAreaEvents(
+            scaleEvents.map(event => ({ seconds: event.time, value: toRpeY(event.anchor[1]), easeType: event.easeTypeY })),
+            toRpeTime, unknownEasingTypes
+        );
+        const rotateAnchorXEvents = this.createBlockAreaEvents(
+            rotateKeyframes.map(event => ({ seconds: event.time, value: toRpeX(event.anchor[0]), easeType: event.easeType })),
+            toRpeTime, unknownEasingTypes
+        );
+        const rotateAnchorYEvents = this.createBlockAreaEvents(
+            rotateKeyframes.map(event => ({ seconds: event.time, value: toRpeY(event.anchor[1]), easeType: event.easeType })),
+            toRpeTime, unknownEasingTypes
+        );
+
+        return {
+            Name: `噪域${index + 1}`,
+            activeIntervals: [{
+                startTime: toRpeTime(blockArea.enableTime),
+                endTime: toRpeTime(blockArea.disableTime),
+                readyFlash: DEFAULT_BLOCK_AREA_READY_FLASH
+            }],
+            appearTime: toRpeTime(blockArea.appearTime),
+            bottomLeft,
+            disappearTime: toRpeTime(blockArea.disappearTime),
+            editorPositionX: 0,
+            isInvert: blockArea.isSubtract,
+            moveXEvents,
+            moveYEvents,
+            rotateEvents,
+            scaleXEvents,
+            scaleYEvents,
+            scaleAnchorXEvents,
+            scaleAnchorYEvents,
+            rotateAnchorXEvents,
+            rotateAnchorYEvents,
+            topRight
+        };
+    }
+
+    /**
      * 把官方谱面 JSON 转换为 RPE 谱面 JSON。
      * @param chartContent 官方谱面的 JSON 内容（未解析的原始值或已解析的对象）
      * @param options 转换选项
@@ -366,6 +655,14 @@ class ConvertManager {
 
         const judgeLineList = officialChart.judgeLineList.map(judgeLine =>
             this.convertJudgeLine(judgeLine, globalBpm, officialChart.formatVersion, errorMessages));
+
+        const blockAreaUnknownEasingTypes = new Set<number>();
+        const blockAreaList = officialChart.blockAreaList.map((blockArea, i) =>
+            this.convertBlockArea(blockArea, globalBpm, i, blockAreaUnknownEasingTypes));
+
+        if (blockAreaUnknownEasingTypes.size > 0) {
+            errorMessages.push(`噪域中出现了未知的缓动编号：${[...blockAreaUnknownEasingTypes].join("、")}。这些缓动将会退化为线性缓动。`);
+        }
 
         const chartMeta: IChartMeta = {
             name: meta.name || "unknown",
@@ -385,7 +682,8 @@ class ConvertManager {
             BPMList: [{ bpm: globalBpm, startTime: [0, 0, 1] }],
             META: chartMeta,
             judgeLineGroup: [],
-            judgeLineList
+            judgeLineList,
+            blockAreaList
         };
 
         return { chart, errorMessages };

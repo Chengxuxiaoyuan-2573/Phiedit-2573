@@ -28,7 +28,7 @@ export interface IOfficialChart {
     /** 判定线列表 */
     judgeLineList: IOfficialJudgeLine[]
 
-    /** 噪域列表（Phigros 4.0.0 新增，本编辑器暂不支持） */
+    /** 噪域列表（Phigros 4.0.0 新增） */
     blockAreaList: IOfficialBlockArea[]
 }
 
@@ -94,10 +94,6 @@ export class OfficialChart implements IOfficialChart, IObjectizable<IOfficialCha
                 this.blockAreaList.push(newBlockArea);
                 this.errorMessages.push(...newBlockArea.errorMessages);
             });
-        }
-
-        if (this.blockAreaList.length > 0) {
-            this.errorMessages.push(`${context}：官方谱面包含 ${this.blockAreaList.length} 个噪域（blockAreaList），本编辑器暂不支持噪域功能，噪域已被忽略。`);
         }
     }
 }

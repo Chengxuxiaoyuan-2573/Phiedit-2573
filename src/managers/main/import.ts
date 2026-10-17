@@ -78,7 +78,7 @@ class ImportChartManager extends Manager {
                 version: app.getVersion(),
                 meta
             });
-            storedChartContent = JSON.stringify(convertResult.chart, null, 4);
+            storedChartContent = JSON.stringify(convertResult.chart);
             convertErrorMessages = convertResult.errorMessages;
 
             // 官方谱面本身没有元数据，曲名从压缩包的 info.txt 中获取
