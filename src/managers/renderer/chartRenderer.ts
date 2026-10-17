@@ -1178,7 +1178,7 @@ export default class ChartRenderer extends Manager {
                                 return { head, body, end };
                             }
                             else {
-                                const key = `hold-${colorToString(note.tint)}`;
+                                const key = `hold-${colorToString(note.tint)}-${note.highlight ? "highlighted" : "unhighlighted"}`;
                                 if (this.cachedTintedHoldNote.has(key)) {
                                     return this.cachedTintedHoldNote.get(key)!;
                                 }
@@ -1252,7 +1252,7 @@ export default class ChartRenderer extends Manager {
                                 return image;
                             }
                             else {
-                                const key = `${note.type}-${colorToString(note.tint)}`;
+                                const key = `${note.type}-${colorToString(note.tint)}-${note.highlight ? "highlighted" : "unhighlighted"}`;
                                 if (this.cachedTintedNormalNote.has(key)) {
                                     return this.cachedTintedNormalNote.get(key)!;
                                 }
