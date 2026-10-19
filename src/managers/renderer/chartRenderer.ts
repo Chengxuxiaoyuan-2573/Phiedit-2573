@@ -1852,6 +1852,9 @@ export default class ChartRenderer extends Manager {
             const { x: newX, y: newY } = MathUtils.moveAndRotate(fatherX, fatherY, fatherAngle, x, y);
             x = newX;
             y = newY;
+            if (judgeLine.rotateWithFather) {
+                angle += fatherAngle;
+            }
         }
 
         const scaleX = (() => {

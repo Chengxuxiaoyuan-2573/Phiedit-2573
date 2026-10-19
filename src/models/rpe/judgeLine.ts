@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { isObject, isNumber, isString, isArray } from "lodash";
+import { isObject, isNumber, isString, isArray, isBoolean } from "lodash";
 import { calculateDisplacement, easingFuncsIntegral, EasingType } from "./easing";
 import { BaseEventLayer, baseEventTypes, ExtendedEventLayer, extendedEventTypes, IBaseEventLayer, IExtendedEventLayer } from "./eventLayer";
 import { INote, Note } from "./note";
@@ -61,6 +61,9 @@ export interface IJudgeLine {
 
     /** 绑定UI，若不绑定则没有该属性 */
     attachUI?: "none" | "pause" | "combonumber" | "combo" | "score" | "bar" | "name" | "level"
+
+    /** 是否跟随父线旋转 */
+    rotateWithFather: boolean
 
     /** 不支持此属性，也不知道啥意思 */
     alphaControl: {
@@ -148,6 +151,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
         }
         return result;
     }
+    rotateWithFather: boolean = false;
     alphaControl = [{
         easing: DEFAULT_EASING_TYPE,
         alpha: DEFAULT_ALPHA,
@@ -241,6 +245,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
             skewControl: this.skewControl,
             yControl: this.yControl,
             bpmfactor: this.bpmfactor,
+            rotateWithFather: this.rotateWithFather,
             eventLayers: this.eventLayers.map(eventLayer => eventLayer.toObject()),
             extended: this.extended.toObject(),
             notes: this.notes.map(note => note.toObject()),
@@ -670,6 +675,18 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
             }
             else {
                 this.errorMessages.push(`${this.id}号判定线：判定线缺少 anchor 属性。将会被设为默认值 [0.5, 0.5]。`);
+            }
+
+            if ("rotateWithFather" in judgeLine) {
+                if (isBoolean(judgeLine.rotateWithFather)) {
+                    this.rotateWithFather = judgeLine.rotateWithFather;
+                }
+                else {
+                    this.errorMessages.push(`${this.id}号判定线：判定线的 rotateWithFather 属性必须是布尔值，但读取到了 ${judgeLine.rotateWithFather}。将会被设为默认值 false。`);
+                }
+            }
+            else {
+                this.errorMessages.push(`${this.id}号判定线：判定线缺少 rotateWithFather 属性。将会被设为默认值 false。`);
             }
         }
         else {

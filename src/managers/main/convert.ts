@@ -404,6 +404,7 @@ class ConvertManager {
             Name: "Untitled",
             Texture: "line.png",
             father: -1,
+            rotateWithFather: false,
             isCover: JudgeLineCover.Cover,
             zOrder: 0,
             anchor: [0.5, 0.5],
