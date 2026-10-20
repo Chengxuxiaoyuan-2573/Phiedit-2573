@@ -15,7 +15,8 @@
  *
  * 关键帧之间的跳变（官方 Zero / One 缓动产生的瞬时跳变）体现为
  * 「上一段的结束值 → 下一段的起始值」的锚点相对变换；连续段两者相等，变换为恒等。
- * 锚点通道缺失时锚点取基准中心，此时中心轨迹恒为中心，
+ * 锚点是 RPE 事件自带的 anchor 字段，缩放事件与旋转事件各带各的锚点；
+ * 事件没有该字段（早期谱面）时锚点取噪域中心，
  * 整体退化为「以中心缩放、绕中心旋转、中心移动到目标位置」。
  */
 
@@ -30,6 +31,9 @@ export interface BlockAreaGeometryEvent {
     start: number
 
     end: number
+
+    /** 事件的锚点，即这一段缩放 / 旋转的支点。没有该字段时取噪域中心 */
+    anchor?: [number, number]
 
     isDisabled: boolean
 }
@@ -60,14 +64,6 @@ export interface BlockAreaGeometryInput<Event extends BlockAreaGeometryEvent> {
     scaleYEvents: Event[]
 
     rotateEvents: Event[]
-
-    scaleAnchorXEvents: Event[]
-
-    scaleAnchorYEvents: Event[]
-
-    rotateAnchorXEvents: Event[]
-
-    rotateAnchorYEvents: Event[]
 
     /** 对事件在某一时刻采样（与渲染器其余部分使用同一插值逻辑） */
     sample: (event: Event, seconds: number) => number
@@ -123,20 +119,34 @@ function applyChannelStep(
 }
 
 /**
+ * 取事件的锚点。
+ *
+ * RPE 中 anchor 是事件自带的字段：一段缩放 / 旋转以该事件的 anchor 为支点。
+ * 事件没有该字段时取噪域中心，与加入 anchor 字段之前的「绕噪域中心缩放 / 旋转」一致。
+ */
+function anchorOfEvent<Event extends BlockAreaGeometryEvent>(event: Event, fallback: Pair): Pair {
+    const anchor = event.anchor;
+    if (anchor === undefined) {
+        return [fallback[0], fallback[1]];
+    }
+    return [anchor[0], anchor[1]];
+}
+
+/**
  * 把中心轨迹点沿某一条通道从谱面开始累计到当前时刻。
  *
  * 对当前时刻之前的每一段，依次施加：
  *  1. 该段的完整变换（起始值 → 结束值）；
  *  2. 该段结束值到下一段起始值之间的跳变（Zero / One 等瞬时跳变，连续段为恒等）；
  * 最后对当前段施加起始值到当前采样值的部分变换。
- * 每次变换都以该段起始时刻的锚点为支点。
+ * 每次变换都以该段所属事件的锚点为支点，事件没有锚点时以 fallbackAnchor（噪域中心）为支点。
  */
 function accumulateChannel<Event extends BlockAreaGeometryEvent>(
     point: TrajectoryPoint,
     kind: ChannelKind,
     events: Event[],
     seconds: number,
-    anchorAt: (startSeconds: number) => Pair,
+    fallbackAnchor: Pair,
     findEventIndex: (events: Event[], seconds: number) => number,
     sample: (event: Event, seconds: number) => number
 ): void {
@@ -153,27 +163,15 @@ function accumulateChannel<Event extends BlockAreaGeometryEvent>(
         }
 
         if (previous !== null) {
-            applyChannelStep(point, kind, previous.start, previous.end, anchorAt(previous.cachedStartSeconds));
-            applyChannelStep(point, kind, previous.end, event.start, anchorAt(previous.cachedStartSeconds));
+            applyChannelStep(point, kind, previous.start, previous.end, anchorOfEvent(previous, fallbackAnchor));
+            applyChannelStep(point, kind, previous.end, event.start, anchorOfEvent(previous, fallbackAnchor));
         }
         previous = event;
     }
 
     if (previous !== null) {
-        applyChannelStep(point, kind, previous.start, sample(previous, seconds), anchorAt(previous.cachedStartSeconds));
+        applyChannelStep(point, kind, previous.start, sample(previous, seconds), anchorOfEvent(previous, fallbackAnchor));
     }
-}
-
-/** 采样某一通道在指定时刻的值，没有事件覆盖时使用 fallback */
-function sampleChannelAt<Event extends BlockAreaGeometryEvent>(
-    events: Event[],
-    seconds: number,
-    fallback: number,
-    findEventIndex: (events: Event[], seconds: number) => number,
-    sample: (event: Event, seconds: number) => number
-): number {
-    const event = events[findEventIndex(events, seconds)];
-    return event ? sample(event, seconds) : fallback;
 }
 
 /**
@@ -185,21 +183,12 @@ function sampleChannelAt<Event extends BlockAreaGeometryEvent>(
 export function getBlockAreaCorners<Event extends BlockAreaGeometryEvent>(input: BlockAreaGeometryInput<Event>): Pair[] {
     const { seconds, baseCenter, halfSize, position, radians, scale, findEventIndex, sample } = input;
 
-    // 缩放通道与旋转通道各有自己的锚点，锚点缺失时取基准中心
-    const scaleAnchorAt = (startSeconds: number): Pair => [
-        sampleChannelAt(input.scaleAnchorXEvents, startSeconds, baseCenter[0], findEventIndex, sample),
-        sampleChannelAt(input.scaleAnchorYEvents, startSeconds, baseCenter[1], findEventIndex, sample)
-    ];
-    const rotateAnchorAt = (startSeconds: number): Pair => [
-        sampleChannelAt(input.rotateAnchorXEvents, startSeconds, baseCenter[0], findEventIndex, sample),
-        sampleChannelAt(input.rotateAnchorYEvents, startSeconds, baseCenter[1], findEventIndex, sample)
-    ];
-
-    // 中心轨迹：基准中心依次经过 缩放 X → 缩放 Y → 旋转 的累计变换
+    // 中心轨迹：基准中心依次经过 缩放 X → 缩放 Y → 旋转 的累计变换，
+    // 每一段都以该段事件的 anchor 为支点，事件没有 anchor 时以噪域中心为支点
     const trajectory: TrajectoryPoint = { x: baseCenter[0], y: baseCenter[1] };
-    accumulateChannel(trajectory, "scaleX", input.scaleXEvents, seconds, scaleAnchorAt, findEventIndex, sample);
-    accumulateChannel(trajectory, "scaleY", input.scaleYEvents, seconds, scaleAnchorAt, findEventIndex, sample);
-    accumulateChannel(trajectory, "rotate", input.rotateEvents, seconds, rotateAnchorAt, findEventIndex, sample);
+    accumulateChannel(trajectory, "scaleX", input.scaleXEvents, seconds, baseCenter, findEventIndex, sample);
+    accumulateChannel(trajectory, "scaleY", input.scaleYEvents, seconds, baseCenter, findEventIndex, sample);
+    accumulateChannel(trajectory, "rotate", input.rotateEvents, seconds, baseCenter, findEventIndex, sample);
 
     const cos = Math.cos(radians);
     const sin = Math.sin(radians);

@@ -185,6 +185,9 @@ interface BlockAreaKeyframe {
 
     /** 官方的缓动编号 */
     easeType: number;
+
+    /** 该关键帧的锚点，即缩放 / 旋转的支点（RPE 坐标）。移动通道没有锚点，不填时事件上不写 anchor 字段 */
+    anchor?: [number, number];
 }
 
 class ConvertManager {
@@ -199,9 +202,9 @@ class ConvertManager {
         return Math.round(value * factor) / factor;
     }
 
-    /** 创建一个 RPE 数值事件 */
-    private createEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType = EasingType.Linear): IEvent<number> {
-        return {
+    /** 创建一个 RPE 数值事件。只有缩放 / 旋转事件需要锚点，其余事件不写 anchor 字段 */
+    private createEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType = EasingType.Linear, anchor?: [number, number]): IEvent<number> {
+        const event: IEvent<number> = {
             bezier: 0,
             bezierPoints: [0, 0, 1, 1],
             easingLeft: 0,
@@ -214,6 +217,11 @@ class ConvertManager {
             linkgroup: 0,
             isDisabled: false
         };
+
+        if (anchor) {
+            event.anchor = [...anchor];
+        }
+        return event;
     }
 
     /**
@@ -425,12 +433,19 @@ class ConvertManager {
      * @param end 事件结束时的数值
      * @param easingType 缓动类型
      */
-    private createKeyframeEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType): IEvent<number> {
+    private createKeyframeEvent(
+        startTime: Beats,
+        endTime: Beats,
+        start: number,
+        end: number,
+        easingType: EasingType,
+        anchor?: [number, number]
+    ): IEvent<number> {
         // 起始时间不早于结束时间时退化为瞬时事件，避免出现 startTime 大于 endTime 的非法事件
         if (beatsCompare(startTime, endTime) >= 0) {
-            return this.createEvent(endTime, endTime, this.round(end), this.round(end), easingType);
+            return this.createEvent(endTime, endTime, this.round(end), this.round(end), easingType, anchor);
         }
-        return this.createEvent(startTime, endTime, this.round(start), this.round(end), easingType);
+        return this.createEvent(startTime, endTime, this.round(start), this.round(end), easingType, anchor);
     }
 
     /**
@@ -489,13 +504,17 @@ class ConvertManager {
             const startValue = keyframe.value;
             const endValue = next.value;
 
+            // 这一段使用起始关键帧的锚点，与 startValue 使用同一个关键帧。
+            // 移动通道没有锚点，这里会是 undefined，事件上就不会写 anchor 字段
+            const anchor = keyframe.anchor;
+
             if (keyframe.easeType === OFFICIAL_EASE_ZERO) {
                 // 保持该关键帧的值，到下一个关键帧的时间点才跳到它的值
-                events.push(this.createKeyframeEvent(startTime, endTime, startValue, startValue, EasingType.Linear));
+                events.push(this.createKeyframeEvent(startTime, endTime, startValue, startValue, EasingType.Linear, anchor));
             }
             else if (keyframe.easeType === OFFICIAL_EASE_ONE) {
                 // 该段一开始就跳到下一个关键帧的值并保持
-                events.push(this.createKeyframeEvent(startTime, endTime, endValue, endValue, EasingType.Linear));
+                events.push(this.createKeyframeEvent(startTime, endTime, endValue, endValue, EasingType.Linear, anchor));
             }
             else if (keyframe.easeType === OFFICIAL_EASE_IN_OUT_QUINT) {
                 // 从正中间切成两段：前半段用五次幂缓入，后半段用五次幂缓出
@@ -503,8 +522,8 @@ class ConvertManager {
                 const middleTime = toRpeTime(middleSeconds);
                 const middleValue = startValue + (endValue - startValue) * EASE_MIDDLE_RATIO;
 
-                events.push(this.createKeyframeEvent(startTime, middleTime, startValue, middleValue, EasingType.InQuint));
-                events.push(this.createKeyframeEvent(middleTime, endTime, middleValue, endValue, EasingType.OutQuint));
+                events.push(this.createKeyframeEvent(startTime, middleTime, startValue, middleValue, EasingType.InQuint, anchor));
+                events.push(this.createKeyframeEvent(middleTime, endTime, middleValue, endValue, EasingType.OutQuint, anchor));
             }
             else {
                 events.push(this.createKeyframeEvent(
@@ -512,7 +531,8 @@ class ConvertManager {
                     endTime,
                     startValue,
                     endValue,
-                    this.getBlockAreaEasingType(keyframe.easeType, unknownEasingTypes)
+                    this.getBlockAreaEasingType(keyframe.easeType, unknownEasingTypes),
+                    anchor
                 ));
             }
         }
@@ -521,7 +541,7 @@ class ConvertManager {
         const last = keyframes[keyframes.length - 1];
         if (last !== undefined) {
             const lastTime = toRpeTime(last.seconds);
-            events.push(this.createKeyframeEvent(lastTime, lastTime, last.value, last.value, EasingType.Linear));
+            events.push(this.createKeyframeEvent(lastTime, lastTime, last.value, last.value, EasingType.Linear, last.anchor));
         }
 
         return events;
@@ -536,9 +556,9 @@ class ConvertManager {
      * 官方噪域在第一个事件之前，位置取方块中心、缩放取 (1, 1)、旋转取 0，与文档一致。
      *
      * 官方噪域的旋转 / 缩放事件带有各自的锚点（anchor），锚点与 bottomLeftPercentage / topRightPercentage
-     * 使用同一套坐标（渲染范围归一化坐标），表示缩放 / 旋转的支点。RPE 噪域没有锚点字段，
-     * 因此这里把锚点转成四条额外的数值事件通道（scaleAnchorX / scaleAnchorY / rotateAnchorX / rotateAnchorY），
-     * 由渲染器在缩放与旋转时以它们为支点。第一个事件之前锚点取方块中心。
+     * 使用同一套坐标（渲染范围归一化坐标），表示缩放 / 旋转的支点。
+     * RPE 的事件同样自带 anchor 字段，因此这里把锚点换算为 RPE 坐标后直接写到对应事件的 anchor 上，
+     * 由渲染器在缩放与旋转时以它为支点。移动事件没有支点，不写 anchor 字段（与标准谱面一致）。
      *
      * @param unknownEasingTypes 用于收集未知缓动编号的集合
      */
@@ -576,40 +596,36 @@ class ConvertManager {
             toRpeTime, unknownEasingTypes
         );
 
-        // 缩放事件 → scaleX / scaleY
+        // 缩放事件 → scaleX / scaleY（每个关键帧带上自己的缩放中心）
         const scaleEvents = byTime(blockArea.scaleEvents);
         const scaleXEvents = this.createBlockAreaEvents(
-            scaleEvents.map(event => ({ seconds: event.time, value: event.scale[0], easeType: event.easeTypeX })),
+            scaleEvents.map(event => ({
+                seconds: event.time,
+                value: event.scale[0],
+                easeType: event.easeTypeX,
+                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+            })),
             toRpeTime, unknownEasingTypes
         );
         const scaleYEvents = this.createBlockAreaEvents(
-            scaleEvents.map(event => ({ seconds: event.time, value: event.scale[1], easeType: event.easeTypeY })),
+            scaleEvents.map(event => ({
+                seconds: event.time,
+                value: event.scale[1],
+                easeType: event.easeTypeY,
+                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+            })),
             toRpeTime, unknownEasingTypes
         );
 
         // 旋转事件 → rotate（官方与 RPE 的旋转方向相反，需要取相反数，与判定线一致）
         const rotateKeyframes = byTime(blockArea.rotateEvents);
         const rotateEvents = this.createBlockAreaEvents(
-            rotateKeyframes.map(event => ({ seconds: event.time, value: -event.rotation, easeType: event.easeType })),
-            toRpeTime, unknownEasingTypes
-        );
-
-        // 缩放中心 / 旋转中心（锚点）→ scaleAnchorX / scaleAnchorY / rotateAnchorX / rotateAnchorY
-        // 锚点是关键帧上的一个属性，与同一关键帧的数值一样从上一个关键帧的锚点缓动过来
-        const scaleAnchorXEvents = this.createBlockAreaEvents(
-            scaleEvents.map(event => ({ seconds: event.time, value: toRpeX(event.anchor[0]), easeType: event.easeTypeX })),
-            toRpeTime, unknownEasingTypes
-        );
-        const scaleAnchorYEvents = this.createBlockAreaEvents(
-            scaleEvents.map(event => ({ seconds: event.time, value: toRpeY(event.anchor[1]), easeType: event.easeTypeY })),
-            toRpeTime, unknownEasingTypes
-        );
-        const rotateAnchorXEvents = this.createBlockAreaEvents(
-            rotateKeyframes.map(event => ({ seconds: event.time, value: toRpeX(event.anchor[0]), easeType: event.easeType })),
-            toRpeTime, unknownEasingTypes
-        );
-        const rotateAnchorYEvents = this.createBlockAreaEvents(
-            rotateKeyframes.map(event => ({ seconds: event.time, value: toRpeY(event.anchor[1]), easeType: event.easeType })),
+            rotateKeyframes.map(event => ({
+                seconds: event.time,
+                value: -event.rotation,
+                easeType: event.easeType,
+                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+            })),
             toRpeTime, unknownEasingTypes
         );
 
@@ -630,10 +646,6 @@ class ConvertManager {
             rotateEvents,
             scaleXEvents,
             scaleYEvents,
-            scaleAnchorXEvents,
-            scaleAnchorYEvents,
-            rotateAnchorXEvents,
-            rotateAnchorYEvents,
             topRight
         };
     }

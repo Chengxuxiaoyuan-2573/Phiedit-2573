@@ -1654,9 +1654,9 @@ export default class ChartRenderer extends Manager {
     /**
      * 计算噪域在某一时刻的四个角，以画布坐标系为准。
      *
-     * 噪域的形状以基准中心为支点缩放、旋转，基准中心沿着由锚点驱动的中心轨迹运动，
+     * 噪域的形状以基准中心为支点缩放、旋转，基准中心沿着由各事件的 anchor 驱动的中心轨迹运动，
      * 最后叠加移动事件的偏移，具体的变换方式见 getBlockAreaCorners。
-     * 锚点通道缺失时锚点取噪域中心，此时与「以中心缩放、绕中心旋转、中心移动到目标位置」一致。
+     * 事件没有 anchor 时以噪域中心为支点，此时与「以中心缩放、绕中心旋转、中心移动到目标位置」一致。
      *
      * @param blockArea 噪域
      * @param seconds 当前时间，单位为秒
@@ -1665,12 +1665,11 @@ export default class ChartRenderer extends Manager {
     private getBlockAreaCorners(blockArea: BlockArea, seconds: number): Pair[] {
         const coordinateManager = store.useManager("coordinateManager");
 
-        // 噪域的中心（基准矩形的中心），也是锚点通道缺失时的默认锚点
-        const baseCenterX = (blockArea.bottomLeft.x + blockArea.topRight.x) / 2;
-        const baseCenterY = (blockArea.bottomLeft.y + blockArea.topRight.y) / 2;
+        // 噪域的中心（基准矩形的中心），也是事件没有 anchor 时的默认锚点
+        const center = blockArea.getCenter();
 
-        const moveX = this.getBlockAreaEventValue(blockArea.moveXEvents, seconds, baseCenterX);
-        const moveY = this.getBlockAreaEventValue(blockArea.moveYEvents, seconds, baseCenterY);
+        const moveX = this.getBlockAreaEventValue(blockArea.moveXEvents, seconds, center.x);
+        const moveY = this.getBlockAreaEventValue(blockArea.moveYEvents, seconds, center.y);
         const angle = this.getBlockAreaEventValue(blockArea.rotateEvents, seconds, 0);
         const scaleX = this.getBlockAreaEventValue(blockArea.scaleXEvents, seconds, 1);
         const scaleY = this.getBlockAreaEventValue(blockArea.scaleYEvents, seconds, 1);
@@ -1678,7 +1677,7 @@ export default class ChartRenderer extends Manager {
         // 几何计算在谱面坐标系（y 轴向上）中完成，这里把结果转换回画布坐标
         const corners = computeBlockAreaCorners({
             seconds,
-            baseCenter: [baseCenterX, baseCenterY],
+            baseCenter: [center.x, center.y],
             halfSize: [
                 Math.abs(blockArea.topRight.x - blockArea.bottomLeft.x) / 2,
                 Math.abs(blockArea.topRight.y - blockArea.bottomLeft.y) / 2
@@ -1689,10 +1688,6 @@ export default class ChartRenderer extends Manager {
             scaleXEvents: blockArea.scaleXEvents,
             scaleYEvents: blockArea.scaleYEvents,
             rotateEvents: blockArea.rotateEvents,
-            scaleAnchorXEvents: blockArea.scaleAnchorXEvents,
-            scaleAnchorYEvents: blockArea.scaleAnchorYEvents,
-            rotateAnchorXEvents: blockArea.rotateAnchorXEvents,
-            rotateAnchorYEvents: blockArea.rotateAnchorYEvents,
             sample: interpolateNumberEventValue,
             findEventIndex: findLastEventIndex
         });

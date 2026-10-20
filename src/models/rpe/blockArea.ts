@@ -36,12 +36,9 @@ const BEATS_LENGTH = 3;
 /**
  * 噪域事件的类型。与 IEventExtendedOptions 中的 type 兼容。
  *
- * 其中 scaleAnchorX / scaleAnchorY 是缩放中心的 X / Y 坐标，rotateAnchorX / rotateAnchorY 是旋转中心的 X / Y 坐标。
- * 这四个通道都缺失时，以噪域的中心作为缩放中心与旋转中心。
+ * 缩放中心 / 旋转中心（锚点）是事件自带的 anchor 字段，不是单独的事件类型。
  */
-export type BlockAreaEventType =
-    "moveX" | "moveY" | "rotate" | "scaleX" | "scaleY"
-    | "scaleAnchorX" | "scaleAnchorY" | "rotateAnchorX" | "rotateAnchorY";
+export type BlockAreaEventType = "moveX" | "moveY" | "rotate" | "scaleX" | "scaleY";
 
 /** 噪域事件所在的“事件层”标识，仅用于生成事件 id */
 const BLOCK_AREA_EVENT_LAYER_ID = "blockArea";
@@ -81,10 +78,7 @@ export interface IBlockArea {
     /** 与其他噪域叠加时，是否会让相交的部分变为没有噪域 */
     isInvert: boolean
 
-    /**
-     * 控制噪域中心点的X坐标。
-     * 事件在接口中使用对象形式（与 IBaseEventLayer 保持一致），在类中使用 NumberEvent
-     */
+    /** 控制噪域中心点的X坐标 */
     moveXEvents: IEvent<number>[]
 
     /** 控制噪域中心点的Y坐标 */
@@ -98,21 +92,6 @@ export interface IBlockArea {
 
     /** 控制噪域高度的缩放比例 */
     scaleYEvents: IEvent<number>[]
-
-    /**
-     * 缩放中心的 X 坐标。缩放以该点为支点进行，即该点在缩放前后保持不动。
-     * 缺失时以噪域中心（bottomLeft 与 topRight 的中点）为准
-     */
-    scaleAnchorXEvents: IEvent<number>[]
-
-    /** 缩放中心的 Y 坐标。缺失时以噪域中心为准 */
-    scaleAnchorYEvents: IEvent<number>[]
-
-    /** 旋转中心的 X 坐标。旋转以该点为支点进行。缺失时以噪域中心为准 */
-    rotateAnchorXEvents: IEvent<number>[]
-
-    /** 旋转中心的 Y 坐标。缺失时以噪域中心为准 */
-    rotateAnchorYEvents: IEvent<number>[]
 
     /** 右上角坐标 */
     topRight: Point
@@ -282,10 +261,6 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
     rotateEvents: NumberEvent[] = [];
     scaleXEvents: NumberEvent[] = [];
     scaleYEvents: NumberEvent[] = [];
-    scaleAnchorXEvents: NumberEvent[] = [];
-    scaleAnchorYEvents: NumberEvent[] = [];
-    rotateAnchorXEvents: NumberEvent[] = [];
-    rotateAnchorYEvents: NumberEvent[] = [];
     topRight: Point = { ...DEFAULT_POINT };
     readonly errorMessages: string[] = [];
 
@@ -301,11 +276,7 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
             ...this.moveYEvents,
             ...this.rotateEvents,
             ...this.scaleXEvents,
-            ...this.scaleYEvents,
-            ...this.scaleAnchorXEvents,
-            ...this.scaleAnchorYEvents,
-            ...this.rotateAnchorXEvents,
-            ...this.rotateAnchorYEvents
+            ...this.scaleYEvents
         ];
     }
 
@@ -323,10 +294,6 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
             rotateEvents: this.rotateEvents.map(event => event.toObject()),
             scaleXEvents: this.scaleXEvents.map(event => event.toObject()),
             scaleYEvents: this.scaleYEvents.map(event => event.toObject()),
-            scaleAnchorXEvents: this.scaleAnchorXEvents.map(event => event.toObject()),
-            scaleAnchorYEvents: this.scaleAnchorYEvents.map(event => event.toObject()),
-            rotateAnchorXEvents: this.rotateAnchorXEvents.map(event => event.toObject()),
-            rotateAnchorYEvents: this.rotateAnchorYEvents.map(event => event.toObject()),
             topRight: { ...this.topRight }
         };
     }
@@ -374,10 +341,22 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
         this.scaleXEvents = readEventArray(source, "scaleXEvents", "scaleX", options, this.errorMessages, context);
         this.scaleYEvents = readEventArray(source, "scaleYEvents", "scaleY", options, this.errorMessages, context);
 
-        // 缩放中心与旋转中心。缺失时属于正常情况，此时以噪域中心作为中心
-        this.scaleAnchorXEvents = readEventArray(source, "scaleAnchorXEvents", "scaleAnchorX", options, this.errorMessages, context);
-        this.scaleAnchorYEvents = readEventArray(source, "scaleAnchorYEvents", "scaleAnchorY", options, this.errorMessages, context);
-        this.rotateAnchorXEvents = readEventArray(source, "rotateAnchorXEvents", "rotateAnchorX", options, this.errorMessages, context);
-        this.rotateAnchorYEvents = readEventArray(source, "rotateAnchorYEvents", "rotateAnchorY", options, this.errorMessages, context);
+        // 缩放 / 旋转需要支点。RPE 标准把锚点写在事件的 anchor 字段上，
+        // 而没有该字段的谱面（早期谱面、手写谱面）按「绕噪域中心缩放、旋转」处理，与加入 anchor 字段之前的行为一致。
+        // 这里把中心直接写进事件，这样保存出去的谱面带有显式锚点，重新打开时结果不会变。
+        const center = this.getCenter();
+        for (const event of [...this.rotateEvents, ...this.scaleXEvents, ...this.scaleYEvents]) {
+            if (event.anchor === undefined) {
+                event.anchor = [center.x, center.y];
+            }
+        }
+    }
+
+    /** 噪域的中心，即 bottomLeft 与 topRight 的中点。也是事件没有 anchor 时的默认锚点 */
+    getCenter(): Point {
+        return {
+            x: (this.bottomLeft.x + this.topRight.x) / 2,
+            y: (this.bottomLeft.y + this.topRight.y) / 2
+        };
     }
 }

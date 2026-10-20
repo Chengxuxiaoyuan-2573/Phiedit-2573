@@ -26,6 +26,14 @@ export interface IEvent<T = unknown> {
     /** 暂时无用且不可编辑，RPE中代表事件的绑定组 */
     linkgroup: number;
 
+    /**
+     * 事件的锚点，即缩放 / 旋转的支点（噪域使用）。图片事件中代表图片的锚点
+     *
+     * 为可选字段：RPE 标准里只有缩放 / 旋转事件会写它，其余事件没有该字段。
+     * 噪域事件省略时，缩放 / 旋转以噪域中心为支点。
+     */
+    anchor?: [number, number];
+
     /** 事件是否被禁用 */
     isDisabled: boolean;
 }
@@ -40,6 +48,29 @@ export interface IEventExtendedOptions {
 interface IEventIdentifier {
     readonly isEvent: true
 }
+
+/** 锚点（[x, y]）包含的数字个数 */
+const ANCHOR_LENGTH = 2;
+
+/**
+ * 读取事件的 anchor 字段。
+ *
+ * RPE 标准中事件自带 anchor，噪域用它表示缩放 / 旋转的支点。
+ * 允许写成 [x, y] 数组或 { x, y } 对象两种形式。
+ */
+function readEventAnchor(value: unknown): [number, number] | undefined {
+    if (isArrayOfNumbers(value, ANCHOR_LENGTH)) {
+        return [value[0], value[1]];
+    }
+
+    if (isObject(value) && isNumber((value as Record<string, unknown>).x) && isNumber((value as Record<string, unknown>).y)) {
+        const point = value as { x: number, y: number };
+        return [point.x, point.y];
+    }
+
+    return undefined;
+}
+
 export enum Bezier {
     On = 1,
     Off = 0
@@ -76,10 +107,9 @@ export function isTextEvent(value: unknown): value is TextEvent {
     return "isTextEvent" in value;
 }
 
-// 噪域的缩放中心 / 旋转中心（锚点）也使用数值事件表示，它们的类型名追加在末尾，避免影响已有类型的下标
+// 缩放中心 / 旋转中心（锚点）使用 RPE 事件自带的 anchor 字段表示，不需要额外的事件类型
 export const eventTypes = [
-    "moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text", "incline",
-    "scaleAnchorX", "scaleAnchorY", "rotateAnchorX", "rotateAnchorY"
+    "moveX", "moveY", "rotate", "alpha", "speed", "scaleX", "scaleY", "color", "paint", "text", "incline"
 ] as const;
 type EventType = typeof eventTypes[number];
 export const eventAttributes = [
@@ -92,7 +122,8 @@ export const eventAttributes = [
     "end",
     "startTime",
     "endTime",
-    "linkgroup"
+    "linkgroup",
+    "anchor"
 ] as const;
 export abstract class AbstractEvent<T = unknown> extends TimeSegment implements IObjectizable<IEvent<T>>, IEventExtendedOptions, IEventIdentifier {
     bezier: Bezier = Bezier.Off;
@@ -105,6 +136,9 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
     _startTime: Beats = [0, 0, 1];
     _endTime: Beats = [0, 0, 1];
     linkgroup = 0;
+
+    /** 事件的锚点，即缩放 / 旋转的支点（噪域使用）。没有该字段时由噪域按中心补上 */
+    anchor?: [number, number];
     isDisabled: boolean = false;
 
     cachedStartSeconds: number;
@@ -130,7 +164,7 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
     readonly errorMessages: string[] = [];
     readonly isEvent = true;
     toObject(): IEvent<T> {
-        return {
+        const event: IEvent<T> = {
             bezier: this.bezier,
             bezierPoints: [...this.bezierPoints],
             easingLeft: this.easingLeft,
@@ -143,6 +177,12 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
             linkgroup: this.linkgroup,
             isDisabled: this.isDisabled,
         };
+
+        // 只有带锚点的事件（噪域的缩放 / 旋转事件）才写出 anchor，避免污染其它事件
+        if (this.anchor) {
+            event.anchor = [...this.anchor];
+        }
+        return event;
     }
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super();
@@ -252,6 +292,12 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
                 this.errorMessages.push(`${this.id}：事件缺少 linkgroup 属性。将会被设为默认值 0。`);
             }
 
+            // anchor
+            // 只有缩放 / 旋转事件会用到锚点，其余事件缺失该字段属于正常情况，此时保持为 undefined
+            if ("anchor" in event) {
+                this.anchor = readEventAnchor(event.anchor);
+            }
+
             // isDisabled
             if ("isDisabled" in event) {
                 if (typeof event.isDisabled === "boolean") {
@@ -277,8 +323,7 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
 export class NumberEvent extends AbstractEvent<number> {
     start: number = 0;
     end: number = 0;
-    type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline"
-        | "scaleAnchorX" | "scaleAnchorY" | "rotateAnchorX" | "rotateAnchorY";
+    type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline";
     readonly isNumberEvent = true;
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);
@@ -429,6 +474,9 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
     _startTime: Beats = [0, 0, 1];
     _endTime: Beats = [0, 0, 1];
     linkgroup = 0;
+
+    /** 事件自带的锚点字段。shader 变量事件没有噪域那样的缩放 / 旋转支点，固定为 undefined */
+    anchor?: [number, number];
     isDisabled: boolean = false;
 
     readonly errorMessages: string[] = [];
@@ -439,7 +487,7 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
     cachedStartSeconds: number;
     cachedEndSeconds: number;
     toObject(): IEvent<ShaderNumberType> {
-        return {
+        const event: IEvent<ShaderNumberType> = {
             start: this.start,
             end: this.end,
             bezier: this.bezier,
@@ -452,6 +500,11 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
             linkgroup: this.linkgroup,
             isDisabled: this.isDisabled,
         };
+
+        if (this.anchor) {
+            event.anchor = [...this.anchor];
+        }
+        return event;
     }
     constructor(event: unknown, options: ShaderEventExtendedOptions) {
         super();
