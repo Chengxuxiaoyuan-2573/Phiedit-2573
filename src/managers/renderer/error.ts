@@ -8,12 +8,13 @@ import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import ChartError from "@/models/error";
 import store from "@/store";
-import { isNoteLike, Note, NoteType } from "@/models/rpe/note";
+import { Note, NoteType } from "@/models/rpe/note";
 import { addBeats, isEqualBeats, isGreaterThanBeats, isGreaterThanOrEqualBeats, isLessThanBeats, isLessThanOrEqualBeats } from "@/models/rpe/beats";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import Constants from "@/constants";
 import { SEC_TO_MS } from "@/tools/mathUtils";
 import { isEvent } from "@/models/rpe/event";
+import { isTimedElement } from "@/models/rpe/element";
 
 export default class ErrorManager extends Manager {
     errors: ChartError[] = [];
@@ -311,7 +312,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "EventOutOfRange":
-                    if (isNoteLike(error.objects[0])) {
+                    if (!isEvent(error.objects[0])) {
                         break;
                     }
 
@@ -321,7 +322,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "InvalidEventTime":
-                    if (isNoteLike(error.objects[0])) {
+                    if (!isTimedElement(error.objects[0])) {
                         break;
                     }
 
@@ -331,7 +332,7 @@ export default class ErrorManager extends Manager {
                     break;
 
                 case "InvalidHoldTime":
-                    if (isEvent(error.objects[0])) {
+                    if (!(error.objects[0] instanceof Note)) {
                         break;
                     }
 

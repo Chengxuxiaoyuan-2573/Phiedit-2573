@@ -7,23 +7,59 @@
 import { isNoteLike, NoteAbove, NoteFake, NoteType } from "@/models/rpe/note";
 import { Box, BoxWithData } from "@/tools/box";
 import MathUtils from "@/tools/mathUtils";
-import { AbstractEvent, Bezier } from "@/models/rpe/event";
+import { AbstractEvent, Bezier, isEvent } from "@/models/rpe/event";
 import { clamp, floor } from "lodash";
 import Constants from "../../constants";
 import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/rpe/easing";
 import Manager from "./abstract";
 import store from "@/store";
-import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats } from "@/models/rpe/beats";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats, subBeats } from "@/models/rpe/beats";
 import { findLastEventIndex } from "@/models/rpe/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { ElMessage } from "element-plus";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
-import { SelectableElement } from "@/models/rpe/element";
+import {
+    SelectableElement,
+    getElementEndTime,
+    getElementStartTime,
+    isActiveInterval,
+    isBlockArea,
+    isBlockAreaLike,
+    makeSureElementTimeValid,
+    setElementEndTime,
+    setElementStartTime
+} from "@/models/rpe/element";
+import { BLOCK_AREA_EVENT_LAYER_ID, blockAreaEventTracks, getBlockAreaEventTypeOfTrack } from "@/models/rpe/blockArea";
 export enum MouseMoveMode {
-    None, Drag, DragEnd, Select
+    None, Drag, DragEnd, Select,
+
+    /** 拖动整个元素（噪域、激活区间这类没有“头尾”概念的元素） */
+    DragWhole
+}
+
+/** 拖动开始时元素与鼠标的初始状态，用于按偏移量拖动整个元素 */
+interface DragOrigin {
+
+    /** 按下鼠标时的鼠标拍数 */
+    mouseBeats: Beats
+
+    /** 按下鼠标时的鼠标 x 坐标 */
+    mouseX: number
+
+    /** 按下鼠标时元素的起始拍数 */
+    start: Beats
+
+    /** 按下鼠标时元素的结束拍数 */
+    end: Beats
+
+    /** 按下鼠标时元素的 x 坐标（音符的 positionX 或噪域的 editorPositionX） */
+    positionX: number
 }
 const MAX_WHEEL_VELOCITY = 100;
+
+/** 新添加的激活区间的默认反应时长，单位为秒 */
+const DEFAULT_ACTIVE_INTERVAL_READY_FLASH = 0.5;
 
 // 滚轮缩放的敏感度
 const WHEEL_ZOOM_SENSITIVITY = -0.05;
@@ -45,6 +81,9 @@ export default class MouseManager extends Manager {
 
     private oldTime: Beats = [0, 0, 1];
     private oldPositionX: number = 0;
+
+    /** 拖动开始时的元素状态。没有在拖动元素时为 null */
+    private dragOrigin: DragOrigin | null = null;
 
     // 已被添加还没有被记录的元素
     private addedElement: SelectableElement | null = null;
@@ -100,23 +139,22 @@ export default class MouseManager extends Manager {
         const firstElement = selectionManager.selectedElements[0];
 
         if (this.addedElement) {
-            if (getBeatsValue(this.addedElement.startTime) === getBeatsValue(this.addedElement.endTime)) {
-                this.addedElement.endTime = addBeats(this.addedElement.startTime, [0, 1, stateManager.state.horizonalLineCount]);
+            const addedElement = this.addedElement;
+            if (getBeatsValue(getElementStartTime(addedElement)) === getBeatsValue(getElementEndTime(addedElement))) {
+                setElementEndTime(addedElement, addBeats(getElementStartTime(addedElement), [0, 1, stateManager.state.horizonalLineCount]));
             }
-            this.addedElement.makeSureTimeValid();
-            if (isNoteLike(this.addedElement)) {
-                historyManager.recordAddNote(this.addedElement.id);
+            makeSureElementTimeValid(addedElement);
+            if (isNoteLike(addedElement)) {
+                historyManager.recordAddNote(addedElement.id);
             }
-            else {
+            else if (isEvent(addedElement)) {
                 // 确保没有与之重叠的事件
-                const events = store.getJudgeLineById(this.addedElement.judgeLineNumber)
-                    .getEventLayerById(this.addedElement.eventLayerId)
-                    .getEventsByType(this.addedElement.type);
+                const events = store.getSiblingEvents(addedElement);
                 let isSucceeded = true;
                 for (const event of events) {
-                    if (event !== this.addedElement && this.addedElement.isOverlapped(event)) {
+                    if (event !== addedElement && addedElement.isOverlapped(event)) {
                         ElMessage.error("不能添加重叠的事件");
-                        store.removeEvent(this.addedElement.id);
+                        store.removeEvent(addedElement.id);
                         selectionManager.unselectAll();
                         isSucceeded = false;
                         break;
@@ -124,34 +162,19 @@ export default class MouseManager extends Manager {
                 }
 
                 if (isSucceeded) {
-                    historyManager.recordAddEvent(this.addedElement.id);
+                    historyManager.recordAddEvent(addedElement.id);
                 }
             }
             this.addedElement = null;
         }
-        else if (this.mouseMoveMode === MouseMoveMode.Drag || this.mouseMoveMode === MouseMoveMode.DragEnd) {
-            firstElement.makeSureTimeValid();
+        else if (this.mouseMoveMode === MouseMoveMode.Drag || this.mouseMoveMode === MouseMoveMode.DragEnd || this.mouseMoveMode === MouseMoveMode.DragWhole) {
+            if (firstElement) {
+                makeSureElementTimeValid(firstElement);
+            }
 
             // Skip modification recording for newly added elements
-            if (this.addedElement === null) {
-                if (this.mouseMoveMode === MouseMoveMode.Drag) {
-                    if (isNoteLike(firstElement)) {
-                        historyManager.recordModifyNote(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
-                        historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
-                    }
-                    else {
-                        historyManager.recordModifyEvent(firstElement.id, "startTime", firstElement.startTime, this.oldTime);
-                    }
-                }
-                else {
-                    if (isNoteLike(firstElement)) {
-                        historyManager.recordModifyNote(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
-                        historyManager.recordModifyNote(firstElement.id, "positionX", firstElement.positionX, this.oldPositionX);
-                    }
-                    else {
-                        historyManager.recordModifyEvent(firstElement.id, "endTime", firstElement.endTime, this.oldTime);
-                    }
-                }
+            if (this.addedElement === null && firstElement) {
+                this.recordDrag(firstElement, this.mouseMoveMode);
             }
         }
         else if (this.mouseMoveMode === MouseMoveMode.Select) {
@@ -173,7 +196,52 @@ export default class MouseManager extends Manager {
             }
         }
         this.mouseMoveMode = MouseMoveMode.None;
+        this.dragOrigin = null;
         this.mousePressed = false;
+    }
+
+    /** 把一次拖动写进历史记录 */
+    private recordDrag(element: SelectableElement, mode: MouseMoveMode) {
+        const historyManager = store.useManager("historyManager");
+        const origin = this.dragOrigin;
+        const isDraggingHead = mode === MouseMoveMode.Drag;
+
+        if (isNoteLike(element)) {
+            historyManager.recordModifyNote(element.id, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
+            historyManager.recordModifyNote(element.id, "positionX", element.positionX, this.oldPositionX);
+        }
+        else if (isBlockArea(element)) {
+            if (!origin) {
+                return;
+            }
+            historyManager.recordModifyBlockArea(element.index, "appearTime", element.appearTime, origin.start);
+            historyManager.recordModifyBlockArea(element.index, "disappearTime", element.disappearTime, origin.end);
+            if (element.editorPositionX !== origin.positionX) {
+                historyManager.recordModifyBlockArea(element.index, "editorPositionX", element.editorPositionX, origin.positionX);
+            }
+        }
+        else if (isActiveInterval(element)) {
+            if (!origin) {
+                return;
+            }
+
+            const blockArea = element.owner;
+            if (!blockArea) {
+                return;
+            }
+
+            const intervalIndex = blockArea.activeIntervals.indexOf(element);
+            if (mode === MouseMoveMode.DragWhole) {
+                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", [...element.startTime] as Beats, [...origin.start] as Beats);
+                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", [...element.endTime] as Beats, [...origin.end] as Beats);
+            }
+            else {
+                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
+            }
+        }
+        else if (isEvent(element)) {
+            historyManager.recordModifyEvent(element.id, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
+        }
     }
     mouseMove(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
@@ -188,6 +256,10 @@ export default class MouseManager extends Manager {
             const firstElement = selectionManager.selectedElements[0];
             switch (this.mouseMoveMode) {
                 case MouseMoveMode.Drag: {
+                    if (!firstElement) {
+                        break;
+                    }
+
                     if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
                         store.setCursor("move");
                     }
@@ -203,19 +275,34 @@ export default class MouseManager extends Manager {
                         }
                         firstElement.positionX = coordinateManager.attatchX(x);
                     }
+                    else if (isBlockAreaLike(firstElement)) {
+                        setElementStartTime(firstElement, beats);
+                        if (isGreaterThanBeats(getElementStartTime(firstElement), getElementEndTime(firstElement))) {
+                            const startTime = getElementStartTime(firstElement);
+                            setElementStartTime(firstElement, getElementEndTime(firstElement));
+                            setElementEndTime(firstElement, startTime);
+                            this.mouseMoveMode = MouseMoveMode.DragEnd;
+                        }
+                    }
                     else {
                         firstElement.startTime = beats;
                     }
 
-                    if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                        [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
-                        this.mouseMoveMode = MouseMoveMode.DragEnd;
+                    if (isNoteLike(firstElement) || isEvent(firstElement)) {
+                        if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
+                            [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                            this.mouseMoveMode = MouseMoveMode.DragEnd;
+                        }
                     }
                     globalEventEmitter.emit("ELEMENT_DRAGGED");
                     break;
                 }
 
                 case MouseMoveMode.DragEnd: {
+                    if (!firstElement) {
+                        break;
+                    }
+
                     if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
                         store.setCursor("move");
                     }
@@ -231,13 +318,45 @@ export default class MouseManager extends Manager {
                         }
                         firstElement.positionX = coordinateManager.attatchX(x);
                     }
+                    else if (isBlockAreaLike(firstElement)) {
+                        setElementEndTime(firstElement, beats);
+                        if (isGreaterThanBeats(getElementStartTime(firstElement), getElementEndTime(firstElement))) {
+                            const endTime = getElementEndTime(firstElement);
+                            setElementEndTime(firstElement, getElementStartTime(firstElement));
+                            setElementStartTime(firstElement, endTime);
+                            this.mouseMoveMode = MouseMoveMode.Drag;
+                        }
+                    }
                     else {
                         firstElement.endTime = beats;
                     }
 
-                    if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                        [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
-                        this.mouseMoveMode = MouseMoveMode.Drag;
+                    if (isNoteLike(firstElement) || isEvent(firstElement)) {
+                        if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
+                            [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                            this.mouseMoveMode = MouseMoveMode.Drag;
+                        }
+                    }
+                    globalEventEmitter.emit("ELEMENT_DRAGGED");
+                    break;
+                }
+
+                case MouseMoveMode.DragWhole: {
+                    if (!firstElement || !this.dragOrigin) {
+                        break;
+                    }
+
+                    store.setCursor("move");
+                    const beats = coordinateManager.attatchY(y);
+                    const deltaBeats = subBeats(beats, this.dragOrigin.mouseBeats);
+                    setElementStartTime(firstElement, addBeats(this.dragOrigin.start, deltaBeats));
+                    setElementEndTime(firstElement, addBeats(this.dragOrigin.end, deltaBeats));
+
+                    // 噪域的横向位置是 editorPositionX，按鼠标的横向位移换算
+                    if (isBlockArea(firstElement)) {
+                        const canvas = store.useCanvas();
+                        const deltaX = (x - this.dragOrigin.mouseX) * canvas.width / Constants.EDITOR_VIEW_NOTES_VIEWBOX.width;
+                        firstElement.editorPositionX = this.dragOrigin.positionX + deltaX;
                     }
                     globalEventEmitter.emit("ELEMENT_DRAGGED");
                     break;
@@ -330,27 +449,22 @@ export default class MouseManager extends Manager {
                 else {
                     // 如果是单选，就取消选择所有，只选择这个元素
                     if (selectionManager.selectedElements.includes(clickedObject)) {
-                        this.oldTime = clickedObject.startTime;
+                        this.oldTime = getElementStartTime(clickedObject);
                         if (isNoteLike(clickedObject)) {
                             this.oldPositionX = clickedObject.positionX;
                         }
                     }
+
+                    // 点到噪域时，同时把它设为当前编辑的噪域
+                    if (isBlockArea(clickedObject)) {
+                        const position = store.useChart().blockAreaList.indexOf(clickedObject);
+                        if (position !== -1) {
+                            stateManager.state.currentBlockAreaNumber = position;
+                        }
+                    }
+
                     selectionManager.select([clickedObject]);
-
-                    // 检测拖动头尾
-                    const startY = coordinateManager.relative(clickedBox.top);
-                    const endY = coordinateManager.relative(clickedBox.bottom);
-                    if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
-                        this.mouseMoveMode = MouseMoveMode.Drag;
-                    }
-                    else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
-                        this.mouseMoveMode = MouseMoveMode.DragEnd;
-                    }
-
-                    // 非Hold音符不能拖动尾部，改为拖动头部
-                    if (isNoteLike(clickedObject) && clickedObject.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
-                        this.mouseMoveMode = MouseMoveMode.Drag;
-                    }
+                    this.startDragging(clickedObject, clickedBox, x, y);
                 }
             }
 
@@ -362,6 +476,39 @@ export default class MouseManager extends Manager {
         }
         this.mousePressed = true;
     }
+
+    /** 记录拖动开始时的状态，并根据点击位置决定拖动模式 */
+    private startDragging(element: SelectableElement, box: BoxWithData<SelectableElement>, x: number, y: number) {
+        const coordinateManager = store.useManager("coordinateManager");
+
+        this.dragOrigin = {
+            mouseBeats: coordinateManager.attatchY(y),
+            mouseX: x,
+            start: [...getElementStartTime(element)] as Beats,
+            end: [...getElementEndTime(element)] as Beats,
+            positionX: isBlockArea(element) ? element.editorPositionX : isNoteLike(element) ? element.positionX : 0
+        };
+        this.mouseMoveMode = MouseMoveMode.None;
+
+        // 检测拖动头尾
+        const startY = coordinateManager.relative(box.top);
+        const endY = coordinateManager.relative(box.bottom);
+        if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
+            this.mouseMoveMode = MouseMoveMode.Drag;
+        }
+        else if (this.mouseY >= endY && this.mouseY <= endY + Constants.EDITOR_VIEW_SELECT_PADDING) {
+            this.mouseMoveMode = MouseMoveMode.DragEnd;
+        }
+        else if (isBlockAreaLike(element)) {
+            // 噪域、激活区间的方块比较大，拖动中间时整体移动
+            this.mouseMoveMode = MouseMoveMode.DragWhole;
+        }
+
+        // 非Hold音符不能拖动尾部，改为拖动头部
+        if (isNoteLike(element) && element.type !== NoteType.Hold && this.mouseMoveMode === MouseMoveMode.DragEnd) {
+            this.mouseMoveMode = MouseMoveMode.Drag;
+        }
+    }
     mouseRight(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
@@ -369,6 +516,13 @@ export default class MouseManager extends Manager {
 
         // 禁止在预览谱面时点击canvas
         if (stateManager.state.isPreviewing) return;
+
+        // 噪域编辑时，右键只在事件编辑区中添加噪域事件
+        if (stateManager._state.isEditingBlockArea) {
+            this.mouseRightInBlockAreaMode(x, y);
+            this.mousePressed = true;
+            return;
+        }
 
         // const clickedBox = this.getClickedBox(x, y);
 
@@ -450,6 +604,73 @@ export default class MouseManager extends Manager {
         }
         this.mousePressed = true;
     }
+
+    /** 噪域编辑时的右键：在事件编辑区中添加噪域事件或激活区间 */
+    private mouseRightInBlockAreaMode(x: number, y: number) {
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        const coordinateManager = store.useManager("coordinateManager");
+        const historyManager = store.useManager("historyManager");
+
+        if (!Constants.EDITOR_VIEW_EVENTS_VIEWBOX.touch(x, y)) {
+            return;
+        }
+
+        const blockArea = stateManager.currentBlockArea;
+        if (!blockArea) {
+            ElMessage.warning("当前谱面没有噪域，无法添加噪域事件");
+            return;
+        }
+
+        const chart = store.useChart();
+        const time = coordinateManager.attatchY(y);
+        const trackCount = blockAreaEventTracks.length;
+        const column = floor((x - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) / Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * trackCount);
+        const track = blockAreaEventTracks[column];
+        const type = getBlockAreaEventTypeOfTrack(track);
+
+        // 激活区间
+        if (!type) {
+            const interval = blockArea.addActiveInterval({
+                startTime: [...time],
+                endTime: addBeats(time, [0, 1, stateManager.state.horizonalLineCount]),
+                readyFlash: DEFAULT_ACTIVE_INTERVAL_READY_FLASH
+            });
+            const position = blockArea.activeIntervals.indexOf(interval);
+            historyManager.recordAddActiveInterval(blockArea.index, interval.toObject(), position);
+            selectionManager.select([interval]);
+            return;
+        }
+
+        // 普通事件，数值取上一个事件的结束值
+        const seconds = beatsToSeconds(chart.BPMList, time);
+        const events = blockArea.getEventsByType(type);
+        const lastEventIndex = findLastEventIndex<AbstractEvent>(events, seconds);
+        const lastEvent = events[lastEventIndex];
+        const eventValue = lastEvent?.end ?? (type === "scaleX" || type === "scaleY" ? 1 : 0);
+        const center = blockArea.getCenter();
+        const addedEvent = store.addEvent({
+            startTime: [...time],
+            endTime: [...time],
+            start: eventValue,
+            end: eventValue,
+            bezier: Bezier.Off,
+            bezierPoints: [0, 0, 1, 1],
+            easingLeft: 0,
+            easingRight: 1,
+            easingType: lastEvent?.easingType ?? EasingType.Linear,
+            linkgroup: 0,
+            isDisabled: false,
+
+            // 噪域的缩放、旋转以噪域中心为支点
+            ...type === "scaleX" || type === "scaleY" || type === "rotate" ? { anchor: [center.x, center.y] as [number, number] } : {}
+        }, type, BLOCK_AREA_EVENT_LAYER_ID, blockArea.index);
+        this.addedElement = addedEvent;
+        selectionManager.select([addedEvent]);
+        this.oldTime = addedEvent.endTime;
+        this.mouseMoveMode = MouseMoveMode.DragEnd;
+    }
+
     mouseEnter() {
         this.isHovering = true;
     }

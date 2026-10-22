@@ -11,6 +11,7 @@ import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";
 import { toUnique } from "@/tools/algorithm";
+import { IActiveInterval, IBlockArea } from "@/models/rpe/blockArea";
 
 const NAME_MAP = {
     addNote: "ADD_NOTE",
@@ -19,7 +20,18 @@ const NAME_MAP = {
     removeEvent: "REMOVE_EVENT",
     modifyNote: "MODIFY_NOTE",
     modifyEvent: "MODIFY_EVENT",
+    modifyBlockArea: "MODIFY_BLOCK_AREA",
+    removeBlockArea: "REMOVE_BLOCK_AREA",
+    addActiveInterval: "ADD_ACTIVE_INTERVAL",
+    removeActiveInterval: "REMOVE_ACTIVE_INTERVAL",
+    modifyActiveInterval: "MODIFY_ACTIVE_INTERVAL",
 } as const;
+
+/** 可以通过历史记录修改的噪域属性 */
+export type BlockAreaEditableAttribute = "appearTime" | "disappearTime" | "editorPositionX";
+
+/** 可以通过历史记录修改的激活区间属性 */
+export type ActiveIntervalEditableAttribute = "startTime" | "endTime" | "readyFlash";
 
 export default class HistoryManager extends Manager {
     /** 撤销栈，最先被执行的操作在最前面 */
@@ -100,6 +112,26 @@ export default class HistoryManager extends Manager {
     }
     recordRemoveEvent(eventObject: IEvent<unknown>, eventType: string, eventLayerId: string, judgeLineNumber: number, id: string) {
         const record = new RemoveEventRecord(eventObject, eventType, eventLayerId, judgeLineNumber, id);
+        this.addRecord(record);
+    }
+    recordModifyBlockArea<T extends BlockAreaEditableAttribute>(blockAreaIndex: number, attribute: T, newValue: IBlockArea[T], oldValue?: IBlockArea[T]) {
+        const record = new ModifyBlockAreaRecord(blockAreaIndex, attribute, newValue, oldValue);
+        this.addRecord(record);
+    }
+    recordRemoveBlockArea(blockAreaObject: IBlockArea, blockAreaIndex: number, position: number) {
+        const record = new RemoveBlockAreaRecord(blockAreaObject, blockAreaIndex, position);
+        this.addRecord(record);
+    }
+    recordAddActiveInterval(blockAreaIndex: number, intervalObject: IActiveInterval, position: number) {
+        const record = new ActiveIntervalListRecord("add", blockAreaIndex, intervalObject, position);
+        this.addRecord(record);
+    }
+    recordRemoveActiveInterval(blockAreaIndex: number, intervalObject: IActiveInterval, position: number) {
+        const record = new ActiveIntervalListRecord("remove", blockAreaIndex, intervalObject, position);
+        this.addRecord(record);
+    }
+    recordModifyActiveInterval<T extends ActiveIntervalEditableAttribute>(blockAreaIndex: number, intervalIndex: number, attribute: T, newValue: IActiveInterval[T], oldValue?: IActiveInterval[T]) {
+        const record = new ModifyActiveIntervalRecord(blockAreaIndex, intervalIndex, attribute, newValue, oldValue);
         this.addRecord(record);
     }
 
@@ -365,6 +397,158 @@ class RemoveEventRecord extends HistoryRecord {
     }
     getDescription() {
         return `删除事件 ${this.id}`;
+    }
+}
+
+/** 修改噪域的属性 */
+class ModifyBlockAreaRecord<T extends BlockAreaEditableAttribute> extends HistoryRecord {
+    readonly type = "modifyBlockArea";
+    constructor(private blockAreaIndex: number,
+        private attribute: T,
+        private newValue: IBlockArea[T],
+        private oldValue?: IBlockArea[T]) {
+        super();
+        const blockArea = store.getBlockAreaById(blockAreaIndex);
+        this.oldValue = oldValue ?? blockArea[attribute];
+    }
+    redo(): void {
+        super.redo();
+        this.apply(this.newValue);
+    }
+    undo(): void {
+        super.undo();
+        this.apply(this.oldValue);
+    }
+    private apply(value: IBlockArea[T] | undefined) {
+        if (value === undefined) {
+            throw new Error(`噪域${this.blockAreaIndex}的${this.attribute}没有旧值`);
+        }
+
+        const blockArea = store.getBlockAreaById(this.blockAreaIndex);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (blockArea as any)[this.attribute] = value;
+    }
+    getDescription(): string {
+        return `将噪域${this.blockAreaIndex}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
+    }
+}
+
+/** 删除噪域 */
+class RemoveBlockAreaRecord extends HistoryRecord {
+    readonly type = "removeBlockArea";
+    constructor(private blockAreaObject: IBlockArea,
+        private blockAreaIndex: number,
+        private position: number) {
+        super();
+    }
+    redo() {
+        super.redo();
+        const chart = store.useChart();
+        const blockArea = chart.blockAreaList.find(blockArea => blockArea.index === this.blockAreaIndex);
+        if (!blockArea) {
+            throw new Error(`噪域${this.blockAreaIndex}不存在`);
+        }
+        this.blockAreaObject = blockArea.toObject();
+        this.position = chart.blockAreaList.indexOf(blockArea);
+        store.removeBlockArea(blockArea);
+        store.useManager("stateManager").notifyBlockAreaListChanged({ removedPosition: this.position });
+    }
+    undo() {
+        super.undo();
+        const blockArea = store.insertBlockArea(this.blockAreaObject, this.position, this.blockAreaIndex);
+        store.useManager("stateManager").notifyBlockAreaListChanged({ insertedPosition: this.position });
+        return blockArea;
+    }
+    getDescription() {
+        return `删除噪域 ${this.blockAreaIndex}`;
+    }
+}
+
+/** 添加 / 删除激活区间。两种操作互为逆操作，因此共用一个记录类 */
+class ActiveIntervalListRecord extends HistoryRecord {
+    readonly type: string;
+    constructor(private action: "add" | "remove",
+        private blockAreaIndex: number,
+        private intervalObject: IActiveInterval,
+        private position: number) {
+        super();
+        this.type = action === "add" ? "addActiveInterval" : "removeActiveInterval";
+    }
+    redo() {
+        super.redo();
+        if (this.action === "add") {
+            this.insert();
+        }
+        else {
+            this.remove();
+        }
+    }
+    undo() {
+        super.undo();
+        if (this.action === "add") {
+            this.remove();
+        }
+        else {
+            this.insert();
+        }
+    }
+    private insert() {
+        const blockArea = store.getBlockAreaById(this.blockAreaIndex);
+        const interval = blockArea.insertActiveInterval(this.intervalObject, this.position);
+        this.position = blockArea.activeIntervals.indexOf(interval);
+    }
+    private remove() {
+        const blockArea = store.getBlockAreaById(this.blockAreaIndex);
+        const interval = blockArea.activeIntervals[this.position];
+        if (!interval) {
+            throw new Error(`噪域${this.blockAreaIndex}中不存在第${this.position}个激活区间`);
+        }
+        this.intervalObject = interval.toObject();
+        this.position = blockArea.activeIntervals.indexOf(interval);
+        blockArea.removeActiveInterval(interval);
+    }
+    getDescription() {
+        return `${this.action === "add" ? "添加" : "删除"}噪域${this.blockAreaIndex}的激活区间`;
+    }
+}
+
+/** 修改激活区间的属性 */
+class ModifyActiveIntervalRecord<T extends ActiveIntervalEditableAttribute> extends HistoryRecord {
+    readonly type = "modifyActiveInterval";
+    constructor(private blockAreaIndex: number,
+        private intervalIndex: number,
+        private attribute: T,
+        private newValue: IActiveInterval[T],
+        private oldValue?: IActiveInterval[T]) {
+        super();
+        const interval = store.getBlockAreaById(blockAreaIndex).activeIntervals[intervalIndex];
+        if (!interval) {
+            throw new Error(`噪域${blockAreaIndex}中不存在第${intervalIndex}个激活区间`);
+        }
+        this.oldValue = oldValue ?? interval[attribute];
+    }
+    redo(): void {
+        super.redo();
+        this.apply(this.newValue);
+    }
+    undo(): void {
+        super.undo();
+        this.apply(this.oldValue);
+    }
+    private apply(value: IActiveInterval[T] | undefined) {
+        if (value === undefined) {
+            throw new Error(`激活区间的${this.attribute}没有旧值`);
+        }
+
+        const interval = store.getBlockAreaById(this.blockAreaIndex).activeIntervals[this.intervalIndex];
+        if (!interval) {
+            throw new Error(`噪域${this.blockAreaIndex}中不存在第${this.intervalIndex}个激活区间`);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (interval as any)[this.attribute] = value;
+    }
+    getDescription(): string {
+        return `将激活区间的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
     }
 }
 

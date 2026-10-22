@@ -12,7 +12,8 @@ import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils from "@/tools/mathUtils";
 import Constants from "@/constants";
-import { SelectableElement } from "@/models/rpe/element";
+import { SelectableElement, getElementEndTime, getElementStartTime } from "@/models/rpe/element";
+import { isEvent } from "@/models/rpe/event";
 export default class CloneManager extends Manager {
     constructor() {
         super();
@@ -44,7 +45,7 @@ export default class CloneManager extends Manager {
                     const newNote = store.addNote(noteObject, stateManager.cache.clone.targetJudgeLines[i]);
                     historyManager.recordAddNote(newNote.id);
                 }
-                else {
+                else if (isEvent(element)) {
                     const eventObject = element.toObject();
                     eventObject.startTime = addBeats(eventObject.startTime, beats);
                     eventObject.endTime = addBeats(eventObject.endTime, beats);
@@ -56,7 +57,8 @@ export default class CloneManager extends Manager {
             i = (i + 1) % stateManager.cache.clone.targetJudgeLines.length;
         }
 
-        // 不保留源元素
+        // 不保留源元素。噪域和激活区间不参与克隆，也不会被删除
+        selectionManager.select(selectionManager.selectedElements.filter(element => isNoteLike(element) || isEvent(element)));
         selectionManager.deleteSelection();
         historyManager.ungroup();
     }
@@ -74,12 +76,14 @@ export default class CloneManager extends Manager {
         let maxTime: Beats = [...MIN_BEATS];
         for (let i = 0; i < selectionManager.selectedElements.length; i++) {
             const element = selectionManager.selectedElements[i];
-            if (isLessThanBeats(element.startTime, minTime)) {
-                minTime = element.startTime;
+            const startTime = getElementStartTime(element);
+            const endTime = getElementEndTime(element);
+            if (isLessThanBeats(startTime, minTime)) {
+                minTime = startTime;
             }
 
-            if (isGreaterThanBeats(element.endTime, maxTime)) {
-                maxTime = element.endTime;
+            if (isGreaterThanBeats(endTime, maxTime)) {
+                maxTime = endTime;
             }
         }
 
@@ -95,7 +99,7 @@ export default class CloneManager extends Manager {
                 historyManager.recordAddNote(note.id);
                 elements.push(note);
             }
-            else {
+            else if (isEvent(element)) {
                 const eventObject = element.toObject();
                 eventObject.startTime = addBeats(eventObject.startTime, length);
                 eventObject.endTime = addBeats(eventObject.endTime, length);

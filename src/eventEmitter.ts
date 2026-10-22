@@ -21,7 +21,12 @@ export type KeyOptions = {
  * 历史记录类型可以是六种类型的数组，表示本历史记录包含哪些类型，
  * 也可以是 "UNDO"、"REDO" 等
  */
-export type HistoryType = ("ADD_NOTE" | "MODIFY_NOTE" | "REMOVE_NOTE" | "ADD_EVENT" | "MODIFY_EVENT" | "REMOVE_EVENT")[] | "UNDO" | "REDO" | "CLEAR";
+export type HistoryType = (
+    | "ADD_NOTE" | "MODIFY_NOTE" | "REMOVE_NOTE"
+    | "ADD_EVENT" | "MODIFY_EVENT" | "REMOVE_EVENT"
+    | "MODIFY_BLOCK_AREA" | "REMOVE_BLOCK_AREA"
+    | "ADD_ACTIVE_INTERVAL" | "REMOVE_ACTIVE_INTERVAL" | "MODIFY_ACTIVE_INTERVAL"
+)[] | "UNDO" | "REDO" | "CLEAR";
 
 export interface VideoRenderingProgress {
 

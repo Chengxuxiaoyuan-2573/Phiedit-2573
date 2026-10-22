@@ -266,6 +266,48 @@ function computeExactlyOnceRegion(subtractAreas: Polygon[]): MultiPolygon {
 }
 
 /**
+ * 判断点是否在凸四边形内（含边界）。
+ *
+ * 噪域是矩形的仿射变换，结果一定是凸四边形（可能有向相反或退化），因此可以用叉积同号性判断。
+ * 面积为 0 的退化四边形不包含任何点。
+ *
+ * @param point 测试点
+ * @param corners 依次相连的四个顶点
+ */
+export function isPointInConvexQuad(point: Pair, corners: Pair[]): boolean {
+    if (corners.length !== 4) {
+        return false;
+    }
+
+    // 退化检查：面积为 0 的四边形（缩放到 0、所有角重合等）不包含任何点
+    const [a, b, c] = corners;
+    const area2 = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    if (!(Math.abs(area2) > Number.EPSILON)) {
+        return false;
+    }
+
+    let sign = 0;
+    for (let i = 0; i < 4; i++) {
+        const [x1, y1] = corners[i];
+        const [x2, y2] = corners[(i + 1) % 4];
+        const cross = (x2 - x1) * (point[1] - y1) - (y2 - y1) * (point[0] - x1);
+        if (cross === 0) {
+            // 恰好在边上，视为在内
+            continue;
+        }
+
+        const currentSign = Math.sign(cross);
+        if (sign === 0) {
+            sign = currentSign;
+        }
+        else if (currentSign !== sign) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * 合成噪域的可见区域。
  *
  * 普通噪域至少被一个覆盖即有效；反转噪域只在恰好被一个覆盖时反转该处

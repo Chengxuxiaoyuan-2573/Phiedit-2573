@@ -10,6 +10,7 @@ import store from "@/store";
 import Manager from "./abstract";
 import Constants from "@/constants";
 import MathUtils, { Point } from "@/tools/mathUtils";
+import { isPointInConvexQuad } from "@/tools/blockAreaGeometry";
 import { reactive } from "vue";
 
 const HOLD_PREUNTOUCH = 0.22;
@@ -30,6 +31,15 @@ export default class JudgeManager extends Manager {
         lineColor: LineColor.AP,
     };
     judgeInfo = reactive(this._judgeInfo);
+
+    /**
+     * 手指（鼠标）是否被噪域污染。
+     *
+     * 试玩时按住的手指碰到激活的噪域就会被污染：无法判定任何音符，
+     * 就算离开噪域也一样，直到松开手指才恢复。键盘游玩不受影响。
+     */
+    isFingerGlitched = false;
+
     private cachedAllNotes: Note[];
 
     /** 上一帧的时间，用来判断用户是不是把时间轴往回拖了 */
@@ -48,6 +58,7 @@ export default class JudgeManager extends Manager {
             this.calculate();
             const stateManager = store.useManager("stateManager");
             if (!stateManager._state.isPreviewing) {
+                this.isFingerGlitched = false;
                 return;
             }
 
@@ -210,6 +221,15 @@ export default class JudgeManager extends Manager {
         const coordinateManager = store.useManager("coordinateManager");
         const seconds = store.getSeconds();
 
+        // 更新手指被噪域污染的状态：
+        // 按住的手指碰到激活的噪域就会被污染，直到松开手指才恢复
+        if (!mouseManager.mousePressed) {
+            this.isFingerGlitched = false;
+        }
+        else if (this.isFingerTouchingBlockArea()) {
+            this.isFingerGlitched = true;
+        }
+
         for (const note of this.cachedAllNotes) {
             if (note.isFake) {
                 continue;
@@ -236,8 +256,8 @@ export default class JudgeManager extends Manager {
 
             const timeValid = Math.abs(delta) <= range.bad;
 
-            /** 按照 Drag 的判定，该音符是否能被鼠标判定上 */
-            const mouseJudgeSucceed = mouseManager.mousePressed && distance <= threshold;
+            /** 按照 Drag 的判定，该音符是否能被鼠标判定上。被噪域污染的手指无法判定任何音符 */
+            const mouseJudgeSucceed = mouseManager.mousePressed && !this.isFingerGlitched && distance <= threshold;
 
             /** 按照 Drag 的判定，该音符是否能被键盘判定上 */
             const keyboardJudgeSucceed = store.pressedKeys.size > 0;
@@ -330,7 +350,7 @@ export default class JudgeManager extends Manager {
                         threshold
                     );
 
-                    if (mouseManager.mousePressed && judgeSucceed) {
+                    if (mouseManager.mousePressed && judgeSucceed && !this.isFingerGlitched) {
                         note.prejudgedSeconds = seconds;
                     }
                 }
@@ -343,6 +363,20 @@ export default class JudgeManager extends Manager {
         const settingsManager = store.useManager("settingsManager");
         const seconds = store.getSeconds();
         if (!stateManager._state.autoplay) {
+            // 带 x、y 的调用来自鼠标点击：被噪域污染的手指无法判定任何音符。
+            // 这里做一次实时检测而不只依赖 framely() 更新的污染状态，
+            // 保证一开始就按在噪域上的那一次点击也立即无效，不会先判定音符。
+            // 不带参数的调用来自键盘，键盘游玩不受噪域影响
+            if (x !== undefined && y !== undefined) {
+                if (this.isFingerTouchingBlockArea()) {
+                    this.isFingerGlitched = true;
+                }
+
+                if (this.isFingerGlitched) {
+                    return;
+                }
+            }
+
             for (const note of this.cachedAllNotes) {
                 if (note.isFake) {
                     continue;
@@ -407,6 +441,49 @@ export default class JudgeManager extends Manager {
                 }
             }
         }
+    }
+
+    /**
+     * 手指（鼠标）当前位置是否处于任一激活的噪域内。
+     *
+     * 与渲染时的可见区域语义一致：普通噪域至少覆盖一次即有效；
+     * 反转噪域只在恰好被一个覆盖时把该处反转为「没有噪域」。
+     */
+    private isFingerTouchingBlockArea() {
+        const chart = store.useChart();
+        if (chart.blockAreaList.length === 0) {
+            return false;
+        }
+
+        const mouseManager = store.useManager("mouseManager");
+        const coordinateManager = store.useManager("coordinateManager");
+        const seconds = store.getSeconds();
+        const point: [number, number] = [
+            coordinateManager.convertXToChart(mouseManager.mouseX),
+            coordinateManager.convertYToChart(mouseManager.mouseY)
+        ];
+
+        let inNormalArea = false;
+        let invertAreaCount = 0;
+        for (const blockArea of chart.blockAreaList) {
+            if (!blockArea.isActiveAt(seconds)) {
+                continue;
+            }
+
+            if (!isPointInConvexQuad(point, blockArea.getCornersAt(seconds))) {
+                continue;
+            }
+
+            if (blockArea.isInvert) {
+                invertAreaCount++;
+            }
+            else {
+                inNormalArea = true;
+            }
+        }
+
+        // 被两个及以上反转噪域覆盖的部分不反转，因此只有恰好一个时才视为「没有噪域」
+        return inNormalArea !== (invertAreaCount === 1);
     }
 }
 function pointToLineDistance(px: number, py: number, dir: number, qx: number, qy: number) {

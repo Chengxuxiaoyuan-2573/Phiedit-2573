@@ -312,14 +312,11 @@ const chart = store.useChart();
 const selectionManager = store.useManager("selectionManager");
 const stateManager = store.useManager("stateManager");
 
-const numOfSelectedElements = computed(() => {
-    return selectionManager.selectedElements.length;
-});
 const numOfNotes = computed(() => {
     return selectionManager.selectedElements.filter(element => element instanceof Note).length;
 });
 const numOfEvents = computed(() => {
-    return numOfSelectedElements.value - numOfNotes.value;
+    return selectionManager.selectedElements.filter(element => isEvent(element)).length;
 });
 
 const targetJudgeLineNumber = ref(0);
@@ -518,7 +515,10 @@ const validModes = computed((): readonly ("to" | "by" | "times" | "invert")[] =>
 const lines = computed(() => {
     const set = new Set<number>();
     for (const element of selectionManager.selectedElements) {
-        set.add(element.judgeLineNumber);
+        // 噪域和激活区间不属于任何判定线
+        if (isNoteLike(element) || isEvent(element)) {
+            set.add(element.judgeLineNumber);
+        }
     }
     return set.size;
 });

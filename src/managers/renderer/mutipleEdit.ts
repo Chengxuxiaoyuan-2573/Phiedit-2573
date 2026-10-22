@@ -261,7 +261,7 @@ export default class MutipleEditManager extends Manager {
                 stateManager.cache.mutipleEdit.eventTypes;
             let isSucceeded = false;
             for (const eventType of eventTypes) {
-                const events = selectionManager.selectedElements.filter(element => isEvent(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime)) as AbstractEvent[];
+                const events = selectionManager.selectedElements.filter((element): element is AbstractEvent => isEvent(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
                 const length = events.length;
                 if (length > 0) {
                     isSucceeded = true;

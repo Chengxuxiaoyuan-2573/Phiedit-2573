@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { isObject, isArray, isNumber, isString } from "lodash";
+import { isObject, isArray, isNumber, isString, clamp } from "lodash";
 import { beatsToSeconds, BPM, getBeatsValue, IBPM } from "./beats";
 import { ChartMeta, IChartMeta } from "./chartMeta";
 import { IJudgeLine, JudgeLine } from "./judgeLine";
@@ -99,6 +99,10 @@ export class Chart implements IChart, IObjectizable {
                 event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
                 event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
             }
+
+            for (const interval of blockArea.activeIntervals) {
+                interval.calculateSeconds();
+            }
         }
     }
     deleteJudgeLine(judgeLineNumber: number) {
@@ -118,6 +122,36 @@ export class Chart implements IChart, IObjectizable {
         });
         this.highlightNotes();
         this.calculateSeconds();
+    }
+
+    /**
+     * 噪域编号的下一个可用值。
+     *
+     * 噪域编号用于生成噪域事件的 id，删除噪域时不会重新编号，所以新噪域必须取一个没用过的编号。
+     */
+    get nextBlockAreaIndex() {
+        return this.blockAreaList.reduce((max, blockArea) => Math.max(max, blockArea.index + 1), 0);
+    }
+
+    /** 删除一个噪域 */
+    removeBlockArea(blockArea: BlockArea) {
+        const index = this.blockAreaList.indexOf(blockArea);
+        if (index === -1) {
+            throw new Error(`谱面中不存在噪域“${blockArea.Name}”`);
+        }
+        this.blockAreaList.splice(index, 1);
+    }
+
+    /** 在指定位置插入一个噪域（撤销删除时使用），返回被插入的噪域 */
+    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number) {
+        const newBlockArea = new BlockArea(blockAreaObject, {
+            BPMList: this.BPMList,
+            index: index ?? this.nextBlockAreaIndex
+        });
+        this.blockAreaList.splice(clamp(position, 0, this.blockAreaList.length), 0, newBlockArea);
+        this.errorMessages.push(...newBlockArea.errorMessages);
+        this.calculateSeconds();
+        return newBlockArea;
     }
 
     /**

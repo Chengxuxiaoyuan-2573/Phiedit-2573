@@ -11,8 +11,9 @@ import store from "@/store";
 import Manager from "./abstract";
 import { reactive } from "vue";
 import { isEvent, isNumberEvent } from "@/models/rpe/event";
-import { SelectableElement } from "@/models/rpe/element";
+import { SelectableElement, getElementStartTime } from "@/models/rpe/element";
 import { isNoteLike } from "@/models/rpe/note";
+import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
 
 export default class ClipboardManager extends Manager {
     readonly clipboard: SelectableElement[] = reactive([]);
@@ -54,8 +55,14 @@ export default class ClipboardManager extends Manager {
         if (selectionManager.selectedElements.length === 0) {
             throw new Error("未选择任何元素");
         }
+
+        // 噪域和激活区间不能复制，只复制音符和事件
+        const copyableElements = selectionManager.selectedElements.filter(element => isNoteLike(element) || isEvent(element));
+        if (copyableElements.length === 0) {
+            throw new Error("噪域和激活区间不能被复制");
+        }
         this.clipboard.length = 0;
-        this.clipboard.push(...selectionManager.selectedElements);
+        this.clipboard.push(...copyableElements);
     }
 
     /**
@@ -74,7 +81,7 @@ export default class ClipboardManager extends Manager {
         mouseManager.checkMouseUp();
         const y = mouseManager.mouseY;
         const minStartTime = this.clipboard.reduce<Beats>((min, element) => {
-            return getBeatsValue(min) < getBeatsValue(element.startTime) ? min : element.startTime;
+            return getBeatsValue(min) < getBeatsValue(getElementStartTime(element)) ? min : getElementStartTime(element);
         }, [Infinity, 0, 1]);
         const pasteTime = time ?? coordinateManager.attatchY(y);
         const delta = subBeats(pasteTime, minStartTime);
@@ -101,11 +108,17 @@ export default class ClipboardManager extends Manager {
                 historyManager.recordAddNote(note.id);
                 elements.push(note);
             }
-            else {
+            else if (isEvent(element)) {
                 const eventObject = element.toObject();
                 eventObject.startTime = addBeats(eventObject.startTime, delta);
                 eventObject.endTime = addBeats(eventObject.endTime, delta);
-                const event = store.addEvent(eventObject, element.type, isSameBaseEventLayer ? stateManager._state.currentEventLayerId : element.eventLayerId, stateManager.state.currentJudgeLineNumber);
+
+                // 噪域事件只能粘贴到噪域中，判定线的事件也只能粘贴到判定线中
+                const isBlockAreaEvent = element.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID;
+                const event = store.addEvent(eventObject,
+                    element.type,
+                    isBlockAreaEvent ? BLOCK_AREA_EVENT_LAYER_ID : isSameBaseEventLayer ? stateManager._state.currentEventLayerId : element.eventLayerId,
+                    isBlockAreaEvent ? stateManager.currentBlockArea?.index ?? element.judgeLineNumber : stateManager.state.currentJudgeLineNumber);
                 historyManager.recordAddEvent(event.id);
                 elements.push(event);
             }

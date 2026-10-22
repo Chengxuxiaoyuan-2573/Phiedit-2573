@@ -5,7 +5,7 @@
  */
 
 import { easingFuncs, EasingType } from "@/models/rpe/easing";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue, NumberEvent } from "@/models/rpe/event";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/rpe/event";
 import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
 import { BlockArea } from "@/models/rpe/blockArea";
 import { beatsToSeconds } from "@/models/rpe/beats";
@@ -14,7 +14,7 @@ import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBAcolor, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
-import { computeBlockAreaRegion, getBlockAreaCorners as computeBlockAreaCorners } from "@/tools/blockAreaGeometry";
+import { computeBlockAreaRegion } from "@/tools/blockAreaGeometry";
 import { ceil, isNull } from "lodash";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
@@ -163,6 +163,34 @@ export default class ChartRenderer extends Manager {
         // 到最后，offscreenCanvas 上显示的应该是已经叠加了所有 shader 的画面
         // 把 offscreenCanvas 直接绘制到屏幕 canvas 上
         ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
+
+        // 手指被噪域污染时，在手指的位置显示故障效果
+        this.drawGlitchedFinger(ctx);
+    }
+
+    /**
+     * 手指（鼠标）被噪域污染时，在手指位置绘制故障效果（一个红点）。
+     *
+     * 被污染的手指无法判定任何音符，红点会一直显示直到松开手指。
+     */
+    private drawGlitchedFinger(ctx: CanvasRenderingContext2D) {
+        const stateManager = store.useManager("stateManager");
+        if (!stateManager._state.isPreviewing || stateManager._state.autoplay) {
+            return;
+        }
+
+        const judgeManager = store.useManager("judgeManager");
+        if (!judgeManager.isFingerGlitched) {
+            return;
+        }
+
+        const mouseManager = store.useManager("mouseManager");
+        ctx.save();
+        ctx.fillStyle = ctx.strokeStyle = colorToString(Constants.JUDGE_GLITCH_FINGER_COLOR);
+        ctx.beginPath();
+        ctx.arc(mouseManager.mouseX, mouseManager.mouseY, Constants.JUDGE_GLITCH_FINGER_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     private getShaderInfo(): ShaderInfo[] {
@@ -1665,44 +1693,11 @@ export default class ChartRenderer extends Manager {
     private getBlockAreaCorners(blockArea: BlockArea, seconds: number): Pair[] {
         const coordinateManager = store.useManager("coordinateManager");
 
-        // 噪域的中心（基准矩形的中心），也是事件没有 anchor 时的默认锚点
-        const center = blockArea.getCenter();
-
-        const moveX = this.getBlockAreaEventValue(blockArea.moveXEvents, seconds, center.x);
-        const moveY = this.getBlockAreaEventValue(blockArea.moveYEvents, seconds, center.y);
-        const angle = this.getBlockAreaEventValue(blockArea.rotateEvents, seconds, 0);
-        const scaleX = this.getBlockAreaEventValue(blockArea.scaleXEvents, seconds, 1);
-        const scaleY = this.getBlockAreaEventValue(blockArea.scaleYEvents, seconds, 1);
-
         // 几何计算在谱面坐标系（y 轴向上）中完成，这里把结果转换回画布坐标
-        const corners = computeBlockAreaCorners({
-            seconds,
-            baseCenter: [center.x, center.y],
-            halfSize: [
-                Math.abs(blockArea.topRight.x - blockArea.bottomLeft.x) / 2,
-                Math.abs(blockArea.topRight.y - blockArea.bottomLeft.y) / 2
-            ],
-            position: [moveX, moveY],
-            radians: MathUtils.degToRad(angle),
-            scale: [scaleX, scaleY],
-            scaleXEvents: blockArea.scaleXEvents,
-            scaleYEvents: blockArea.scaleYEvents,
-            rotateEvents: blockArea.rotateEvents,
-            sample: interpolateNumberEventValue,
-            findEventIndex: findLastEventIndex
-        });
-
-        return corners.map(([x, y]): Pair => [
+        return blockArea.getCornersAt(seconds).map(([x, y]): Pair => [
             coordinateManager.convertXToCanvas(x),
             coordinateManager.convertYToCanvas(y)
         ]);
-    }
-
-    /** 获取噪域某个事件在某一时刻的值，没有事件时使用 fallback */
-    private getBlockAreaEventValue(events: NumberEvent[], seconds: number, fallback: number): number {
-        const eventIndex = findLastEventIndex(events, seconds);
-        const event = events[eventIndex];
-        return event ? interpolateNumberEventValue(event, seconds) : fallback;
     }
 
     /** 计算未激活或闪烁中的噪域在直接叠加绘制时使用的填充颜色 */
@@ -1710,10 +1705,10 @@ export default class ChartRenderer extends Manager {
         if (display.state === "flashing") {
             // 激活之前在粉色与白色之间闪烁
             const elapsed = seconds - display.flashStartSeconds;
-            const isWhite = Math.floor(elapsed / Constants.CHART_VIEW_BLOCK_AREA_FLASH_PERIOD) % 2 === 1;
-            return isWhite ? Constants.CHART_VIEW_BLOCK_AREA_FLASH_FILL_COLOR : Constants.CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR;
+            const isWhite = Math.floor(elapsed / Constants.BLOCK_AREA_FLASH_PERIOD) % 2 === 1;
+            return isWhite ? Constants.BLOCK_AREA_FLASH_FILL_COLOR : Constants.BLOCK_AREA_INACTIVE_FILL_COLOR;
         }
-        return Constants.CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR;
+        return Constants.BLOCK_AREA_INACTIVE_FILL_COLOR;
     }
 
     /**
@@ -1727,14 +1722,14 @@ export default class ChartRenderer extends Manager {
         ctx.save();
         ctx.resetTransform();
         ctx.globalAlpha = 1;
-        ctx.fillStyle = colorToString(Constants.CHART_VIEW_BLOCK_AREA_ACTIVE_FILL_COLOR);
+        ctx.fillStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_FILL_COLOR);
 
         // 用 evenodd 规则填充，这样区域内部的洞不会被填充
         ctx.fill(path, "evenodd");
 
         // 描边会把外边界与洞的边界一起画出来
-        ctx.strokeStyle = colorToString(Constants.CHART_VIEW_BLOCK_AREA_ACTIVE_BORDER_COLOR);
-        ctx.lineWidth = Constants.CHART_VIEW_BLOCK_AREA_BORDER_WIDTH;
+        ctx.strokeStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR);
+        ctx.lineWidth = Constants.BLOCK_AREA_BORDER_WIDTH;
         ctx.stroke(path);
         ctx.restore();
     }

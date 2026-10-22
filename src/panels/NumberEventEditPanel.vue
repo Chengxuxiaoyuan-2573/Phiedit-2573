@@ -395,9 +395,7 @@ function swap() {
 }
 
 function stick() {
-    const judgeLine = store.getJudgeLineById(model.value.judgeLineNumber);
-    const eventLayer = judgeLine.getEventLayerById(model.value.eventLayerId);
-    const events = eventLayer.getEventsByType(model.value.type) as IEvent<number>[];
+    const events = store.getSiblingEvents(model.value) as IEvent<number>[];
     events.sort((event1, event2) => beatsCompare(event1.endTime, event2.endTime));
 
     // 找到结束时间小于model的开始时间的最大的事件

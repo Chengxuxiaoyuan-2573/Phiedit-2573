@@ -180,22 +180,46 @@ export default class Constants {
     static readonly CHART_VIEW_MISS_ALPHA = 0.5;
 
     /** 噪域已经激活时的填充颜色（带边框的红色半透明矩形） */
-    static readonly CHART_VIEW_BLOCK_AREA_ACTIVE_FILL_COLOR: RGBAcolor = [255, 0, 0, 0.35] as const;
+    static readonly BLOCK_AREA_ACTIVE_FILL_COLOR: RGBAcolor = [255, 0, 0, 0.35] as const;
 
     /** 噪域已经激活时的边框颜色 */
-    static readonly CHART_VIEW_BLOCK_AREA_ACTIVE_BORDER_COLOR: RGBAcolor = [255, 0, 0, 1] as const;
+    static readonly BLOCK_AREA_ACTIVE_BORDER_COLOR: RGBAcolor = [255, 0, 0, 1] as const;
 
     /** 噪域未激活时的填充颜色（不带边框的粉色半透明矩形） */
-    static readonly CHART_VIEW_BLOCK_AREA_INACTIVE_FILL_COLOR: RGBAcolor = [255, 105, 180, 0.3] as const;
+    static readonly BLOCK_AREA_INACTIVE_FILL_COLOR: RGBAcolor = [255, 105, 180, 0.3] as const;
 
     /** 噪域在激活之前闪烁时的另一种填充颜色（白色半透明），与未激活的粉色交替 */
-    static readonly CHART_VIEW_BLOCK_AREA_FLASH_FILL_COLOR: RGBAcolor = [255, 255, 255, 0.3] as const;
+    static readonly BLOCK_AREA_FLASH_FILL_COLOR: RGBAcolor = [255, 255, 255, 0.3] as const;
 
     /** 噪域边框的宽度 */
-    static readonly CHART_VIEW_BLOCK_AREA_BORDER_WIDTH = 4;
+    static readonly BLOCK_AREA_BORDER_WIDTH = 4;
 
     /** 噪域在激活之前闪烁的半周期，单位为秒（每经过该时长在粉色与白色之间切换一次） */
-    static readonly CHART_VIEW_BLOCK_AREA_FLASH_PERIOD = 0.1;
+    static readonly BLOCK_AREA_FLASH_PERIOD = 0.1;
+
+    /** 试玩时手指被噪域污染后显示的故障点的颜色 */
+    static readonly JUDGE_GLITCH_FINGER_COLOR: RGBAcolor = [255, 0, 0, 0.5] as const;
+
+    /** 试玩时手指被噪域污染后显示的故障点的半径，单位为像素 */
+    static readonly JUDGE_GLITCH_FINGER_RADIUS = 80;
+
+    /** 噪域编辑区中，噪域方块的宽度 */
+    static readonly EDITOR_VIEW_BLOCK_AREA_WIDTH = 80;
+
+    /** 噪域编辑区中，噪域方块的最小高度（噪域持续时间太短时也不会完全看不见） */
+    static readonly EDITOR_VIEW_BLOCK_AREA_MIN_HEIGHT = 40;
+
+    /** 噪域编辑区中，不是当前正在编辑的噪域的透明度 */
+    static readonly EDITOR_VIEW_BLOCK_AREA_INACTIVE_ALPHA = 0.35;
+
+    /** 噪域编辑区中，激活区间的颜色 */
+    static readonly EDITOR_VIEW_BLOCK_AREA_INTERVAL_COLOR: RGBAcolor = [255, 165, 0, 0.6] as const;
+
+    /** 噪域编辑区中，激活区间的边框颜色 */
+    static readonly EDITOR_VIEW_BLOCK_AREA_INTERVAL_BORDER_COLOR: RGBAcolor = [255, 165, 0, 1] as const;
+
+    /** 噪域编辑区中，噪域方块的边框宽度 */
+    static readonly EDITOR_VIEW_BLOCK_AREA_BORDER_WIDTH = 4;
 
     /** Good 判定所获得的分数是 Perfect 的多少倍 */
     static readonly CHART_VIEW_GOOD_RATE = 0.65;

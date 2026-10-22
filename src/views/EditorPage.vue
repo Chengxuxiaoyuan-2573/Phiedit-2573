@@ -149,10 +149,15 @@
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
-                <div>
-                    点击右侧按钮切换事件层级
-                </div>
+                <MyButton
+                    class="event-layer-hint-text"
+                    :type="stateManager.state.isEditingBlockArea ? 'success' : 'primary'"
+                    @click="stateManager.setBlockAreaEditing(!stateManager.state.isEditingBlockArea)"
+                >
+                    {{ stateManager.state.isEditingBlockArea ? "关闭噪域编辑" : "噪域编辑" }}
+                </MyButton>
                 <MyGridContainer
+                    v-if="!stateManager.state.isEditingBlockArea"
                     class="event-layer-select"
                     :columns="5"
                     :gap="5"
@@ -174,6 +179,7 @@
                         特殊
                     </MyButton>
                 </MyGridContainer>
+                <div v-else />
                 <MyInputNumber
                     v-model="chart.META.offset"
                     class="offset-input"
@@ -211,6 +217,21 @@
                     退出试玩
                 </MyButton>
             </div>
+            <template v-else-if="isBlockAreaModeLeftPanel">
+                <MyBackHeader
+                    class="title-left"
+                    @back="stateManager.setBlockAreaEditing(false)"
+                />
+                <ActiveIntervalEditPanel
+                    v-if="selectedActiveInterval"
+                    :model-value="selectedActiveInterval"
+                    title-teleport=".title-left"
+                />
+                <BlockAreaEditPanel
+                    v-else
+                    title-teleport=".title-left"
+                />
+            </template>
             <div
                 v-else-if="selectionManager.selectedElements.length == 0"
                 class="left-inner default-panel flex-container"
@@ -681,6 +702,7 @@ import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
 import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/rpe/event";
 import { isNoteLike, NoteType } from "@/models/rpe/note";
+import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/element";
 import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/rpe/judgeLine";
 
 import MyButton from "@/myElements/MyButton.vue";
@@ -711,6 +733,8 @@ import ColorEventEditPanel from "@/panels/ColorEventEditPanel.vue";
 import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
 import ShaderPanel from "@/panels/ShaderPanel.vue";
+import BlockAreaEditPanel from "@/panels/BlockAreaEditPanel.vue";
+import ActiveIntervalEditPanel from "@/panels/ActiveIntervalEditPanel.vue";
 
 import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
@@ -801,6 +825,21 @@ const judgeManager = store.useManager("judgeManager");
 const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
+
+/** 当前选中的第一个元素（左侧面板根据它的类型决定显示哪个编辑面板） */
+const selectedElement = computed<SelectableElement | undefined>(() => selectionManager.selectedElements[0]);
+
+/** 当前选中的激活区间 */
+const selectedActiveInterval = computed(() => {
+    const element = selectedElement.value;
+    return element && isActiveInterval(element) ? element : null;
+});
+
+/** 噪域编辑时，左栏是否应该显示噪域 / 激活区间的编辑面板 */
+const isBlockAreaModeLeftPanel = computed(() => {
+    return stateManager.state.isEditingBlockArea &&
+        selectionManager.selectedElements.every(element => isBlockArea(element) || isActiveInterval(element));
+});
 
 /** tip 完全来自 tips.txt（打包版放在 AppData 里；文件缺失或为空时显示空白） */
 const allTips = ref<string[]>([]);
