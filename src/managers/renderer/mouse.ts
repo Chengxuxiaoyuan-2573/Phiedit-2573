@@ -662,8 +662,8 @@ export default class MouseManager extends Manager {
             linkgroup: 0,
             isDisabled: false,
 
-            // 噪域的缩放、旋转以噪域中心为支点
-            ...type === "scaleX" || type === "scaleY" || type === "rotate" ? { anchor: [center.x, center.y] as [number, number] } : {}
+            // 噪域的缩放、旋转以噪域中心为支点（anchor 为 Point 格式 { x, y }）
+            ...type === "scaleX" || type === "scaleY" || type === "rotate" ? { anchor: { x: center.x, y: center.y } } : {}
         }, type, BLOCK_AREA_EVENT_LAYER_ID, blockArea.index);
         this.addedElement = addedEvent;
         selectionManager.select([addedEvent]);

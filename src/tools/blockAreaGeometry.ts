@@ -21,6 +21,7 @@
  */
 
 import { difference, union, xor, type MultiPolygon, type Pair, type Polygon } from "polygon-clipping";
+import type { Point } from "./mathUtils";
 
 /** 噪域事件通道需要提供的最小字段（NumberEvent 满足该结构） */
 export interface BlockAreaGeometryEvent {
@@ -32,8 +33,8 @@ export interface BlockAreaGeometryEvent {
 
     end: number
 
-    /** 事件的锚点，即这一段缩放 / 旋转的支点。没有该字段时取噪域中心 */
-    anchor?: [number, number]
+    /** 事件的锚点，即这一段缩放 / 旋转的支点，格式为 { x, y }（Point）。没有该字段时取噪域中心 */
+    anchor?: Point
 
     isDisabled: boolean
 }
@@ -121,7 +122,7 @@ function applyChannelStep(
 /**
  * 取事件的锚点。
  *
- * RPE 中 anchor 是事件自带的字段：一段缩放 / 旋转以该事件的 anchor 为支点。
+ * RPE 中 anchor 是事件自带的字段（Point 格式 { x, y }）：一段缩放 / 旋转以该事件的 anchor 为支点。
  * 事件没有该字段时取噪域中心，与加入 anchor 字段之前的「绕噪域中心缩放 / 旋转」一致。
  */
 function anchorOfEvent<Event extends BlockAreaGeometryEvent>(event: Event, fallback: Pair): Pair {
@@ -129,7 +130,7 @@ function anchorOfEvent<Event extends BlockAreaGeometryEvent>(event: Event, fallb
     if (anchor === undefined) {
         return [fallback[0], fallback[1]];
     }
-    return [anchor[0], anchor[1]];
+    return [anchor.x, anchor.y];
 }
 
 /**

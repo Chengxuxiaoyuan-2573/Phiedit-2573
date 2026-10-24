@@ -544,13 +544,13 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
         this.scaleXEvents = readEventArray(source, "scaleXEvents", "scaleX", options, this.errorMessages, context);
         this.scaleYEvents = readEventArray(source, "scaleYEvents", "scaleY", options, this.errorMessages, context);
 
-        // 缩放 / 旋转需要支点。RPE 标准把锚点写在事件的 anchor 字段上，
+        // 缩放 / 旋转需要支点。RPE 标准把锚点写在事件的 anchor 字段上（Point 格式 { x, y }），
         // 而没有该字段的谱面（早期谱面、手写谱面）按「绕噪域中心缩放、旋转」处理，与加入 anchor 字段之前的行为一致。
         // 这里把中心直接写进事件，这样保存出去的谱面带有显式锚点，重新打开时结果不会变。
         const center = this.getCenter();
         for (const event of [...this.rotateEvents, ...this.scaleXEvents, ...this.scaleYEvents]) {
             if (event.anchor === undefined) {
-                event.anchor = [center.x, center.y];
+                event.anchor = { x: center.x, y: center.y };
             }
         }
 

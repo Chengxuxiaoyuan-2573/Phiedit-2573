@@ -13,6 +13,7 @@ import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "../objectizable";
 import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
 import { checkAndSort } from "../../tools/algorithm";
+import type { Point } from "../../tools/mathUtils";
 export interface IEvent<T = unknown> {
     bezier: 0 | 1;
     bezierPoints: BezierPoints;
@@ -33,7 +34,7 @@ export interface IEvent<T = unknown> {
      * 为可选字段：RPE 标准里只有缩放 / 旋转事件会写它，其余事件没有该字段。
      * 噪域事件省略时，缩放 / 旋转以噪域中心为支点。
      */
-    anchor?: [number, number];
+    anchor?: Point;
 
     /** 事件是否被禁用 */
     isDisabled: boolean;
@@ -50,23 +51,23 @@ interface IEventIdentifier {
     readonly isEvent: true
 }
 
-/** 锚点（[x, y]）包含的数字个数 */
+/** 锚点（{ x, y }）包含的数字个数 */
 const ANCHOR_LENGTH = 2;
 
 /**
  * 读取事件的 anchor 字段。
  *
- * RPE 标准中事件自带 anchor，噪域用它表示缩放 / 旋转的支点。
- * 允许写成 [x, y] 数组或 { x, y } 对象两种形式。
+ * RPE 标准中事件自带 anchor，噪域用它表示缩放 / 旋转的支点，格式为 { x, y }（Point）。
+ * 兼容写成 [x, y] 数组的旧谱面，读取后统一存成 Point。
  */
-function readEventAnchor(value: unknown): [number, number] | undefined {
+function readEventAnchor(value: unknown): Point | undefined {
     if (isArrayOfNumbers(value, ANCHOR_LENGTH)) {
-        return [value[0], value[1]];
+        return { x: value[0], y: value[1] };
     }
 
     if (isObject(value) && isNumber((value as Record<string, unknown>).x) && isNumber((value as Record<string, unknown>).y)) {
-        const point = value as { x: number, y: number };
-        return [point.x, point.y];
+        const point = value as Point;
+        return { x: point.x, y: point.y };
     }
 
     return undefined;
@@ -139,7 +140,7 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
     linkgroup = 0;
 
     /** 事件的锚点，即缩放 / 旋转的支点（噪域使用）。没有该字段时由噪域按中心补上 */
-    anchor?: [number, number];
+    anchor?: Point;
     isDisabled: boolean = false;
 
     cachedStartSeconds: number;
@@ -181,7 +182,7 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
 
         // 只有带锚点的事件（噪域的缩放 / 旋转事件）才写出 anchor，避免污染其它事件
         if (this.anchor) {
-            event.anchor = [...this.anchor];
+            event.anchor = { x: this.anchor.x, y: this.anchor.y };
         }
         return event;
     }
@@ -484,7 +485,7 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
     linkgroup = 0;
 
     /** 事件自带的锚点字段。shader 变量事件没有噪域那样的缩放 / 旋转支点，固定为 undefined */
-    anchor?: [number, number];
+    anchor?: Point;
     isDisabled: boolean = false;
 
     readonly errorMessages: string[] = [];
@@ -510,7 +511,7 @@ export class ShaderVariableEvent extends TimeSegment implements IEvent<ShaderNum
         };
 
         if (this.anchor) {
-            event.anchor = [...this.anchor];
+            event.anchor = { x: this.anchor.x, y: this.anchor.y };
         }
         return event;
     }

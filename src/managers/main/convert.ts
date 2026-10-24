@@ -32,6 +32,7 @@ import { OfficialJudgeLine } from "@/models/official/judgeLine";
 import { OfficialNote, OfficialNoteType } from "@/models/official/note";
 import { OfficialEvent } from "@/models/official/event";
 import { OfficialBlockArea } from "@/models/official/blockArea";
+import type { Point } from "@/tools/mathUtils";
 
 /**
  * 支持导入的谱面格式。
@@ -186,8 +187,8 @@ interface BlockAreaKeyframe {
     /** 官方的缓动编号 */
     easeType: number;
 
-    /** 该关键帧的锚点，即缩放 / 旋转的支点（RPE 坐标）。移动通道没有锚点，不填时事件上不写 anchor 字段 */
-    anchor?: [number, number];
+    /** 该关键帧的锚点，即缩放 / 旋转的支点（RPE 坐标，Point 格式 { x, y }）。移动通道没有锚点，不填时事件上不写 anchor 字段 */
+    anchor?: Point;
 }
 
 class ConvertManager {
@@ -203,7 +204,7 @@ class ConvertManager {
     }
 
     /** 创建一个 RPE 数值事件。只有缩放 / 旋转事件需要锚点，其余事件不写 anchor 字段 */
-    private createEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType = EasingType.Linear, anchor?: [number, number]): IEvent<number> {
+    private createEvent(startTime: Beats, endTime: Beats, start: number, end: number, easingType: EasingType = EasingType.Linear, anchor?: Point): IEvent<number> {
         const event: IEvent<number> = {
             bezier: 0,
             bezierPoints: [0, 0, 1, 1],
@@ -219,7 +220,7 @@ class ConvertManager {
         };
 
         if (anchor) {
-            event.anchor = [...anchor];
+            event.anchor = { x: anchor.x, y: anchor.y };
         }
         return event;
     }
@@ -439,7 +440,7 @@ class ConvertManager {
         start: number,
         end: number,
         easingType: EasingType,
-        anchor?: [number, number]
+        anchor?: Point
     ): IEvent<number> {
         // 起始时间不早于结束时间时退化为瞬时事件，避免出现 startTime 大于 endTime 的非法事件
         if (beatsCompare(startTime, endTime) >= 0) {
@@ -603,7 +604,7 @@ class ConvertManager {
                 seconds: event.time,
                 value: event.scale[0],
                 easeType: event.easeTypeX,
-                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+                anchor: { x: toRpeX(event.anchor[0]), y: toRpeY(event.anchor[1]) }
             })),
             toRpeTime, unknownEasingTypes
         );
@@ -612,7 +613,7 @@ class ConvertManager {
                 seconds: event.time,
                 value: event.scale[1],
                 easeType: event.easeTypeY,
-                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+                anchor: { x: toRpeX(event.anchor[0]), y: toRpeY(event.anchor[1]) }
             })),
             toRpeTime, unknownEasingTypes
         );
@@ -624,7 +625,7 @@ class ConvertManager {
                 seconds: event.time,
                 value: -event.rotation,
                 easeType: event.easeType,
-                anchor: [toRpeX(event.anchor[0]), toRpeY(event.anchor[1])] as [number, number]
+                anchor: { x: toRpeX(event.anchor[0]), y: toRpeY(event.anchor[1]) }
             })),
             toRpeTime, unknownEasingTypes
         );
