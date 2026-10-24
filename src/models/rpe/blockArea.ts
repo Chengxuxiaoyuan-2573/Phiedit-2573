@@ -259,6 +259,7 @@ function readEventArray(
             BPMList: options.BPMList
         });
         insert(events, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newEvent.sortedArray = events;
         errors.push(...newEvent.errorMessages);
     });
 
@@ -386,6 +387,7 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
             id
         });
         insert(events, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newEvent.sortedArray = events;
         this.errorMessages.push(...newEvent.errorMessages);
         return newEvent;
     }
@@ -523,7 +525,11 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
                     context: `${context} activeIntervals[${i}]`
                 });
                 newInterval.owner = this;
-                this.activeIntervals.push(newInterval);
+
+                // 按开始时间有序插入。谱面文件里的激活区间不保证有序，而编辑区显示和
+                // 撤销/重做的位置记录都依赖数组顺序，读取时统一维护为按时间有序
+                insert(this.activeIntervals, newInterval, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newInterval.sortedArray = this.activeIntervals;
                 this.errorMessages.push(...newInterval.errorMessages);
             });
         }

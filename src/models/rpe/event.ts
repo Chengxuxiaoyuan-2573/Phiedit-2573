@@ -12,6 +12,7 @@ import { isObject, isNumber, isString, isInteger, isArray, zip } from "lodash";
 import { ITimeSegment, TimeSegment } from "./timeSegment";
 import { IObjectizable } from "../objectizable";
 import { isNumberOrVector, ShaderName, ShaderNumberType } from "./effect";
+import { checkAndSort } from "../../tools/algorithm";
 export interface IEvent<T = unknown> {
     bezier: 0 | 1;
     bezierPoints: BezierPoints;
@@ -325,6 +326,13 @@ export class NumberEvent extends AbstractEvent<number> {
     end: number = 0;
     type: "moveX" | "moveY" | "rotate" | "alpha" | "speed" | "scaleX" | "scaleY" | "paint" | "incline";
     readonly isNumberEvent = true;
+
+    /**
+     * 速度事件的累计位移缓存（只有 speed 事件会被写入）。
+     * 存在事件对象自身而不是按下标对齐的并行数组上，
+     * 这样即使列表顺序在缓存计算之后发生了变化，也不会出现缓存值与事件错位的问题。
+     */
+    cachedSpeedQZH?: number;
     constructor(event: unknown, options: Optional<IEventExtendedOptions, "id">) {
         super(event, options);
         if (options.type === "color" || options.type === "text") {
@@ -849,7 +857,8 @@ export function interpolateShaderVariableEventValue(event: IEvent<ShaderNumberTy
 
 /** 找到开始时间不大于seconds的最大的事件。若不存在，返回null。*/
 export function findLastEventIndex<T extends { isDisabled: boolean } & ITimeSegment>(events: T[], seconds: number): number {
-    // checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
+    // 防御性维护：一旦列表因为任何路径失去有序性，在这里修正，保证二分查找结果正确
+    checkAndSort(events, (a, b) => a.cachedStartSeconds - b.cachedStartSeconds);
 
     // 筛选所有未被禁用的事件
     const validEvents = events.map((event, i) => ({ event, i })).filter(event => !event.event.isDisabled);

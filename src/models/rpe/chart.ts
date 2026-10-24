@@ -169,6 +169,9 @@ export class Chart implements IChart, IObjectizable {
                     this.BPMList.push(newBPM);
                     this.errorMessages = this.errorMessages.concat(newBPM.errorMessages);
                 }
+
+                // 拍数转秒数依赖 BPM 列表按时间有序，谱面文件里的列表不保证有序，加载后统一排序
+                this.BPMList.sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
             }
 
             const newChartMeta = new ChartMeta("META" in chart ? chart.META : null, version);

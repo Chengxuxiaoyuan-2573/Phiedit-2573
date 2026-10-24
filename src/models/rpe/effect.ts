@@ -5,10 +5,10 @@
  */
 
 import { isArray, isBoolean, isNumber, isObject, isString } from "lodash";
-import { Beats, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSureBeatsValid } from "./beats";
+import { Beats, beatsCompare, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSureBeatsValid } from "./beats";
 import { IEvent, ShaderVariableEvent } from "./event";
 import { ArrayRepeat, DeepNotReadonly, isArrayOfNumbers, NotReadonly } from "@/tools/typeTools";
-import { ArrayedObject } from "@/tools/algorithm";
+import { ArrayedObject, insert } from "@/tools/algorithm";
 import { IObjectizable } from "../objectizable";
 import { RGBAcolor } from "@/tools/color";
 
@@ -220,7 +220,10 @@ export class Effect implements IEffect, IObjectizable {
         if (isGreaterThanBeats(newEvent.endTime, this.endTime)) {
             newEvent.endTime = [...this.endTime];
         }
-        value.push(newEvent);
+
+        // 按开始时间有序插入，取某一时刻的变量值时依赖二分查找，列表必须保持有序
+        insert(value, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newEvent.sortedArray = value;
     }
     removeEvent(event: unknown, varName: string) {
         if (isNumberOrVector(this.vars[varName])) return;

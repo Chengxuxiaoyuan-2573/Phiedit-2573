@@ -264,6 +264,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
             id
         });
         insert(this.notes, newNote, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newNote.sortedArray = this.notes;
         this.errorMessages = this.errorMessages.concat(newNote.errorMessages);
         return newNote;
     }
@@ -339,7 +340,6 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
 
     recalculateSpeedQZH() {
         for (const layer of this.eventLayers) {
-            const qzh: number[] = [];
             let distance = 0;
             let currentVelocity = 0;
             let currentSeconds = 0;
@@ -358,7 +358,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                  * 因为这个事件的时间非法，有可能会出现错误
                  */
                 if (startSeconds >= endSeconds) {
-                    qzh.push(distance);
+                    event.cachedSpeedQZH = distance;
                     continue;
                 }
 
@@ -400,9 +400,9 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                 distance += displacement;
                 currentVelocity = start + acceleration * duration;
                 currentSeconds = endSeconds;
-                qzh.push(distance);
+                event.cachedSpeedQZH = distance;
             }
-            layer.cachedSpeedQZH = qzh;
+            layer.isSpeedQZHCacheValid = true;
         }
     }
 
@@ -415,7 +415,7 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
     getFloorPositionOfSeconds(seconds: number) {
         let position = 0;
         for (const layer of this.eventLayers) {
-            if (layer.cachedSpeedQZH === undefined) {
+            if (!layer.isSpeedQZHCacheValid) {
                 this.recalculateSpeedQZH();
                 break;
             }
@@ -431,8 +431,8 @@ export class JudgeLine implements IJudgeLine, IObjectizable<IJudgeLine>, JudgeLi
                 continue;
             }
 
-            const qzhValue = layer.cachedSpeedQZH?.at(lastEventIndex) ?? 0;
             const lastEvent = layer.speedEvents[lastEventIndex];
+            const qzhValue = lastEvent?.cachedSpeedQZH ?? 0;
             const { cachedStartSeconds: startSeconds, cachedEndSeconds: endSeconds, start, end } = lastEvent ?? {
                 cachedStartSeconds: 0,
                 cachedEndSeconds: 0,

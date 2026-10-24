@@ -58,6 +58,17 @@ export default class HistoryManager extends Manager {
                 chart.highlightNotes();
             }
         });
+
+        // 拖动元素时 startTime 会实时变化但不产生历史记录，
+        // 需要把速度事件的位移缓存标记为失效，渲染时才会按新时间重算
+        globalEventEmitter.on("ELEMENT_DRAGGED", () => {
+            const chart = store.useChart();
+            for (const judgeLine of chart.judgeLineList) {
+                for (const eventLayer of judgeLine.eventLayers) {
+                    eventLayer.isSpeedQZHCacheValid = false;
+                }
+            }
+        });
     }
     getSize() {
         function _getSize(stack: HistoryRecord[]) {

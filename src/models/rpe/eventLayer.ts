@@ -99,7 +99,9 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
     alphaEvents: NumberEvent[] = [];
     speedEvents: NumberEvent[] = [];
     readonly isBaseEventLayer = true;
-    cachedSpeedQZH: number[] | undefined = undefined;
+
+    /** 速度事件累计位移缓存是否有效。速度事件发生变化后置为 false，下次取 floor position 时重算 */
+    isSpeedQZHCacheValid = false;
     eventNumbers = {
         moveX: 0,
         moveY: 0,
@@ -137,6 +139,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "moveX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveX", id, eventNumber: this.eventNumbers.moveX++ });
                 insert(this.moveXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.moveXEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -144,6 +147,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "moveY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "moveY", id, eventNumber: this.eventNumbers.moveY++ });
                 insert(this.moveYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.moveYEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -151,6 +155,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "rotate": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "rotate", id, eventNumber: this.eventNumbers.rotate++ });
                 insert(this.rotateEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.rotateEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -158,6 +163,7 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "alpha": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "alpha", id, eventNumber: this.eventNumbers.alpha++ });
                 insert(this.alphaEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.alphaEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -165,6 +171,8 @@ export class BaseEventLayer extends AbstractEventLayer implements IBaseEventLaye
             case "speed": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "speed", id, eventNumber: this.eventNumbers.speed++ });
                 insert(this.speedEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.speedEvents;
+                this.isSpeedQZHCacheValid = false;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -269,6 +277,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "scaleX": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleX", id, eventNumber: this.eventNumbers.scaleX++ });
                 insert(this.scaleXEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.scaleXEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -276,6 +285,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "scaleY": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "scaleY", id, eventNumber: this.eventNumbers.scaleY++ });
                 insert(this.scaleYEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.scaleYEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -283,6 +293,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "color": {
                 const newEvent = new ColorEvent(event, { ...baseConfig, type: "color", id, eventNumber: this.eventNumbers.color++ });
                 insert(this.colorEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.colorEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -290,6 +301,7 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "paint": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "paint", id, eventNumber: this.eventNumbers.paint++ });
                 insert(this.paintEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.paintEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
@@ -297,12 +309,14 @@ export class ExtendedEventLayer extends AbstractEventLayer implements IExtendedE
             case "text": {
                 const newEvent = new TextEvent(event, { ...baseConfig, type: "text", id, eventNumber: this.eventNumbers.text++ });
                 insert(this.textEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.textEvents;
                 return newEvent;
             }
 
             case "incline": {
                 const newEvent = new NumberEvent(event, { ...baseConfig, type: "incline", id, eventNumber: this.eventNumbers.incline++ });
                 insert(this.inclineEvents, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+                newEvent.sortedArray = this.inclineEvents;
                 this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
                 return newEvent;
             }
