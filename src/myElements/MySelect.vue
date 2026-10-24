@@ -211,6 +211,14 @@ function isSubsequence(value: string, label: string) {
 function filterMethod(value: string) {
     filterKeyword.value = value;
 
+    // 关键字为空时（例如刚点开下拉框，ElSelect 会用空串调用一次 filter-method），
+    // 不自动选中第一项、不写回 model，保持当前值不变，
+    // 直到用户真正往输入框输入了内容或选择了某个选项
+    if (value === "") {
+        syncFromModel();
+        return;
+    }
+
     if (filteredOptions.value.length > 0) {
         inputData.value = aa2bb(getValue(filteredOptions.value[0]));
     }
