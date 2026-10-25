@@ -712,9 +712,12 @@ export default class ChartRenderer extends Manager {
                 ctx.globalAlpha = alpha / 255;
             }
 
+            // 把贴图路径统一为正斜杠形式后再查找，以兼容使用反斜杠路径的谱面
+            const textureKey = judgeLine.Texture.replace(/\\/g, "/");
+
             const size = ((): [number, number] => {
-                if (judgeLine.Texture in textures) {
-                    const image = textures[judgeLine.Texture];
+                if (textureKey in textures) {
+                    const image = textures[textureKey];
                     return [image.width, image.height];
                 }
 
@@ -731,8 +734,8 @@ export default class ChartRenderer extends Manager {
             ctx.translate((0.5 - judgeLine.anchor[0]) * size[0],
                 (0.5 - judgeLine.anchor[1]) * size[1]);
 
-            if (judgeLine.Texture in textures) {
-                const image = textures[judgeLine.Texture];
+            if (textureKey in textures) {
+                const image = textures[textureKey];
                 if (isMarkedCurrent) {
                     const editableImage = new EditableImage(image);
                     editableImage.addColor(currentColor);

@@ -962,7 +962,7 @@ const filteredJudgeLines = computed(() => {
                 return judgeLine.Texture.includes(textureMatch[3]);
             }
             else {
-                return Object.keys(textures).includes(judgeLine.Texture);
+                return Object.keys(textures).includes(judgeLine.Texture.replace(/\\/g, "/"));
             }
         }));
     }

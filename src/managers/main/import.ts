@@ -45,6 +45,23 @@ function findFirstFileByExtension(zip: JSZip, extensions: readonly string[]) {
     return undefined;
 }
 
+/** 把文件路径统一为使用正斜杠的形式，便于跨平台比较和查找 */
+function normalizePath(fileName: string) {
+    return fileName.replace(/\\/g, "/");
+}
+
+/** 把压缩包内的所有文件按正斜杠路径重新索引，便于统一查找 */
+function createNormalizedZipFileMap(zip: JSZip) {
+    const map: Record<string, JSZip.JSZipObject> = {};
+    for (const fileName in zip.files) {
+        const file = zip.files[fileName];
+        if (!file.dir) {
+            map[normalizePath(fileName)] = file;
+        }
+    }
+    return map;
+}
+
 class ImportChartManager extends Manager {
     /**
      * 导入谱面。
@@ -54,11 +71,13 @@ class ImportChartManager extends Manager {
     async importChart(chartPackagePath: string, format: ChartFormat = "rpe"): Promise<ImportChartResult> {
         const chartPackageFile = await fs.promises.readFile(chartPackagePath);
         const jszip = await JSZip.loadAsync(chartPackageFile);
+        const zipFiles = createNormalizedZipFileMap(jszip);
+        const findZipFile = (fileName: string) => zipFiles[normalizePath(fileName)];
         const { musicPath: musicPathInZip, backgroundPath: backgroundPathInZip, chartPath: chartPathInZip, texturePaths: texturePathsInZip, meta } = await this.findFilesInZipChart(jszip, format);
 
-        const musicFile = jszip.file(musicPathInZip)!;
-        const backgroundFile = jszip.file(backgroundPathInZip)!;
-        const chartFile = jszip.file(chartPathInZip)!;
+        const musicFile = findZipFile(musicPathInZip)!;
+        const backgroundFile = findZipFile(backgroundPathInZip)!;
+        const chartFile = findZipFile(chartPathInZip)!;
 
         const musicExt = path.extname(musicPathInZip);
         const backgroundExt = path.extname(backgroundPathInZip);
@@ -94,12 +113,21 @@ class ImportChartManager extends Manager {
         const backgroundNameInFolder = `${chartId}${backgroundExt}`;
         const chartNameInFolder = `${chartId}${chartExt}`;
 
-        const texturesFiles = texturePathsInZip.map(texturePath => jszip.file(texturePath)!);
-
         const chartDir = filesManager.getChartPath(chartId);
 
         async function saveFile(fileName: string, file: Uint8Array | string) {
-            return fs.promises.writeFile(path.join(chartDir, fileName), file);
+            const normalizedFileName = normalizePath(fileName);
+
+            // 防止压缩包内的文件路径穿越到谱面文件夹之外
+            if (normalizedFileName.split("/").includes("..")) {
+                throw new Error(`压缩包内的文件路径不合法：${fileName}`);
+            }
+
+            const wholePath = path.join(chartDir, normalizedFileName);
+
+            // 文件可能位于多层目录结构中，先确保目录存在
+            await fs.promises.mkdir(path.dirname(wholePath), { recursive: true });
+            return fs.promises.writeFile(wholePath, file);
         }
 
         // 选择官方格式时，info.txt 里的元数据来自官方压缩包，需要保留下来
@@ -116,9 +144,9 @@ class ImportChartManager extends Manager {
                 .then(data => saveFile(backgroundNameInFolder, data)),
             saveFile(chartNameInFolder, storedChartContent),
             Promise.all(
-                texturesFiles.map(async (textureFile) => {
-                    return textureFile.async("uint8array")
-                        .then(data => saveFile(textureFile.name, data));
+                texturePathsInZip.map(async (texturePath) => {
+                    return findZipFile(texturePath)!.async("uint8array")
+                        .then(data => saveFile(texturePath, data));
                 })
             ),
             saveFile("info.txt", infoContent)
@@ -181,6 +209,9 @@ class ImportChartManager extends Manager {
             backgroundPath: string | undefined = undefined,
             chartPath: string | undefined = undefined;
 
+        const zipFiles = createNormalizedZipFileMap(zip);
+        const findZipFile = (fileName: string) => zipFiles[normalizePath(fileName)];
+
         /** 从 info.txt 中读取到的元数据，供官方谱面转谱时使用 */
         const meta: OfficialMetaSource = {};
 
@@ -224,10 +255,10 @@ class ImportChartManager extends Manager {
                             chartPath = fileName;
 
                             // 把相对于这个文件的 chart.META.song 当作音乐文件
-                            musicPath = fileName.replace(/[^/\\]*$/, "") + chart.META.song;
+                            musicPath = normalizePath(fileName.replace(/[^/\\]*$/, "") + chart.META.song);
 
                             // 把相对于这个文件的  chart.META.background 当作背景文件
-                            backgroundPath = fileName.replace(/[^/\\]*$/, "") + chart.META.background;
+                            backgroundPath = normalizePath(fileName.replace(/[^/\\]*$/, "") + chart.META.background);
 
                             // 然后就可以直接退出了
                             break;
@@ -257,17 +288,17 @@ class ImportChartManager extends Manager {
 
                 // 读取音乐文件的路径
                 if (key === "song" || key === "music") {
-                    musicPath = value;
+                    musicPath = normalizePath(value);
                 }
 
                 // 读取曲绘文件的路径
                 if (key === "picture" || key === "background") {
-                    backgroundPath = value;
+                    backgroundPath = normalizePath(value);
                 }
 
                 // 读取谱面文件的路径
                 if (key === "chart") {
-                    chartPath = value;
+                    chartPath = normalizePath(value);
                 }
 
                 // 读取元数据（官方谱面的曲名、谱师等信息只存在于 info.txt 中）
@@ -308,11 +339,14 @@ class ImportChartManager extends Manager {
             }
         }
 
-        // 把所有的图片文件都视为判定线贴图
+        // 把所有的图片文件都视为判定线贴图（跳过目录，路径统一为正斜杠形式，保留多层目录结构）
         const texturePaths = [];
         for (const fileName in zip.files) {
-            if (FileUtils.isImage(fileName)) {
-                texturePaths.push(fileName);
+            const file = zip.files[fileName];
+            if (file.dir) continue;
+            const normalizedFileName = normalizePath(fileName);
+            if (FileUtils.isImage(normalizedFileName)) {
+                texturePaths.push(normalizedFileName);
             }
         }
 
@@ -329,15 +363,15 @@ class ImportChartManager extends Manager {
         }
 
         // 是否存在
-        if (!zip.file(musicPath)) {
+        if (!findZipFile(musicPath)) {
             throw new Error(`不存在的音乐文件：${musicPath}`);
         }
 
-        if (!zip.file(backgroundPath)) {
+        if (!findZipFile(backgroundPath)) {
             throw new Error(`不存在的曲绘文件：${backgroundPath}`);
         }
 
-        if (!zip.file(chartPath)) {
+        if (!findZipFile(chartPath)) {
             throw new Error(`不存在的谱面文件：${chartPath}`);
         }
         return {

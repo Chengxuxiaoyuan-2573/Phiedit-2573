@@ -17,10 +17,14 @@ class LoadManager extends Manager {
     private async loadTextures(chartId: string, backgroundPath: string) {
         const folderPath = filesManager.getChartPath(chartId);
         const texturePaths = [];
-        const allFiles = await fs.promises.readdir(folderPath);
+
+        // 递归读取谱面文件夹，保留多层目录结构，并把路径统一为正斜杠形式
+        const allFiles = await fs.promises.readdir(folderPath, { recursive: true });
+        const normalizedBackgroundPath = backgroundPath.replace(/\\/g, "/");
         for (const fileName of allFiles) {
-            if (FileUtils.isImage(fileName) && fileName !== backgroundPath) {
-                texturePaths.push(fileName);
+            const relativePath = fileName.replace(/\\/g, "/");
+            if (FileUtils.isImage(relativePath) && relativePath !== normalizedBackgroundPath) {
+                texturePaths.push(relativePath);
             }
         }
         return texturePaths;
