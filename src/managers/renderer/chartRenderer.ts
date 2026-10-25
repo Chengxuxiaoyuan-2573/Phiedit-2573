@@ -1771,7 +1771,7 @@ export default class ChartRenderer extends Manager {
     }
 
     /** 获取判定线的事件信息 */
-    private getJudgeLineInfo(lineNumber: number, seconds: number, {
+    getJudgeLineInfo(lineNumber: number, seconds: number, {
         getX = false,
         getY = false,
         getAngle = false,

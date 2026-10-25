@@ -49,6 +49,18 @@ export default class MathUtils {
     }
 
     /**
+     * moveAndRotate 的逆运算：已知参考点 (x1, y1)、方向 dir 和最终坐标 (xFinal, yFinal)，
+     * 求从参考点出发需要移动的局部坐标 (x2, y2)
+     */
+    static inverseMoveAndRotate(x1: number, y1: number, dir: number, xFinal: number, yFinal: number) {
+        const dx = xFinal - x1;
+        const dy = yFinal - y1;
+        const cos = Math.cos(this.degToRad(dir));
+        const sin = Math.sin(this.degToRad(dir));
+        return { x: dx * cos - dy * sin, y: dx * sin + dy * cos };
+    }
+
+    /**
      * 以直角坐标系的 (x, y) 为原点建立极坐标系，然后将极坐标转换为直角坐标
      * @param x 极坐标原点在直角坐标系中的x坐标
      * @param y 极坐标原点在直角坐标系中的y坐标
