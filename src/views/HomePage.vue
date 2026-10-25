@@ -84,13 +84,10 @@
                 </ElLink>
             </template>
             <template v-else>
-                <ElLink index="export-all">
+                <ElLink @click="exportSelectedCharts">
                     全部导出
                 </ElLink>
-                <ElLink
-                    index="delete-all"
-                    class="menu-item-danger"
-                >
+                <ElLink @click="deleteSelectedCharts">
                     全部删除
                 </ElLink>
                 <div>
