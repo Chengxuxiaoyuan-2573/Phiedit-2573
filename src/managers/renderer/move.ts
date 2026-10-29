@@ -169,20 +169,29 @@ export default class MoveManager extends Manager {
         const historyManager = store.useManager("historyManager");
         const elements = new Array<SelectableElement>();
         historyManager.group(`移到${targetJudgeLineNumber}号判定线`);
-        for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                const note = store.addNote(element.toObject(), targetJudgeLineNumber);
-                elements.push(note);
-                historyManager.recordAddNote(element.id);
+        try {
+            for (const element of selectionManager.selectedElements) {
+                if (isNoteLike(element)) {
+                    const note = store.addNote(element.toObject(), targetJudgeLineNumber);
+                    elements.push(note);
+
+                    // 必须记录新音符的 id：撤销时要删掉的是新加的音符，
+                    // 记录旧元素 id 的话撤销会找不到元素或删错元素
+                    historyManager.recordAddNote(note.id);
+                }
+                else if (isEvent(element)) {
+                    const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
+                    elements.push(event);
+                    historyManager.recordAddEvent(event.id);
+                }
             }
-            else if (isEvent(element)) {
-                const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
-                elements.push(event);
-                historyManager.recordAddEvent(element.id);
-            }
+
+            // 删除原元素也要放在同一个分组里，这样新增和删除才能在一次撤销中一起回退
+            selectionManager.deleteSelection();
         }
-        historyManager.ungroup();
-        selectionManager.deleteSelection();
+        finally {
+            historyManager.ungroup();
+        }
         stateManager.state.currentJudgeLineNumber = targetJudgeLineNumber;
         selectionManager.addToSelection(elements);
     }

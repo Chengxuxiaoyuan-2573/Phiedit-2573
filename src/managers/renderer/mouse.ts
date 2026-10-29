@@ -14,7 +14,7 @@ import globalEventEmitter from "@/eventEmitter";
 import { EasingType } from "@/models/rpe/easing";
 import Manager from "./abstract";
 import store from "@/store";
-import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats, subBeats } from "@/models/rpe/beats";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue, isEqualBeats, isGreaterThanBeats, subBeats } from "@/models/rpe/beats";
 import { findLastEventIndex } from "@/models/rpe/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { ElMessage } from "element-plus";
@@ -79,9 +79,6 @@ export default class MouseManager extends Manager {
     /** 鼠标拖拽选择框的碰撞箱，使用绝对坐标 */
     selectionBox: Box | null = null;
 
-    private oldTime: Beats = [0, 0, 1];
-    private oldPositionX: number = 0;
-
     /** 拖动开始时的元素状态。没有在拖动元素时为 null */
     private dragOrigin: DragOrigin | null = null;
 
@@ -117,6 +114,17 @@ export default class MouseManager extends Manager {
         });
         globalEventEmitter.on("RENDER_FRAME", () => {
             this.updateWheelVelocity();
+        });
+
+        // canvas 的 mouseup 只有在画布内松开时才会触发。
+        // 如果拖动时把鼠标移到画布外再松开，拖动就永远不会结束，
+        // 元素已经被移动却没有写入历史记录，之后撤销就会回到错误的状态。
+        // 这里在 window 上再做一层兜底，保证任何位置松开鼠标都能结束拖动并记录历史
+        window.addEventListener("mouseup", () => {
+            this.mouseUp(false);
+        });
+        window.addEventListener("blur", () => {
+            this.mouseUp(false);
         });
     }
 
@@ -174,7 +182,7 @@ export default class MouseManager extends Manager {
 
             // Skip modification recording for newly added elements
             if (this.addedElement === null && firstElement) {
-                this.recordDrag(firstElement, this.mouseMoveMode);
+                this.recordDrag(firstElement);
             }
         }
         else if (this.mouseMoveMode === MouseMoveMode.Select) {
@@ -200,47 +208,126 @@ export default class MouseManager extends Manager {
         this.mousePressed = false;
     }
 
-    /** 把一次拖动写进历史记录 */
-    private recordDrag(element: SelectableElement, mode: MouseMoveMode) {
+    /**
+     * 把一次拖动写进历史记录。
+     *
+     * 规则：
+     * 1. 一次拖动只产生一条历史记录（所有变化的属性放进同一个分组）；
+     * 2. 只记录真正发生变化了的属性，单纯的点击不会产生历史记录；
+     * 3. 旧值一律取按下鼠标时保存的 dragOrigin 快照。
+     *    不能按“拖动头/拖动尾”来推断旧值：拖动过程中如果拖过了另一头，
+     *    代码会交换头尾并切换拖动模式，此时按模式取旧值会记错。
+     */
+    private recordDrag(element: SelectableElement) {
         const historyManager = store.useManager("historyManager");
         const origin = this.dragOrigin;
-        const isDraggingHead = mode === MouseMoveMode.Drag;
+        if (!origin) {
+            return;
+        }
 
         if (isNoteLike(element)) {
-            historyManager.recordModifyNote(element.id, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
-            historyManager.recordModifyNote(element.id, "positionX", element.positionX, this.oldPositionX);
-        }
-        else if (isBlockArea(element)) {
-            if (!origin) {
+            const startTimeChanged = !isEqualBeats(element.startTime, origin.start);
+            const endTimeChanged = !isEqualBeats(element.endTime, origin.end);
+            const positionChanged = element.positionX !== origin.positionX;
+            if (!startTimeChanged && !endTimeChanged && !positionChanged) {
                 return;
             }
-            historyManager.recordModifyBlockArea(element.index, "appearTime", element.appearTime, origin.start);
-            historyManager.recordModifyBlockArea(element.index, "disappearTime", element.disappearTime, origin.end);
-            if (element.editorPositionX !== origin.positionX) {
-                historyManager.recordModifyBlockArea(element.index, "editorPositionX", element.editorPositionX, origin.positionX);
+
+            historyManager.group(`拖动音符 ${element.id}`);
+            try {
+                if (startTimeChanged) {
+                    historyManager.recordModifyNote(element.id, "startTime", element.startTime, origin.start);
+                }
+
+                if (endTimeChanged) {
+                    historyManager.recordModifyNote(element.id, "endTime", element.endTime, origin.end);
+                }
+
+                if (positionChanged) {
+                    historyManager.recordModifyNote(element.id, "positionX", element.positionX, origin.positionX);
+                }
+            }
+            finally {
+                historyManager.ungroup();
+            }
+        }
+        else if (isEvent(element)) {
+            const startTimeChanged = !isEqualBeats(element.startTime, origin.start);
+            const endTimeChanged = !isEqualBeats(element.endTime, origin.end);
+            if (!startTimeChanged && !endTimeChanged) {
+                return;
+            }
+
+            historyManager.group(`拖动事件 ${element.id}`);
+            try {
+                if (startTimeChanged) {
+                    historyManager.recordModifyEvent(element.id, "startTime", element.startTime, origin.start);
+                }
+
+                if (endTimeChanged) {
+                    historyManager.recordModifyEvent(element.id, "endTime", element.endTime, origin.end);
+                }
+            }
+            finally {
+                historyManager.ungroup();
+            }
+        }
+        else if (isBlockArea(element)) {
+            const appearTimeChanged = !isEqualBeats(element.appearTime, origin.start);
+            const disappearTimeChanged = !isEqualBeats(element.disappearTime, origin.end);
+            const positionChanged = element.editorPositionX !== origin.positionX;
+            if (!appearTimeChanged && !disappearTimeChanged && !positionChanged) {
+                return;
+            }
+
+            historyManager.group(`拖动噪域 ${element.index}`);
+            try {
+                if (appearTimeChanged) {
+                    historyManager.recordModifyBlockArea(element.index, "appearTime", element.appearTime, origin.start);
+                }
+
+                if (disappearTimeChanged) {
+                    historyManager.recordModifyBlockArea(element.index, "disappearTime", element.disappearTime, origin.end);
+                }
+
+                if (positionChanged) {
+                    historyManager.recordModifyBlockArea(element.index, "editorPositionX", element.editorPositionX, origin.positionX);
+                }
+            }
+            finally {
+                historyManager.ungroup();
             }
         }
         else if (isActiveInterval(element)) {
-            if (!origin) {
-                return;
-            }
-
             const blockArea = element.owner;
             if (!blockArea) {
                 return;
             }
 
             const intervalIndex = blockArea.activeIntervals.indexOf(element);
-            if (mode === MouseMoveMode.DragWhole) {
-                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", [...element.startTime] as Beats, [...origin.start] as Beats);
-                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", [...element.endTime] as Beats, [...origin.end] as Beats);
+            if (intervalIndex === -1) {
+                return;
             }
-            else {
-                historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
+
+            const startTimeChanged = !isEqualBeats(element.startTime, origin.start);
+            const endTimeChanged = !isEqualBeats(element.endTime, origin.end);
+            if (!startTimeChanged && !endTimeChanged) {
+                return;
             }
-        }
-        else if (isEvent(element)) {
-            historyManager.recordModifyEvent(element.id, isDraggingHead ? "startTime" : "endTime", isDraggingHead ? element.startTime : element.endTime, this.oldTime);
+
+            historyManager.group("拖动激活区间");
+            try {
+                if (startTimeChanged) {
+                    historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", element.startTime, origin.start);
+                }
+
+                if (endTimeChanged) {
+                    historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", element.endTime, origin.end);
+                }
+            }
+            finally {
+                historyManager.ungroup();
+            }
         }
     }
     mouseMove(x: number, y: number) {
@@ -448,12 +535,8 @@ export default class MouseManager extends Manager {
                 }
                 else {
                     // 如果是单选，就取消选择所有，只选择这个元素
-                    if (selectionManager.selectedElements.includes(clickedObject)) {
-                        this.oldTime = getElementStartTime(clickedObject);
-                        if (isNoteLike(clickedObject)) {
-                            this.oldPositionX = clickedObject.positionX;
-                        }
-                    }
+                    // 拖动开始时元素的原始状态统一在 startDragging 里保存（dragOrigin），
+                    // 记录历史时以它为旧值，保证每次拖动都有正确的旧值
 
                     // 点到噪域时，同时把它设为当前编辑的噪域
                     if (isBlockArea(clickedObject)) {
@@ -547,8 +630,6 @@ export default class MouseManager extends Manager {
             this.addedElement = addedNote;
             selectionManager.select([addedNote]);
             if (stateManager.state.currentNoteType === NoteType.Hold) {
-                this.oldTime = addedNote.endTime;
-                this.oldPositionX = addedNote.positionX;
                 this.mouseMoveMode = MouseMoveMode.DragEnd;
             }
         }
@@ -599,7 +680,6 @@ export default class MouseManager extends Manager {
             }, type, stateManager.state.currentEventLayerId, stateManager.state.currentJudgeLineNumber);
             this.addedElement = addedEvent;
             selectionManager.select([addedEvent]);
-            this.oldTime = addedEvent.endTime;
             this.mouseMoveMode = MouseMoveMode.DragEnd;
         }
         this.mousePressed = true;
@@ -667,7 +747,6 @@ export default class MouseManager extends Manager {
         }, type, BLOCK_AREA_EVENT_LAYER_ID, blockArea.index);
         this.addedElement = addedEvent;
         selectionManager.select([addedEvent]);
-        this.oldTime = addedEvent.endTime;
         this.mouseMoveMode = MouseMoveMode.DragEnd;
     }
 

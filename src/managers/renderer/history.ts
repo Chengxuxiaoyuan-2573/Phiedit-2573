@@ -5,6 +5,7 @@
  */
 
 import globalEventEmitter from "@/eventEmitter";
+import { cloneDeep } from "lodash";
 import { eventAttributes, IEvent } from "@/models/rpe/event";
 import { INote, noteAttributes } from "@/models/rpe/note";
 import store from "@/store";
@@ -70,33 +71,41 @@ export default class HistoryManager extends Manager {
             }
         });
     }
+
+    /** 历史记录条数：每个撤销单元（单条记录或一个分组）算一条，与历史面板的行数一致 */
     getSize() {
-        function _getSize(stack: HistoryRecord[]) {
-            let sum = 0;
-            for (const record of stack) {
-                if (record instanceof RecordGroup) {
-                    sum += _getSize(record.records);
-                }
-                else {
-                    sum++;
-                }
-            }
-            return sum;
-        }
-        return _getSize(this.undoStack) + _getSize(this.redoStack);
+        return this.undoStack.length + this.redoStack.length;
     }
     clearRedoStack() {
         this.redoStack = [];
         globalEventEmitter.emit("HISTORY_UPDATE", "CLEAR");
     }
     private addRecord<C extends HistoryRecord>(record: C) {
+        // 新操作会使所有重做记录过期，必须清空重做栈，
+        // 否则撤销后进行新操作再重做，会重放过期的记录导致状态错乱
+        this.redoStack = [];
         const lastRecord = this.undoStack[this.undoStack.length - 1];
-        if (this.grouped && lastRecord instanceof RecordGroup) {
+        const mergeKey = record.getMergeKey();
+
+        // 面板里连续编辑同一个对象的属性：并入同一个合并组，只占一条历史记录
+        if (this.groupDepth === 0 &&
+            this.mergingRecord &&
+            mergeKey !== null &&
+            mergeKey === this.mergingKey &&
+            lastRecord === this.mergingRecord) {
+            this.mergingRecord.records.push(record);
+            globalEventEmitter.emit("HISTORY_UPDATE", [NAME_MAP[record.type as keyof typeof NAME_MAP]]);
+            return;
+        }
+
+        if (this.groupDepth > 0 && lastRecord instanceof RecordGroup) {
             // 在组内的时候不触发 HISTORY_UPDATE 事件
             // 而是在组结束的时候触发，以免重复触发
             lastRecord.records.push(record);
         }
         else {
+            // 其他任何操作都会打断当前的合并会话，避免把不同操作混进同一条历史记录
+            this.endMerge();
             this.undoStack.push(record);
             globalEventEmitter.emit("HISTORY_UPDATE", [NAME_MAP[record.type as keyof typeof NAME_MAP]]);
         }
@@ -146,18 +155,82 @@ export default class HistoryManager extends Manager {
         this.addRecord(record);
     }
 
-    /** 新增的命令是否加入到组中 */
-    grouped = false;
-    group(name: string) {
-        if (this.grouped) {
-            // throw new Error("已经处于分组状态，无法再次分组");
+    /** 未关闭的分组数量。支持嵌套分组（例如“移到判定线”内部会嵌套“删除”分组） */
+    private groupDepth = 0;
+
+    /** 正在合并的历史记录：面板里对同一个对象的连续编辑会并进这一条 */
+    private mergingRecord: RecordGroup | null = null;
+
+    /** 正在合并的对象的标识，例如 note:0-0-note-1、event:0-0-timeX-2 */
+    private mergingKey: string | null = null;
+
+    /**
+     * 开始（或继续）合并同一个对象的编辑。
+     * 同一个 key 连续调用只会复用同一个合并组；key 变化则先结束上一个合并组。
+     * 期间只要发生其他任何操作（拖动、增删、撤销等），合并会话都会被自动结束。
+     */
+    beginMerge(key: string, name: string) {
+        if (this.groupDepth > 0) {
+            // 分组操作（批量编辑等）自成一组，不参与面板合并
+            return;
         }
-        this.grouped = true;
+
+        const lastRecord = this.undoStack[this.undoStack.length - 1];
+        if (this.mergingRecord && this.mergingKey === key && lastRecord === this.mergingRecord) {
+            return;
+        }
+
+        this.endMerge();
+        this.redoStack = [];
+        this.mergingKey = key;
+        this.mergingRecord = new RecordGroup([], name);
+        this.undoStack.push(this.mergingRecord);
+    }
+
+    /** 结束当前的合并会话，没有记录的空组会被直接丢弃 */
+    endMerge() {
+        const group = this.mergingRecord;
+        this.mergingRecord = null;
+        this.mergingKey = null;
+        if (!group) {
+            return;
+        }
+
+        if (group.records.length === 0) {
+            const index = this.undoStack.lastIndexOf(group);
+            if (index !== -1) {
+                this.undoStack.splice(index, 1);
+            }
+            return;
+        }
+        globalEventEmitter.emit("HISTORY_UPDATE", toUnique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
+    }
+
+    /** 新增的命令是否加入到组中 */
+    get grouped() {
+        return this.groupDepth > 0;
+    }
+    group(name: string) {
+        // 开启分组前先结束面板合并会话，避免两种记录混在一起
+        this.endMerge();
+        if (this.groupDepth > 0) {
+            // 已经处于分组中（嵌套分组），嵌套的分组不再单独入栈，
+            // 记录继续并入外层组，保证整个操作只占用一次撤销
+            this.groupDepth++;
+            return;
+        }
+        this.groupDepth = 1;
+        this.redoStack = [];
         this.undoStack.push(new RecordGroup([], name));
     }
     ungroup() {
-        if (!this.grouped) {
+        if (this.groupDepth === 0) {
             // throw new Error("没有处于分组状态，无法取消分组");
+            return;
+        }
+        this.groupDepth--;
+        if (this.groupDepth > 0) {
+            // 内层分组已关闭，但外层分组还会继续记录，等最外层关闭时再通知
             return;
         }
 
@@ -166,30 +239,43 @@ export default class HistoryManager extends Manager {
             // throw new Error("没有处于分组状态，无法取消分组");
             return;
         }
-        this.grouped = false;
+
+        if (group.records.length === 0) {
+            // 空组直接从撤销栈中丢弃，不留下撤销/重做都无效的“死记录”
+            this.undoStack.pop();
+            return;
+        }
         globalEventEmitter.emit("HISTORY_UPDATE", toUnique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
     }
     undo() {
-        const record = this.undoStack.pop();
-        if (record) {
-            record.undo();
-            this.redoStack.push(record);
-            globalEventEmitter.emit("HISTORY_UPDATE", "UNDO");
-        }
-        else {
+        // 防御：分组未正常关闭时（例如操作中途抛出异常），强制结束分组状态
+        this.groupDepth = 0;
+
+        // 先结束面板合并会话，让同一对象的编辑作为一个完整的撤销单元
+        this.endMerge();
+        const record = this.undoStack[this.undoStack.length - 1];
+        if (!record) {
             throw new Error("没有可撤销的操作");
         }
+
+        // 先执行撤销再移动记录。如果撤销执行失败，记录仍留在撤销栈中，状态不会被破坏
+        record.undo();
+        this.undoStack.pop();
+        this.redoStack.push(record);
+        globalEventEmitter.emit("HISTORY_UPDATE", "UNDO");
     }
     redo() {
-        const record = this.redoStack.pop();
-        if (record) {
-            record.redo();
-            this.undoStack.push(record);
-            globalEventEmitter.emit("HISTORY_UPDATE", "REDO");
-        }
-        else {
+        this.groupDepth = 0;
+        this.endMerge();
+        const record = this.redoStack[this.redoStack.length - 1];
+        if (!record) {
             throw new Error("没有可重做的操作");
         }
+
+        record.redo();
+        this.redoStack.pop();
+        this.undoStack.push(record);
+        globalEventEmitter.emit("HISTORY_UPDATE", "REDO");
     }
 }
 abstract class HistoryRecord {
@@ -212,7 +298,25 @@ abstract class HistoryRecord {
         }
     }
     abstract getDescription(): string;
+
+    /**
+     * 返回这条记录所属对象的标识，用于把面板里对同一个对象的连续编辑合并成一条历史记录。
+     * 返回 null 表示这条记录不参与合并（新增、删除等操作）
+     */
+    getMergeKey(): string | null {
+        return null;
+    }
 }
+
+/**
+ * 深拷贝历史记录中保存的值。
+ * Beats 是数组、RGBcolor 等是对象，元素的一些操作（如 makeSureBeatsValid）会原地修改它们，
+ * 如果历史记录直接保存引用，记录中的新旧值会被后续操作污染，导致撤销/重做回到错误的状态
+ */
+function copyHistoryValue<T>(value: T): T {
+    return cloneDeep(value);
+}
+
 class AddNoteRecord extends HistoryRecord {
     readonly type = "addNote";
     private noteObject: INote | undefined = undefined;
@@ -226,7 +330,7 @@ class AddNoteRecord extends HistoryRecord {
             throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
         }
 
-        const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
+        const note = store.addNote(copyHistoryValue(this.noteObject), this.judgeLineNumber, this.id);
         this.id = note.id;
         return note;
     }
@@ -238,7 +342,7 @@ class AddNoteRecord extends HistoryRecord {
 
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
-        this.noteObject = note.toObject();
+        this.noteObject = copyHistoryValue(note.toObject());
         this.judgeLineNumber = note.judgeLineNumber;
         store.removeNote(this.id);
     }
@@ -256,21 +360,25 @@ class ModifyNoteRecord<T extends typeof noteAttributes[number]> extends HistoryR
         super();
         const note = store.getNoteById(id);
         if (!note) throw new Error(`Note ${id} not found`);
-        this.oldValue = oldValue ?? note[attribute];
+        this.newValue = copyHistoryValue(newValue);
+        this.oldValue = copyHistoryValue(oldValue ?? note[attribute]);
     }
     redo() {
         super.redo();
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (note as any)[this.attribute] = this.newValue;
+        (note as any)[this.attribute] = copyHistoryValue(this.newValue);
     }
     undo() {
         super.undo();
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (note as any)[this.attribute] = this.oldValue;
+        (note as any)[this.attribute] = copyHistoryValue(this.oldValue);
+    }
+    getMergeKey(): string {
+        return `note:${this.id}`;
     }
     getDescription(): string {
         return `将音符${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
@@ -281,6 +389,7 @@ class RemoveNoteRecord extends HistoryRecord {
     readonly type = "removeNote";
     constructor(private noteObject: INote, private judgeLineNumber: number, private id: string) {
         super();
+        this.noteObject = copyHistoryValue(noteObject);
     }
     redo() {
         super.redo();
@@ -290,7 +399,7 @@ class RemoveNoteRecord extends HistoryRecord {
 
         const note = store.getNoteById(this.id);
         if (!note) throw new Error(`Note ${this.id} not found`);
-        this.noteObject = note.toObject();
+        this.noteObject = copyHistoryValue(note.toObject());
         this.judgeLineNumber = note.judgeLineNumber;
         store.removeNote(this.id);
     }
@@ -300,7 +409,7 @@ class RemoveNoteRecord extends HistoryRecord {
             throw new Error("AddNoteRecord: noteObject or judgeLineNumber is undefined");
         }
 
-        const note = store.addNote(this.noteObject, this.judgeLineNumber, this.id);
+        const note = store.addNote(copyHistoryValue(this.noteObject), this.judgeLineNumber, this.id);
         this.id = note.id;
         return note;
     }
@@ -324,7 +433,7 @@ class AddEventRecord extends HistoryRecord {
             throw new Error("AddEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined");
         }
 
-        const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
+        const event = store.addEvent(copyHistoryValue(this.eventObject), this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
         this.id = event.id;
         return event;
     }
@@ -336,7 +445,7 @@ class AddEventRecord extends HistoryRecord {
 
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} not found`);
-        this.eventObject = event.toObject();
+        this.eventObject = copyHistoryValue(event.toObject());
         this.judgeLineNumber = event.judgeLineNumber;
         this.eventLayerId = event.eventLayerId;
         this.eventType = event.type;
@@ -356,21 +465,25 @@ class ModifyEventRecord<T extends typeof eventAttributes[number]> extends Histor
         super();
         const event = store.getEventById(id);
         if (!event) throw new Error(`Event ${id} 不存在`);
-        this.oldValue = oldValue ?? event[attribute];
+        this.newValue = copyHistoryValue(newValue);
+        this.oldValue = copyHistoryValue(oldValue ?? event[attribute]);
     }
     redo(): void {
         super.redo();
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} 不存在`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (event as any)[this.attribute] = this.newValue;
+        (event as any)[this.attribute] = copyHistoryValue(this.newValue);
     }
     undo(): void {
         super.undo();
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} 不存在`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (event as any)[this.attribute] = this.oldValue;
+        (event as any)[this.attribute] = copyHistoryValue(this.oldValue);
+    }
+    getMergeKey(): string {
+        return `event:${this.id}`;
     }
     getDescription(): string {
         return `将事件${this.id}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
@@ -381,6 +494,7 @@ class RemoveEventRecord extends HistoryRecord {
     readonly type = "removeEvent";
     constructor(private eventObject: IEvent<unknown>, private eventType: string, private eventLayerId: string, private judgeLineNumber: number, private id: string) {
         super();
+        this.eventObject = copyHistoryValue(eventObject);
     }
     redo() {
         super.redo();
@@ -390,7 +504,7 @@ class RemoveEventRecord extends HistoryRecord {
 
         const event = store.getEventById(this.id);
         if (!event) throw new Error(`Event ${this.id} not found`);
-        this.eventObject = event.toObject();
+        this.eventObject = copyHistoryValue(event.toObject());
         this.judgeLineNumber = event.judgeLineNumber;
         this.eventLayerId = event.eventLayerId;
         this.eventType = event.type;
@@ -402,7 +516,7 @@ class RemoveEventRecord extends HistoryRecord {
             throw new Error("RemoveEventCommand: eventObject, judgeLineNumber, eventLayerId or eventType is undefined");
         }
 
-        const event = store.addEvent(this.eventObject, this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
+        const event = store.addEvent(copyHistoryValue(this.eventObject), this.eventType, this.eventLayerId, this.judgeLineNumber, this.id);
         this.id = event.id;
         return event;
     }
@@ -437,7 +551,10 @@ class ModifyBlockAreaRecord<T extends BlockAreaEditableAttribute> extends Histor
 
         const blockArea = store.getBlockAreaById(this.blockAreaIndex);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (blockArea as any)[this.attribute] = value;
+        (blockArea as any)[this.attribute] = copyHistoryValue(value);
+    }
+    getMergeKey(): string {
+        return `blockArea:${this.blockAreaIndex}`;
     }
     getDescription(): string {
         return `将噪域${this.blockAreaIndex}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
@@ -451,6 +568,7 @@ class RemoveBlockAreaRecord extends HistoryRecord {
         private blockAreaIndex: number,
         private position: number) {
         super();
+        this.blockAreaObject = copyHistoryValue(blockAreaObject);
     }
     redo() {
         super.redo();
@@ -459,14 +577,14 @@ class RemoveBlockAreaRecord extends HistoryRecord {
         if (!blockArea) {
             throw new Error(`噪域${this.blockAreaIndex}不存在`);
         }
-        this.blockAreaObject = blockArea.toObject();
+        this.blockAreaObject = copyHistoryValue(blockArea.toObject());
         this.position = chart.blockAreaList.indexOf(blockArea);
         store.removeBlockArea(blockArea);
         store.useManager("stateManager").notifyBlockAreaListChanged({ removedPosition: this.position });
     }
     undo() {
         super.undo();
-        const blockArea = store.insertBlockArea(this.blockAreaObject, this.position, this.blockAreaIndex);
+        const blockArea = store.insertBlockArea(copyHistoryValue(this.blockAreaObject), this.position, this.blockAreaIndex);
         store.useManager("stateManager").notifyBlockAreaListChanged({ insertedPosition: this.position });
         return blockArea;
     }
@@ -483,6 +601,7 @@ class ActiveIntervalListRecord extends HistoryRecord {
         private intervalObject: IActiveInterval,
         private position: number) {
         super();
+        this.intervalObject = copyHistoryValue(intervalObject);
         this.type = action === "add" ? "addActiveInterval" : "removeActiveInterval";
     }
     redo() {
@@ -505,7 +624,7 @@ class ActiveIntervalListRecord extends HistoryRecord {
     }
     private insert() {
         const blockArea = store.getBlockAreaById(this.blockAreaIndex);
-        const interval = blockArea.insertActiveInterval(this.intervalObject, this.position);
+        const interval = blockArea.insertActiveInterval(copyHistoryValue(this.intervalObject), this.position);
         this.position = blockArea.activeIntervals.indexOf(interval);
     }
     private remove() {
@@ -514,7 +633,7 @@ class ActiveIntervalListRecord extends HistoryRecord {
         if (!interval) {
             throw new Error(`噪域${this.blockAreaIndex}中不存在第${this.position}个激活区间`);
         }
-        this.intervalObject = interval.toObject();
+        this.intervalObject = copyHistoryValue(interval.toObject());
         this.position = blockArea.activeIntervals.indexOf(interval);
         blockArea.removeActiveInterval(interval);
     }
@@ -536,7 +655,8 @@ class ModifyActiveIntervalRecord<T extends ActiveIntervalEditableAttribute> exte
         if (!interval) {
             throw new Error(`噪域${blockAreaIndex}中不存在第${intervalIndex}个激活区间`);
         }
-        this.oldValue = oldValue ?? interval[attribute];
+        this.newValue = copyHistoryValue(newValue);
+        this.oldValue = copyHistoryValue(oldValue ?? interval[attribute]);
     }
     redo(): void {
         super.redo();
@@ -556,7 +676,10 @@ class ModifyActiveIntervalRecord<T extends ActiveIntervalEditableAttribute> exte
             throw new Error(`噪域${this.blockAreaIndex}中不存在第${this.intervalIndex}个激活区间`);
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (interval as any)[this.attribute] = value;
+        (interval as any)[this.attribute] = copyHistoryValue(value);
+    }
+    getMergeKey(): string {
+        return `interval:${this.blockAreaIndex}:${this.intervalIndex}`;
     }
     getDescription(): string {
         return `将激活区间的${this.attribute}从${this.oldValue}修改为${this.newValue}`;

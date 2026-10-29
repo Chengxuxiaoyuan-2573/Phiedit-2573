@@ -187,136 +187,141 @@ export default class MutipleEditManager extends Manager {
         }
         mouseManager.checkMouseUp();
         historyManager.group("批量编辑");
-        if (stateManager.cache.mutipleEdit.type === "note") {
-            const notes = selectionManager.selectedElements.filter(element => isNoteLike(element)).sort((a, b) => {
-                const beatsA = getBeatsValue(a.startTime);
-                const beatsB = getBeatsValue(b.startTime);
-                if (beatsA !== beatsB) {
-                    return beatsA - beatsB;
+
+        // 用 try/finally 保证分组一定会关闭，否则中途抛出异常会让分组卡死，后续所有记录都会并进这个组
+        try {
+            if (stateManager.cache.mutipleEdit.type === "note") {
+                const notes = selectionManager.selectedElements.filter(element => isNoteLike(element)).sort((a, b) => {
+                    const beatsA = getBeatsValue(a.startTime);
+                    const beatsB = getBeatsValue(b.startTime);
+                    if (beatsA !== beatsB) {
+                        return beatsA - beatsB;
+                    }
+                    else {
+                        return a.judgeLineNumber - b.judgeLineNumber;
+                    }
+                });
+                const length = notes.length;
+                if (length === 0) {
+                    throw new Error(`当前没有选中音符`);
                 }
-                else {
-                    return a.judgeLineNumber - b.judgeLineNumber;
-                }
-            });
-            const length = notes.length;
-            if (length === 0) {
-                historyManager.ungroup();
-                throw new Error(`当前没有选中音符`);
-            }
-            notes.forEach((note, i) => {
-                const easing = stateManager.cache.mutipleEdit.paramEasing;
-                const value = stateManager.cache.mutipleEdit.isDynamic ?
-                    stateManager.cache.mutipleEdit.paramStart + easingFuncs[stateManager.cache.mutipleEdit.paramEasing](length === 1 ? 0 : i / (length - 1)) * (stateManager.cache.mutipleEdit.paramEnd - stateManager.cache.mutipleEdit.paramStart) :
-                    stateManager.cache.mutipleEdit.param;
-                const valueColor = stateManager.cache.mutipleEdit.isDynamic ?
+                notes.forEach((note, i) => {
+                    const easing = stateManager.cache.mutipleEdit.paramEasing;
+                    const value = stateManager.cache.mutipleEdit.isDynamic ?
+                        stateManager.cache.mutipleEdit.paramStart + easingFuncs[stateManager.cache.mutipleEdit.paramEasing](length === 1 ? 0 : i / (length - 1)) * (stateManager.cache.mutipleEdit.paramEnd - stateManager.cache.mutipleEdit.paramStart) :
+                        stateManager.cache.mutipleEdit.param;
+                    const valueColor = stateManager.cache.mutipleEdit.isDynamic ?
                     ([0, 1, 2] as const).map(num => {
                         const start = stateManager.cache.mutipleEdit.paramStartColor[num];
                         const end = stateManager.cache.mutipleEdit.paramEndColor[num];
                         return easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start;
                     }) as RGBcolor :
-                    stateManager.cache.mutipleEdit.paramColor;
-                const valueString = stateManager.cache.mutipleEdit.paramText;
-                const attrName = stateManager.cache.mutipleEdit.attributeNote;
-                if (attrName === "isFake") {
-                    if (stateManager.cache.mutipleEdit.mode === "invert") {
-                        historyManager.recordModifyNote(note.id, "isFake", note.isFake === NoteFake.Fake ? NoteFake.Real : NoteFake.Fake, note.isFake);
-                        note.isFake = note.isFake === NoteFake.Fake ? NoteFake.Real : NoteFake.Fake;
+                        stateManager.cache.mutipleEdit.paramColor;
+                    const valueString = stateManager.cache.mutipleEdit.paramText;
+                    const attrName = stateManager.cache.mutipleEdit.attributeNote;
+                    if (attrName === "isFake") {
+                        if (stateManager.cache.mutipleEdit.mode === "invert") {
+                            historyManager.recordModifyNote(note.id, "isFake", note.isFake === NoteFake.Fake ? NoteFake.Real : NoteFake.Fake, note.isFake);
+                            note.isFake = note.isFake === NoteFake.Fake ? NoteFake.Real : NoteFake.Fake;
+                        }
+                        else {
+                            historyManager.recordModifyNote(note.id, "isFake", stateManager.cache.mutipleEdit.paramBoolean ? NoteFake.Fake : NoteFake.Real, note.isFake);
+                            note.isFake = stateManager.cache.mutipleEdit.paramBoolean ? NoteFake.Fake : NoteFake.Real;
+                        }
                     }
-                    else {
-                        historyManager.recordModifyNote(note.id, "isFake", stateManager.cache.mutipleEdit.paramBoolean ? NoteFake.Fake : NoteFake.Real, note.isFake);
-                        note.isFake = stateManager.cache.mutipleEdit.paramBoolean ? NoteFake.Fake : NoteFake.Real;
+                    else if (attrName === "above") {
+                        if (stateManager.cache.mutipleEdit.mode === "invert") {
+                            historyManager.recordModifyNote(note.id, "above", stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Below : NoteAbove.Above, note.above);
+                            note.above = note.above === NoteAbove.Above ? NoteAbove.Below : NoteAbove.Above;
+                        }
+                        else {
+                            historyManager.recordModifyNote(note.id, "above", stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Above : NoteAbove.Below, note.above);
+                            note.above = stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Above : NoteAbove.Below;
+                        }
                     }
-                }
-                else if (attrName === "above") {
-                    if (stateManager.cache.mutipleEdit.mode === "invert") {
-                        historyManager.recordModifyNote(note.id, "above", stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Below : NoteAbove.Above, note.above);
-                        note.above = note.above === NoteAbove.Above ? NoteAbove.Below : NoteAbove.Above;
-                    }
-                    else {
-                        historyManager.recordModifyNote(note.id, "above", stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Above : NoteAbove.Below, note.above);
-                        note.above = stateManager.cache.mutipleEdit.paramBoolean ? NoteAbove.Above : NoteAbove.Below;
-                    }
-                }
-                else if (attrName === "type") {
-                    historyManager.recordModifyNote(note.id, "type", stateManager.cache.mutipleEdit.paramNoteType, note.type);
-                    note.type = stateManager.cache.mutipleEdit.paramNoteType;
-                }
-                else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
-                    modifyWithBeats(note, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
-                }
-                else if (attrName === "tint" || attrName === "tintHitEffects") {
-                    modifyNoteWithColor(note, attrName, valueColor, stateManager.cache.mutipleEdit.mode);
-                }
-                else if (attrName === "hitsound") {
-                    modifyNoteWithText(note, attrName, valueString, stateManager.cache.mutipleEdit.mode);
-                }
-                else {
-                    modifyNoteWithNumber(note, attrName, value, stateManager.cache.mutipleEdit.mode);
-                }
-            });
-        }
-        else {
-            const eventTypes = stateManager.cache.mutipleEdit.eventTypes.length === 0 ?
-                [...baseEventTypes, ...extendedEventTypes] :
-                stateManager.cache.mutipleEdit.eventTypes;
-            let isSucceeded = false;
-            for (const eventType of eventTypes) {
-                const events = selectionManager.selectedElements.filter((element): element is AbstractEvent => isEvent(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
-                const length = events.length;
-                if (length > 0) {
-                    isSucceeded = true;
-                }
-                else {
-                    continue;
-                }
-                events.forEach((event, i) => {
-                    const attrName = stateManager.cache.mutipleEdit.attributeEvent;
-                    if (attrName === "easingType") {
-                        historyManager.recordModifyEvent(event.id, "easingType", stateManager.cache.mutipleEdit.paramEasing, event.easingType);
-                        event.easingType = stateManager.cache.mutipleEdit.paramEasing;
+                    else if (attrName === "type") {
+                        historyManager.recordModifyNote(note.id, "type", stateManager.cache.mutipleEdit.paramNoteType, note.type);
+                        note.type = stateManager.cache.mutipleEdit.paramNoteType;
                     }
                     else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
-                        modifyWithBeats(event, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
+                        modifyWithBeats(note, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
                     }
-                    else if (isNumberEvent(event)) {
-                        const start = stateManager.cache.mutipleEdit.paramStart;
-                        const end = stateManager.cache.mutipleEdit.paramEnd;
-                        const param = stateManager.cache.mutipleEdit.param;
-                        const easing = stateManager.cache.mutipleEdit.paramEasing;
-
-                        const value = stateManager.cache.mutipleEdit.isDynamic ?
-                            easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start :
-                            param;
-
-                        modifyEventWithNumber(event, attrName, value, stateManager.cache.mutipleEdit.mode);
+                    else if (attrName === "tint" || attrName === "tintHitEffects") {
+                        modifyNoteWithColor(note, attrName, valueColor, stateManager.cache.mutipleEdit.mode);
                     }
-                    else if (isColorEvent(event)) {
-                        const param: RGBcolor = stateManager.cache.mutipleEdit.paramColor;
-                        const easing = stateManager.cache.mutipleEdit.paramEasing;
-                        const value = stateManager.cache.mutipleEdit.isDynamic ?
+                    else if (attrName === "hitsound") {
+                        modifyNoteWithText(note, attrName, valueString, stateManager.cache.mutipleEdit.mode);
+                    }
+                    else {
+                        modifyNoteWithNumber(note, attrName, value, stateManager.cache.mutipleEdit.mode);
+                    }
+                });
+            }
+            else {
+                const eventTypes = stateManager.cache.mutipleEdit.eventTypes.length === 0 ?
+                    [...baseEventTypes, ...extendedEventTypes] :
+                    stateManager.cache.mutipleEdit.eventTypes;
+                let isSucceeded = false;
+                for (const eventType of eventTypes) {
+                    const events = selectionManager.selectedElements.filter((element): element is AbstractEvent => isEvent(element) && element.type === eventType).sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
+                    const length = events.length;
+                    if (length > 0) {
+                        isSucceeded = true;
+                    }
+                    else {
+                        continue;
+                    }
+                    events.forEach((event, i) => {
+                        const attrName = stateManager.cache.mutipleEdit.attributeEvent;
+                        if (attrName === "easingType") {
+                            historyManager.recordModifyEvent(event.id, "easingType", stateManager.cache.mutipleEdit.paramEasing, event.easingType);
+                            event.easingType = stateManager.cache.mutipleEdit.paramEasing;
+                        }
+                        else if (attrName === "startTime" || attrName === "endTime" || attrName === "bothTime") {
+                            modifyWithBeats(event, attrName, stateManager.cache.mutipleEdit.paramBeats, stateManager.cache.mutipleEdit.mode);
+                        }
+                        else if (isNumberEvent(event)) {
+                            const start = stateManager.cache.mutipleEdit.paramStart;
+                            const end = stateManager.cache.mutipleEdit.paramEnd;
+                            const param = stateManager.cache.mutipleEdit.param;
+                            const easing = stateManager.cache.mutipleEdit.paramEasing;
+
+                            const value = stateManager.cache.mutipleEdit.isDynamic ?
+                                easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start :
+                                param;
+
+                            modifyEventWithNumber(event, attrName, value, stateManager.cache.mutipleEdit.mode);
+                        }
+                        else if (isColorEvent(event)) {
+                            const param: RGBcolor = stateManager.cache.mutipleEdit.paramColor;
+                            const easing = stateManager.cache.mutipleEdit.paramEasing;
+                            const value = stateManager.cache.mutipleEdit.isDynamic ?
                             ([0, 1, 2] as const).map(num => {
                                 const start = stateManager.cache.mutipleEdit.paramStartColor[num];
                                 const end = stateManager.cache.mutipleEdit.paramEndColor[num];
                                 return easingFuncs[easing](length === 1 ? 0 : i / (length - 1)) * (end - start) + start;
                             }) as RGBcolor :
-                            param;
+                                param;
 
-                        modifyEventWithColor(event, attrName, value, stateManager.cache.mutipleEdit.mode);
-                    }
-                    else if (isTextEvent(event)) {
-                        const param = stateManager.cache.mutipleEdit.paramText;
-                        const value = param;
+                            modifyEventWithColor(event, attrName, value, stateManager.cache.mutipleEdit.mode);
+                        }
+                        else if (isTextEvent(event)) {
+                            const param = stateManager.cache.mutipleEdit.paramText;
+                            const value = param;
 
-                        modifyEventWithText(event, attrName, value, stateManager.cache.mutipleEdit.mode);
-                    }
-                });
-            }
+                            modifyEventWithText(event, attrName, value, stateManager.cache.mutipleEdit.mode);
+                        }
+                    });
+                }
 
-            if (!isSucceeded) {
-                const suffix = stateManager.cache.mutipleEdit.eventTypes.length === 0 ? "" : stateManager.cache.mutipleEdit.eventTypes.join("、");
-                throw new Error(`当前没有选中${suffix}事件`);
+                if (!isSucceeded) {
+                    const suffix = stateManager.cache.mutipleEdit.eventTypes.length === 0 ? "" : stateManager.cache.mutipleEdit.eventTypes.join("、");
+                    throw new Error(`当前没有选中${suffix}事件`);
+                }
             }
         }
-        historyManager.ungroup();
+        finally {
+            historyManager.ungroup();
+        }
     }
 }

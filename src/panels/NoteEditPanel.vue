@@ -219,6 +219,8 @@
 </template>
 <script setup lang='ts'>
 import { formatBeats, makeSureBeatsValid, parseBeats } from "@/models/rpe/beats";
+import { isEqual } from "lodash";
+import type { HistoryType } from "@/eventEmitter";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef, watch } from "vue";
 import { INote, INoteExtendedOptions, NoteAbove, noteAttributes, NoteFake, NoteType } from "../models/rpe/note";
 import MyInput from "@/myElements/MyInput.vue";
@@ -256,13 +258,18 @@ interface NoteExtends {
 }
 const historyManager = store.useManager("historyManager");
 
-// const mouseManager = store.useManager("mouseManager");
+const mouseManager = store.useManager("mouseManager");
 const seperator = " ";
 const attributes = noteAttributes;
 watch(model, () => {
     for (const attr of attributes) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (inputNote[attr] as any) = model.value[attr];
+
+        // 面板切换到了另一个音符，旧值也必须一起换成新音符的值，
+        // 否则编辑新音符时会把上一个音符的属性值当成旧值记进历史记录
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (oldValues[attr] as any) = model.value[attr];
     }
     inputStartEndTime.value?.updateShowedValue();
     inputType.value?.updateShowedValue();
@@ -399,10 +406,16 @@ function updateInput<K extends keyof INote>(...attrNames: K[]) {
 }
 
 function createHistory() {
-    // 遍历新值和旧值，找到不一样的属性
-    for (const attr of attributes) {
-        if (inputNote[attr] !== oldValues[attr]) {
-            // mouseManager.checkMouseUp();
+    // 遍历新值和旧值，找到真正发生了变化的属性（时间、颜色是数组，必须按值比较）
+    const changedAttributes = attributes.filter(attr => !isEqual(inputNote[attr], oldValues[attr]));
+
+    if (changedAttributes.length > 0) {
+        // 如果鼠标还按着（正在拖动元素），先把拖动的历史记录补上，避免两种记录互相穿插导致错乱
+        mouseManager.checkMouseUp();
+
+        // 对同一个音符的连续编辑合并成一条历史记录
+        historyManager.beginMerge(`note:${model.value.id}`, `编辑音符 ${model.value.id}`);
+        for (const attr of changedAttributes) {
             historyManager.recordModifyNote(model.value.id, attr, inputNote[attr], oldValues[attr]);
         }
     }
@@ -417,9 +430,21 @@ function createHistory() {
 function updateTime() {
     updateInput("startTime", "endTime", "positionX");
 }
+
+/**
+ * 撤销 / 重做后，元素被外部修改，面板里的输入值和旧值都必须同步成元素当前的值，
+ * 否则下一次在面板里编辑时会把过期的值当成旧值记进历史记录，撤销就回不到正确的状态
+ */
+function syncWithModel(reason: HistoryType) {
+    if (reason !== "UNDO" && reason !== "REDO" && reason !== "CLEAR") {
+        return;
+    }
+    updateInput(...attributes);
+}
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);
     globalEventEmitter.on("ELEMENT_DRAGGED", updateTime);
+    globalEventEmitter.on("HISTORY_UPDATE", syncWithModel);
 });
 onBeforeUnmount(() => {
     if (store.getNoteById(model.value.id)) {
@@ -427,6 +452,7 @@ onBeforeUnmount(() => {
     }
     globalEventEmitter.off("REVERSE", reverse);
     globalEventEmitter.off("ELEMENT_DRAGGED", updateTime);
+    globalEventEmitter.off("HISTORY_UPDATE", syncWithModel);
 });
 function reverse() {
     inputNote.positionX = -inputNote.positionX;
