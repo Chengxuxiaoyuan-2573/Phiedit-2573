@@ -464,12 +464,34 @@ class ConvertManager {
     }
 
     /**
+     * 给事件附加显式跳变元数据（transformStart / transformEnd）。
+     *
+     * 官方 Zero / One 缓动与同刻关键帧表达的是「瞬时跳变」：数值上事件恒定于目标值，
+     * 但跳变前后的差值必须绕锚点作用在噪域中心轨迹上（例如出生即旋转的方块会被甩到锚点周围）。
+     * 渲染器靠这两个字段还原跳变；移动通道没有锚点，跳变只是位置突变，无需记录。
+     */
+    private attachBlockAreaJumpMetadata(
+        event: IEvent<number>,
+        fromValue: number,
+        toValue: number,
+        anchor?: Point
+    ): IEvent<number> {
+        if (anchor !== undefined && fromValue !== toValue) {
+            event.transformStart = fromValue;
+            event.transformEnd = toValue;
+        }
+        return event;
+    }
+
+    /**
      * 把官方噪域中某一个通道的关键帧序列转换为 RPE 的数值事件序列。
      *
      * 官方噪域的事件是「关键帧」形式：每一段连接相邻两个关键帧，
      * 段的缓动取该段**起始**关键帧的缓动编号（与 RPE Next 的实现一致；
      * 官方文档的措辞更像取结束关键帧，若游戏内表现不符只需交换这里的取值方向）。
-     * 第一个关键帧之前数值保持默认值，到第一个关键帧的时间点才变为它的值。
+     * 第一个关键帧之前数值保持默认值；关键帧时间到达时数值才变为关键帧的值，
+     * 因此「出生即恒定值」而关键帧没有写跳变（如普通的 Linear 单关键帧）时，
+     * 方块就是以该值出生的，不存在绕锚点的跳变变换。
      *
      * 官方有三种缓动无法直接用 RPE 的缓动函数表示，需要单独处理：
      *
@@ -482,6 +504,9 @@ class ConvertManager {
      *    这里用一个数值恒定的区间事件表示「保持」，跳变则由下一段的起始值完成；
      *  - One：曲线恒为 1，该段一开始就跳到下一个关键帧的值并保持，
      *    用一个数值恒等于目标值的区间事件表示即可。
+     *
+     *  Zero / One 与同刻关键帧的跳变会用 transformStart / transformEnd 元数据显式记录
+     * （只记录带锚点的缩放 / 旋转通道），渲染时跳变绕锚点作用在中心轨迹上。
      *
      * 最后一个关键帧的时间点会补一个瞬时事件固定它的值，
      * 使链尾（包括 Zero / One 的跳变）之后的数值保持在最后一个关键帧的值上。
@@ -511,11 +536,13 @@ class ConvertManager {
 
             if (keyframe.easeType === OFFICIAL_EASE_ZERO) {
                 // 保持该关键帧的值，到下一个关键帧的时间点才跳到它的值
-                events.push(this.createKeyframeEvent(startTime, endTime, startValue, startValue, EasingType.Linear, anchor));
+                const event = this.createKeyframeEvent(startTime, endTime, startValue, startValue, EasingType.Linear, anchor);
+                events.push(this.attachBlockAreaJumpMetadata(event, startValue, endValue, anchor));
             }
             else if (keyframe.easeType === OFFICIAL_EASE_ONE) {
                 // 该段一开始就跳到下一个关键帧的值并保持
-                events.push(this.createKeyframeEvent(startTime, endTime, endValue, endValue, EasingType.Linear, anchor));
+                const event = this.createKeyframeEvent(startTime, endTime, endValue, endValue, EasingType.Linear, anchor);
+                events.push(this.attachBlockAreaJumpMetadata(event, startValue, endValue, anchor));
             }
             else if (keyframe.easeType === OFFICIAL_EASE_IN_OUT_QUINT) {
                 // 从正中间切成两段：前半段用五次幂缓入，后半段用五次幂缓出
@@ -527,14 +554,21 @@ class ConvertManager {
                 events.push(this.createKeyframeEvent(middleTime, endTime, middleValue, endValue, EasingType.OutQuint, anchor));
             }
             else {
-                events.push(this.createKeyframeEvent(
+                const event = this.createKeyframeEvent(
                     startTime,
                     endTime,
                     startValue,
                     endValue,
                     this.getBlockAreaEasingType(keyframe.easeType, unknownEasingTypes),
                     anchor
-                ));
+                );
+
+                // 同刻关键帧（官方常用一对同刻关键帧表达瞬时跳变）：
+                // 数值事件退化成恒定值，跳变本身用元数据记录
+                if (beatsCompare(startTime, endTime) === 0) {
+                    this.attachBlockAreaJumpMetadata(event, startValue, endValue, anchor);
+                }
+                events.push(event);
             }
         }
 

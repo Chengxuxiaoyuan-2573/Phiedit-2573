@@ -1727,8 +1727,9 @@ export default class ChartRenderer extends Manager {
         ctx.globalAlpha = 1;
         ctx.fillStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_FILL_COLOR);
 
-        // 用 evenodd 规则填充，这样区域内部的洞不会被填充
-        ctx.fill(path, "evenodd");
+        // 用 nonzero 规则填充：洞的环绕方向与外环相反不会被填充，
+        // 而布尔运算降级保留的相互重叠的分块也不会被挖出空洞
+        ctx.fill(path, "nonzero");
 
         // 描边会把外边界与洞的边界一起画出来
         ctx.strokeStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR);

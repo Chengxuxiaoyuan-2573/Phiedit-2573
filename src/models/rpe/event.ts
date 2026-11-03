@@ -36,6 +36,17 @@ export interface IEvent<T = unknown> {
      */
     anchor?: Point;
 
+    /**
+     * 显式跳变的起始值（噪域的缩放 / 旋转事件使用，可选）。
+     *
+     * 官方噪域用 Zero / One 缓动表达瞬时跳变，转换成区间事件后数值上是恒定的，
+     * 该字段记录跳变前的真实值，渲染时跳变会绕锚点作用在中心轨迹上（缺省时视为没有跳变）。
+     */
+    transformStart?: number;
+
+    /** 显式跳变的目标值，与 transformStart 配对（可选）。缺省时视为等于 end */
+    transformEnd?: number;
+
     /** 事件是否被禁用 */
     isDisabled: boolean;
 }
@@ -141,6 +152,12 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
 
     /** 事件的锚点，即缩放 / 旋转的支点（噪域使用）。没有该字段时由噪域按中心补上 */
     anchor?: Point;
+
+    /** 显式跳变的起始值（噪域缩放 / 旋转事件的 Zero / One 跳变），没有时视为没有跳变 */
+    transformStart?: number;
+
+    /** 显式跳变的目标值，与 transformStart 配对，没有时视为等于 end */
+    transformEnd?: number;
     isDisabled: boolean = false;
 
     cachedStartSeconds: number;
@@ -183,6 +200,12 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
         // 只有带锚点的事件（噪域的缩放 / 旋转事件）才写出 anchor，避免污染其它事件
         if (this.anchor) {
             event.anchor = { x: this.anchor.x, y: this.anchor.y };
+        }
+
+        // 只有带显式跳变的事件（噪域的 Zero / One 跳变）才写出这两个字段
+        if (this.transformStart !== undefined) {
+            event.transformStart = this.transformStart;
+            event.transformEnd = this.transformEnd;
         }
         return event;
     }
@@ -298,6 +321,17 @@ export abstract class AbstractEvent<T = unknown> extends TimeSegment implements 
             // 只有缩放 / 旋转事件会用到锚点，其余事件缺失该字段属于正常情况，此时保持为 undefined
             if ("anchor" in event) {
                 this.anchor = readEventAnchor(event.anchor);
+            }
+
+            // transformStart / transformEnd（噪域显式跳变元数据，可选）
+            if ("transformStart" in event && isNumber(event.transformStart)) {
+                this.transformStart = event.transformStart;
+                if ("transformEnd" in event && isNumber(event.transformEnd)) {
+                    this.transformEnd = event.transformEnd;
+                }
+                else {
+                    this.transformEnd = event.transformStart;
+                }
             }
 
             // isDisabled
