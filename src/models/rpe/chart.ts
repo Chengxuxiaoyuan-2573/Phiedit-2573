@@ -95,6 +95,8 @@ export class Chart implements IChart, IObjectizable {
         }
 
         for (const blockArea of this.blockAreaList) {
+            blockArea.calculateSeconds();
+
             for (const event of blockArea.getAllEvents()) {
                 event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
                 event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);

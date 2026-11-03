@@ -679,8 +679,8 @@ export default class EditorRenderer extends Manager {
             }
 
             const x = coordinateManager.scaleX(blockArea.editorPositionX);
-            const appearY = coordinateManager.getRelativePositionYOfSeconds(beatsToSeconds(chart.BPMList, blockArea.appearTime));
-            const disappearY = coordinateManager.getRelativePositionYOfSeconds(beatsToSeconds(chart.BPMList, blockArea.disappearTime));
+            const appearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedStartSeconds);
+            const disappearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedEndSeconds);
             const top = Math.min(appearY, disappearY);
             const height = Math.max(Math.abs(disappearY - appearY), Constants.EDITOR_VIEW_BLOCK_AREA_MIN_HEIGHT);
 

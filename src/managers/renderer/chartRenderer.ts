@@ -8,7 +8,6 @@ import { easingFuncs, EasingType } from "@/models/rpe/easing";
 import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/rpe/event";
 import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
 import { BlockArea } from "@/models/rpe/blockArea";
-import { beatsToSeconds } from "@/models/rpe/beats";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
@@ -1646,12 +1645,9 @@ export default class ChartRenderer extends Manager {
      * @returns 显示信息。噪域此刻不显示时返回 null
      */
     private getBlockAreaDisplay(blockArea: BlockArea, seconds: number): BlockAreaDisplay | null {
-        const chart = store.useChart();
-        const { BPMList } = chart;
-
         // 噪域只在出现时间与消失时间之间显示
-        const appearSeconds = beatsToSeconds(BPMList, blockArea.appearTime);
-        const disappearSeconds = beatsToSeconds(BPMList, blockArea.disappearTime);
+        const appearSeconds = blockArea.cachedStartSeconds;
+        const disappearSeconds = blockArea.cachedEndSeconds;
         if (seconds < appearSeconds || seconds > disappearSeconds) {
             return null;
         }
@@ -1660,8 +1656,8 @@ export default class ChartRenderer extends Manager {
         let state: BlockAreaState = "inactive";
         let flashStartSeconds = 0;
         for (const interval of blockArea.activeIntervals) {
-            const startSeconds = beatsToSeconds(BPMList, interval.startTime);
-            const endSeconds = beatsToSeconds(BPMList, interval.endTime);
+            const startSeconds = interval.cachedStartSeconds;
+            const endSeconds = interval.cachedEndSeconds;
 
             if (seconds >= startSeconds && seconds <= endSeconds) {
                 state = "active";

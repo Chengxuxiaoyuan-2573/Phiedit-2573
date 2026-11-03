@@ -12,7 +12,6 @@ import Manager from "./abstract";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { SelectableElement } from "@/models/rpe/element";
 import { blockAreaEventTracks, getBlockAreaEventTypeOfTrack } from "@/models/rpe/blockArea";
-import { beatsToSeconds } from "@/models/rpe/beats";
 
 export default class BoxesManager extends Manager {
     /**
@@ -163,8 +162,8 @@ export default class BoxesManager extends Manager {
         const viewBox = Constants.EDITOR_VIEW_NOTES_VIEWBOX;
         for (const blockArea of chart.blockAreaList) {
             const x = coordinateManager.scaleX(blockArea.editorPositionX);
-            const appearY = coordinateManager.getRelativePositionYOfSeconds(beatsToSeconds(chart.BPMList, blockArea.appearTime));
-            const disappearY = coordinateManager.getRelativePositionYOfSeconds(beatsToSeconds(chart.BPMList, blockArea.disappearTime));
+            const appearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedStartSeconds);
+            const disappearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedEndSeconds);
             const top = Math.min(appearY, disappearY);
             const height = Math.max(Math.abs(disappearY - appearY), Constants.EDITOR_VIEW_BLOCK_AREA_MIN_HEIGHT);
             const clippedTop = Math.max(top, viewBox.top);

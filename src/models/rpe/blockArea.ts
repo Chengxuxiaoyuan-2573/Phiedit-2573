@@ -7,7 +7,7 @@
 import { isObject, isNumber, isString, isArray, clamp } from "lodash";
 import { Point } from "@/tools/mathUtils";
 import MathUtils from "@/tools/mathUtils";
-import { Beats, BPM, beatsCompare, makeSureBeatsValid } from "./beats";
+import { Beats, BPM, beatsCompare, beatsToSeconds, makeSureBeatsValid } from "./beats";
 import { IEvent, NumberEvent, findLastEventIndex, interpolateNumberEventValue } from "./event";
 import { isArrayOfNumbers } from "@/tools/typeTools";
 import { IObjectizable } from "../objectizable";
@@ -307,9 +307,9 @@ export class ActiveInterval extends TimeSegment implements IActiveInterval, IObj
 export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAreaExtendedOptions {
     Name = DEFAULT_NAME;
     activeIntervals: ActiveInterval[] = [];
-    appearTime: Beats = [...DEFAULT_BEATS] as Beats;
+    private _appearTime: Beats = [...DEFAULT_BEATS] as Beats;
+    private _disappearTime: Beats = [...DEFAULT_BEATS] as Beats;
     bottomLeft: Point = { ...DEFAULT_POINT };
-    disappearTime: Beats = [...DEFAULT_BEATS] as Beats;
     editorPositionX = DEFAULT_EDITOR_POSITION_X;
     isInvert = false;
     moveXEvents: NumberEvent[] = [];
@@ -321,6 +321,33 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
     readonly errorMessages: string[] = [];
 
     readonly BPMList: BPM[];
+
+    /** 出现时间对应的秒数缓存，仅在 appearTime / disappearTime 被修改或 BPM 列表变化时重新计算 */
+    cachedStartSeconds = 0;
+
+    /** 消失时间对应的秒数缓存，仅在 appearTime / disappearTime 被修改或 BPM 列表变化时重新计算 */
+    cachedEndSeconds = 0;
+
+    get appearTime() {
+        return this._appearTime;
+    }
+    set appearTime(beats: Beats) {
+        this._appearTime = makeSureBeatsValid(beats);
+        this.calculateSeconds();
+    }
+    get disappearTime() {
+        return this._disappearTime;
+    }
+    set disappearTime(beats: Beats) {
+        this._disappearTime = makeSureBeatsValid(beats);
+        this.calculateSeconds();
+    }
+
+    /** 重新计算出现 / 消失时间的秒数缓存 */
+    calculateSeconds() {
+        this.cachedStartSeconds = beatsToSeconds(this.BPMList, this._appearTime);
+        this.cachedEndSeconds = beatsToSeconds(this.BPMList, this._disappearTime);
+    }
 
     /**
      * 噪域编号。
