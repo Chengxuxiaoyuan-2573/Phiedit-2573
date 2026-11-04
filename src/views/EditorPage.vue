@@ -776,6 +776,39 @@ store.resourcePackageRef.value = await resourcePackageLoader.load(respackArrayBu
 
 loadEnd();
 
+/** 当前谱面音乐的时长，音频元数据加载完成后才能确定 */
+let musicDuration: number | null = null;
+
+/** 渲染起止时间是否已经根据音乐时长初始化过 */
+let renderTimeInitialized = false;
+
+/**
+ * 使用当前谱面音乐的时长初始化渲染起止时间。
+ *
+ * 渲染起止时间由当前谱面的音乐决定，
+ * 不从设置文件继承，避免打开新谱面时沿用上一个谱面的值。
+ */
+function initRenderTime() {
+    if (renderTimeInitialized) return;
+    if (musicDuration === null) return;
+    renderTimeInitialized = true;
+    const duration = musicDuration;
+    const manager = store.useManager("settingsManager");
+    manager.settings.renderTimeStart = 0;
+    manager.settings.renderTimeEnd = duration;
+    manager.saveSettings();
+}
+
+/** 音频元数据加载完毕，此时才能确定音乐时长 */
+function onAudioMetadataReady() {
+    const audio = store.audioRef.value;
+    if (!audio) return;
+    const duration = audio.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    musicDuration = duration;
+    initRenderTime();
+}
+
 // 创建并设置非全局的 managers
 new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
     store.setManager(managerName, new managerConstructor());
@@ -1113,6 +1146,16 @@ async function renderVideo() {
     const fps = settingsManager._settings.renderFPS;
     const cachedSettings = { ...settingsManager._settings };
 
+    // 渲染区间必须落在音乐时长之内，
+    // 否则截取出来的音视频会不完整
+    if (musicDuration !== null) {
+        settingsManager.settings.renderTimeStart = clamp(settingsManager.settings.renderTimeStart, 0, musicDuration);
+        settingsManager.settings.renderTimeEnd = clamp(settingsManager.settings.renderTimeEnd, 0, musicDuration);
+        if (settingsManager.settings.renderTimeEnd <= settingsManager.settings.renderTimeStart) {
+            settingsManager.settings.renderTimeEnd = musicDuration;
+        }
+    }
+
     let videoRenderingTotalTime = 0;
     let videoRenderingCount = 0;
 
@@ -1248,23 +1291,7 @@ async function renderVideo() {
     }
 }
 
-function onSettingsLoaded() {
-    const audio = store.useAudio();
-    audio.addEventListener("canplay", () => {
-        settingsManager.settings.renderTimeStart = 0;
-        settingsManager.settings.renderTimeEnd = audio.duration;
-        settingsManager.saveSettings();
-    }, {
-        once: true
-    });
-}
-
-onMounted(() => {
-    globalEventEmitter.on("SETTINGS_LOADED", onSettingsLoaded);
-});
-
 onBeforeUnmount(() => {
-    globalEventEmitter.off("SETTINGS_LOADED", onSettingsLoaded);
     settingsManager.saveSettings();
 });
 
@@ -1493,6 +1520,16 @@ onMounted(() => {
     audio.addEventListener("pause", audioOnPause);
     audio.addEventListener("play", audioOnPlay);
 
+    // 音乐时长要等音频元数据加载完成后才能确定，
+    // 这里用它来初始化渲染结束时间
+    audio.addEventListener("loadedmetadata", onAudioMetadataReady);
+    audio.addEventListener("durationchange", onAudioMetadataReady);
+
+    // 音频有可能在挂载之前就已经加载完了，这时需要主动读取一次时长
+    if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        onAudioMetadataReady();
+    }
+
     const tipInterval = setInterval(() => {
         tip.value = getRandomTip();
     }, TIP_SHOW_TIME);
@@ -1521,6 +1558,8 @@ onMounted(() => {
         audio.removeEventListener("timeupdate", audioOnTimeUpdate);
         audio.removeEventListener("pause", audioOnPause);
         audio.removeEventListener("play", audioOnPlay);
+        audio.removeEventListener("loadedmetadata", onAudioMetadataReady);
+        audio.removeEventListener("durationchange", onAudioMetadataReady);
 
         // 停止渲染循环
         pauseRenderLoop();
