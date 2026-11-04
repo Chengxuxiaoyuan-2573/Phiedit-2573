@@ -75,7 +75,6 @@ export const DEFAULT_TIPS = [
     "Tip: 这是一个来自v0.1.0的Tip!",
     "Tip: 我预览，我TUI",
     "Tip: FPS太低怎么办，换新电脑，新电脑上哪买，_________________________",
-    "Tip: 你知道吗？Phiedit 2573有一个隐藏图标！你只要编译了，找到\\dist_electron\\bundled\\favicon.ico就能看到！",
     "Tip: UK是Unknown不是英国！",
     "//你看不见我"
 ].join("\n");
