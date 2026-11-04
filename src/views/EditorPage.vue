@@ -51,51 +51,98 @@
                     <ElRadioButton
                         class="note-type-option note-type-tap"
                         :value="NoteType.Tap"
+                        title="快捷键：Q"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.tap"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Tap（Q）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#00B3FF"
+                                />
+                            </svg>
+                            <p>Tap</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-drag"
                         :value="NoteType.Drag"
+                        title="快捷键：W"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.drag"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Drag（W）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#FFBA30"
+                                />
+                            </svg>
+                            <p>Drag</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-flick"
                         :value="NoteType.Flick"
+                        title="快捷键：E"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.flick"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Flick（E）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#FF8585"
+                                />
+                            </svg>
+                            <p>Flick</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-hold"
                         :value="NoteType.Hold"
+                        title="快捷键：R"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.hold"
-                            rotate="anti-clockwise"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Hold（R）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 1L90 1L90 29L10 29L10 1Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#54CCFF"
+                                />
+                            </svg>
+                            <p>Hold</p>
+                        </div>
                     </ElRadioButton>
                 </ElRadioGroup>
                 <p class="info">
@@ -113,6 +160,101 @@
                         ({{ mouseX.toFixed(0) }}, {{ mouseY.toFixed(0) }})
                     </span>
                 </p>
+                <div class="tools">
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="剪切（Ctrl+X）"
+                        @click="globalEventEmitter.emit('CUT')"
+                    >
+                        <Scissor />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="复制（Ctrl+C）"
+                        @click="globalEventEmitter.emit('COPY')"
+                    >
+                        <CopyDocument />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="粘贴（Ctrl+V）"
+                        @click="globalEventEmitter.emit('PASTE')"
+                    >
+                        <DocumentCopy />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        color="#fe3400"
+                        class="tool-icon"
+                        title="删除（Delete）"
+                        @click="globalEventEmitter.emit('DELETE')"
+                    >
+                        <Delete />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="撤销（Ctrl+Z）"
+                        @click="globalEventEmitter.emit('UNDO')"
+                    >
+                        <RefreshLeft />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="重做（Ctrl+Y）"
+                        @click="globalEventEmitter.emit('REDO')"
+                    >
+                        <RefreshRight />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        :class="{
+                            active: stateManager.state.isPreviewing
+                        }"
+                        title="预览（I）"
+                        @click="globalEventEmitter.emit('TOGGLE_PREVIEW')"
+                    >
+                        <Monitor />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="保存（Ctrl+S）"
+                        @click="globalEventEmitter.emit('SAVE')"
+                    >
+                        <svg viewBox="0 0 16 16">
+                            <path
+                                d="m14.414 3.207l-1.621-1.621A2 2 0 0 0 11.379 1H3c-1.103 0-2 .897-2 2v10c0 1.103.897 2 2 2h10c1.103 0 2-.897 2-2V4.621a2 2 0 0 0-.586-1.414M9 2v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5V2zM5 14V9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V14zm9-1c0 .551-.449 1-1 1h-1V9.5c0-.827-.673-1.5-1.5-1.5h-5C4.673 8 4 8.673 4 9.5V14H3c-.551 0-1-.449-1-1V3c0-.551.449-1 1-1h2v1.5C5 4.327 5.673 5 6.5 5h2c.827 0 1.5-.673 1.5-1.5V2h1.379c.263 0 .521.107.707.293l1.621 1.621c.186.186.293.444.293.707z"
+                            />
+                        </svg>
+                    </ElIcon>
+                    <el-divider direction="vertical" />
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="当前判定线编号"
+                    >
+                        <svg viewBox="0 0 56 56">
+                            <path
+                                fill="currentColor"
+                                d="M8.746 37.703h7.149l-2.133 10.594a4 4 0 0 0-.07.75c0 1.148.796 1.781 1.898 1.781c1.125 0 1.945-.61 2.18-1.758l2.296-11.367h11.086L29.02 48.297c-.07.234-.093.516-.093.75c0 1.148.797 1.781 1.922 1.781s1.945-.61 2.18-1.758L35.3 37.703h8.367c1.289 0 2.18-.937 2.18-2.203c0-1.031-.703-1.875-1.758-1.875h-7.946L38.63 21.25h8.203c1.29 0 2.18-.937 2.18-2.203c0-1.031-.703-1.875-1.758-1.875H39.45l1.922-9.445c.023-.141.07-.446.07-.75c0-1.149-.82-1.805-1.945-1.805c-1.312 0-1.898.726-2.133 1.828l-2.062 10.172H24.215l1.922-9.445c.023-.141.07-.446.07-.75c0-1.149-.844-1.805-1.945-1.805c-1.336 0-1.946.726-2.157 1.828l-2.062 10.172h-7.687c-1.29 0-2.18.984-2.18 2.273c0 1.055.703 1.805 1.758 1.805h7.289l-2.485 12.375h-7.57c-1.29 0-2.18.984-2.18 2.273c0 1.055.703 1.805 1.758 1.805m12.14-4.078l2.509-12.375H34.48l-2.508 12.375Z"
+                            />
+                        </svg>
+                    </ElIcon>
+                    <div class="judge-line-number-input-wrapper">
+                        <MyInputNumber
+                            v-model="stateManager.state.currentJudgeLineNumber"
+                            :min="0"
+                            :max="chart.judgeLineList.length - 1"
+                            title="当前判定线编号"
+                        />
+                    </div>
+                </div>
                 <MySelect
                     v-if="audioRef"
                     v-model="audioRef.playbackRate"
@@ -710,7 +852,6 @@ import MySelect from "@/myElements/MySelect.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyBackHeader from "@/myElements/MyBackHeader.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import MyImage from "@/myElements/MyImage.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import MyLink from "@/myElements/MyLink.vue";
 import MyInput from "@/myElements/MyInput.vue";
@@ -1628,7 +1769,7 @@ onMounted(() => {
     grid-template-areas:
         "audio-player audio-player audio-player info"
         "note-type-select speed-select horizontal-input vertical-input"
-        "note-type-select hint-text event-layer-select offset-input";
+        "tools hint-text event-layer-select offset-input";
     gap: 10px;
 }
 
@@ -1645,6 +1786,30 @@ onMounted(() => {
     justify-content: space-between;
 }
 
+.tools {
+    grid-area: tools;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-icon {
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.tool-icon:hover {
+    color: var(--el-color-primary);
+}
+
+.tool-icon:active {
+    color: var(--el-color-primary-dark);
+}
+
+.tool-icon.active {
+    color: var(--el-color-primary);
+}
+
 .event-layer-hint-text {
     grid-area: hint-text;
     display: flex;
@@ -1653,6 +1818,11 @@ onMounted(() => {
 
 .note-type-select {
     grid-area: note-type-select;
+}
+
+.note-type-button-wrapper {
+    display: flex;
+    align-items: center;
 }
 
 .speed-select {
