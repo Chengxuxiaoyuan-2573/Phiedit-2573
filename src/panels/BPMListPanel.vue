@@ -10,11 +10,6 @@
         <Teleport :to="props.titleTeleport">
             BPM编辑
         </Teleport>
-        <em style="font-size: 0.8em;">
-            提示：大多数音乐的BPM都是一定的，因此只需填写一个BPM，不需要添加多个BPM。<br>
-            如果你的音乐含有变速，请添加多个BPM，并输入BPM变化的时间和变化后的BPM。<br>
-            如果你不知道BPM，可以使用在线测BPM的工具。
-        </em>
         <ElRow>
             <h3>
                 时间
@@ -51,6 +46,9 @@
         >
             添加
         </MyButton>
+        <p class="extra-description">
+            请填写音乐的 BPM。如果音乐的 BPM 会变化，请添加多个 BPM。如果你不知道 BPM，请查找歌曲相关信息，也可以使用在线测 BPM 的工具。
+        </p>
     </div>
 </template>
 <script setup lang="ts">

@@ -266,14 +266,16 @@
                         />
                     </div>
                 </div>
-                <MySelect
+                <MySlider
                     v-if="audioRef"
                     v-model="audioRef.playbackRate"
                     class="speed-select"
-                    :options="speedOptions"
+                    :min="0"
+                    :max="3"
+                    :step="0.1"
                 >
-                    倍速
-                </MySelect>
+                    倍速 {{ audioRef.playbackRate.toFixed(1) }}x
+                </MySlider>
                 <MyInputNumber
                     v-model="stateManager.state.horizonalLineCount"
                     class="horizontal-input"
@@ -298,7 +300,7 @@
                         竖线数
                         <MyQuestionMark>
                             左边的音符编辑区域内有多少条竖线。用于让排键更规整。<br>
-                            建议调为19或21。如果要取消竖线，请设为0。取消竖线后你的排键可能会很乱。<br>
+                            比较常用的值为21。如果要取消竖线，请设为0。取消竖线后你的排键可能会很乱。<br>
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
@@ -377,6 +379,9 @@
                     <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
                     <p>Score: {{ judgeManager.judgeInfo.score }}</p>
                 </div>
+                <p class="extra-description">
+                    试玩模式仅用于试玩谱面，不能代表 Phigros 和 Phira 的游戏成绩。使用本软件的试玩模式游玩并公开屏元或手元时，应明确说明用 Phiedit 2573 的试玩模式游玩。
+                </p>
             </div>
             <template v-else-if="isBlockAreaModeLeftPanel">
                 <MyBackHeader
@@ -712,7 +717,7 @@
                     <MyInputNumber v-model="stateManager.state.judgementRule.flick.good[1]" />
                     <MyInputNumber v-model="stateManager.state.judgementRule.flick.bad[1]" />
                 </MyGridContainer>
-                <p style="margin-top: 10px">
+                <p class="extra-description">
                     单位为秒。每个种类的音符对应两行，分别代表判定区间的两个端点。
                 </p>
             </div>
@@ -916,7 +921,7 @@ import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/e
 import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/rpe/judgeLine";
 
 import MyButton from "@/myElements/MyButton.vue";
-import MySelect from "@/myElements/MySelect.vue";
+import MySlider from "@/myElements/MySlider.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyBackHeader from "@/myElements/MyBackHeader.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
@@ -1075,7 +1080,7 @@ const mainRef = ref<InstanceType<typeof ElMain> | null>(null);
 const isFullscreen = ref(false);
 
 /** 预览开启且音乐暂停时，在画布上显示蒙版（退出 / 重开 / 继续） */
-const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value);
+const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value && !stateManager.state.autoplay);
 
 /** 切换全屏（F11 或工具栏按钮），进入全屏时强制进入预览状态 */
 async function toggleFullscreen() {
@@ -1321,49 +1326,6 @@ const fpsColor = computed(() => {
         return "#ff0000";
     }
 });
-
-const speedOptions = [
-    {
-        label: "1.0x",
-        value: 1,
-        text: "1.0x",
-    },
-    {
-        label: "0.5x",
-        value: 0.5,
-        text: "0.5x",
-    },
-    {
-        label: "0.25x",
-        value: 0.25,
-        text: "0.25x",
-    },
-    {
-        label: "0.125x",
-        value: 0.125,
-        text: "0.125x",
-    },
-    {
-        label: "0.0x",
-        value: 0,
-        text: "0.0x",
-    },
-    {
-        label: "1.5x",
-        value: 1.5,
-        text: "1.5x",
-    },
-    {
-        label: "2.0x",
-        value: 2,
-        text: "2.0x",
-    },
-    {
-        label: "3.0x",
-        value: 3,
-        text: "3.0x",
-    },
-] as const;
 
 /** 视频渲染的进度 */
 const videoRenderingProgress = reactive({
@@ -2098,11 +2060,13 @@ onMounted(() => {
 
 .left-inner,
 .right-inner {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
     width: 100%;
+    padding-top: 10px;
 }
 
 .default-panel {

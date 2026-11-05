@@ -248,6 +248,10 @@ export default class ChartRenderer extends Manager {
             return;
         }
 
+        if (stateManager._state.autoplay) {
+            return;
+        }
+
         // 渲染视频时不绘制蒙版，避免蒙版被画进导出的视频里
         if (store.isRenderingVideo.value) {
             return;

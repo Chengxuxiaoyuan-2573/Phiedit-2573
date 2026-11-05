@@ -14,7 +14,6 @@
             :filter-method="filterMethod"
             :class="props.class"
             :multiple="props.multiple"
-            placeholder="暂无可用的选项"
             @change="onChange"
             @keydown.stop="onKeyDown"
         >

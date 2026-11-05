@@ -30,79 +30,84 @@
                 已选中{{ numOfNotes }}个音符和{{ numOfEvents }}个事件
             </template>
         </em>
-        <MyDialog open-text="移动到判定线">
-            <MyInputNumber
-                v-model="targetJudgeLineNumber"
-                :min="0"
-                :max="chart.judgeLineList.length - 1"
-            >
-                <template #prepend>
-                    移动到
-                </template>
-                <template #append>
-                    号判定线
-                </template>
-            </MyInputNumber>
-            <template #footer="{ close }">
-                <MyButton
-                    type="primary"
-                    @click="globalEventEmitter.emit('MOVE_TO_JUDGE_LINE', targetJudgeLineNumber), close()"
+        <MyGridContainer
+            v-if="numOfEvents > 0"
+            :columns="2"
+        >
+            <MyDialog open-text="移动到判定线">
+                <MyInputNumber
+                    v-model="targetJudgeLineNumber"
+                    :min="0"
+                    :max="chart.judgeLineList.length - 1"
                 >
-                    确定
-                </MyButton>
-            </template>
-        </MyDialog>
-        <MyDialog open-text="克隆">
-            请选择克隆的目标判定线：{{ stateManager.cache.clone.targetJudgeLines }}
-            <ElCheckboxGroup v-model="stateManager.cache.clone.targetJudgeLines">
-                <MyGridContainer :columns="10">
-                    <ElCheckboxButton
-                        v-for="(_, index) in chart.judgeLineList.length"
-                        :key="index"
-                        :value="index"
-                        :label="index"
+                    <template #prepend>
+                        移动到
+                    </template>
+                    <template #append>
+                        号判定线
+                    </template>
+                </MyInputNumber>
+                <template #footer="{ close }">
+                    <MyButton
+                        type="primary"
+                        @click="globalEventEmitter.emit('MOVE_TO_JUDGE_LINE', targetJudgeLineNumber), close()"
                     >
-                        {{ index }}
-                    </ElCheckboxButton>
-                </MyGridContainer>
-            </ElCheckboxGroup>
-            <MyInputBeats v-model="stateManager.cache.clone.timeDuration">
-                <template #prepend>
-                    持续时间
+                        确定
+                    </MyButton>
                 </template>
-            </MyInputBeats>
-            <MyInputBeats v-model="stateManager.cache.clone.timeDelta">
-                <template #prepend>
-                    克隆时间差
+            </MyDialog>
+            <MyDialog open-text="克隆">
+                请选择克隆的目标判定线：{{ stateManager.cache.clone.targetJudgeLines }}
+                <ElCheckboxGroup v-model="stateManager.cache.clone.targetJudgeLines">
+                    <MyGridContainer :columns="10">
+                        <ElCheckboxButton
+                            v-for="(_, index) in chart.judgeLineList.length"
+                            :key="index"
+                            :value="index"
+                            :label="index"
+                        >
+                            {{ index }}
+                        </ElCheckboxButton>
+                    </MyGridContainer>
+                </ElCheckboxGroup>
+                <MyInputBeats v-model="stateManager.cache.clone.timeDuration">
+                    <template #prepend>
+                        持续时间
+                    </template>
+                </MyInputBeats>
+                <MyInputBeats v-model="stateManager.cache.clone.timeDelta">
+                    <template #prepend>
+                        克隆时间差
+                    </template>
+                </MyInputBeats>
+                <p>
+                    例如：你选中了1~8号判定线，持续时间为8.0/1（8拍），克隆事件差为0.1/4（1/4拍），<br>
+                    则会把你选中的音符和事件依次复制到1，2，3，4，5，6，7，8，1，2，3...号判定线上，<br>
+                    每次复制都会延迟四分之一拍，一共复制32次。（因为8除以1/4等于32）<br>
+                    <em>注意，选择的判定线过少可能会导致事件重叠</em>
+                </p>
+                <template #footer="{ close }">
+                    <MyButton
+                        type="primary"
+                        @click="clone(), close()"
+                    >
+                        确定
+                    </MyButton>
                 </template>
-            </MyInputBeats>
-            <p>
-                例如：你选中了1~8号判定线，持续时间为8.0/1（8拍），克隆事件差为0.1/4（1/4拍），<br>
-                则会把你选中的音符和事件依次复制到1，2，3，4，5，6，7，8，1，2，3...号判定线上，<br>
-                每次复制都会延迟四分之一拍，一共复制32次。（因为8除以1/4等于32）<br>
-                <em>注意，选择的判定线过少可能会导致事件重叠</em>
-            </p>
-            <template #footer="{ close }">
-                <MyButton
-                    type="primary"
-                    @click="clone(), close()"
-                >
-                    确定
-                </MyButton>
-            </template>
-        </MyDialog>
-        <MyButton
-            v-if="numOfEvents > 0"
-            @click="globalEventEmitter.emit('DISABLE')"
-        >
-            禁用选中的{{ numOfEvents }}个事件（Ctrl+D）
-        </MyButton>
-        <MyButton
-            v-if="numOfEvents > 0"
-            @click="globalEventEmitter.emit('ENABLE')"
-        >
-            启用选中的{{ numOfEvents }}个事件（Ctrl+E）
-        </MyButton>
+            </MyDialog>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('DISABLE')"
+            >
+                禁用（Ctrl+D）
+            </MyButton>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('ENABLE')"
+            >
+                启用（Ctrl+E）
+            </MyButton>
+        </MyGridContainer>
         <MySelect
             v-model="stateManager.cache.mutipleEdit.type"
             :options="[
@@ -304,7 +309,6 @@ import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
 import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/rpe/event";
 import { describeBeats } from "@/models/rpe/beats";
-import { SelectableElement } from "@/models/rpe/element";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -709,6 +713,7 @@ async function clone() {
     globalEventEmitter.emit("CLONE");
 }
 
+/*
 function syncEventTypesFromSelection(selectedElements: readonly SelectableElement[]) {
     const types: string[] = [];
     for (const event of selectedElements) {
@@ -722,6 +727,7 @@ function syncEventTypesFromSelection(selectedElements: readonly SelectableElemen
     // 导致下拉菜单里残留上一次选中的事件类型。
     stateManager.cache.mutipleEdit.eventTypes = types;
 }
+*/
 
 function selectionUpdateHandler() {
     const selectedElements = selectionManager.selectedElements;
@@ -735,7 +741,8 @@ function selectionUpdateHandler() {
     }
     else if (selectedElements.every(element => isEvent(element))) {
         stateManager.cache.mutipleEdit.type = "event";
-        syncEventTypesFromSelection(selectedElements);
+
+        // syncEventTypesFromSelection(selectedElements);
     }
     else {
         // 混选了音符和事件时，批量编辑只能一次处理一种对象。

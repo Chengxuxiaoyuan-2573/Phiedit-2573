@@ -6,9 +6,6 @@
         <Teleport :to="props.titleTeleport">
             快速绑线
         </Teleport>
-        <p>
-            当前为{{ stateManager.state.currentJudgeLineNumber }}号线
-        </p>
         <p v-if="selectableLines.length === 0">
             暂无可选择的判定线
         </p>
@@ -69,6 +66,10 @@
         >
             绑线
         </MyButton>
+        <p class="extra-description">
+            请先框选要绑线的音符，然后选择要绑线的判定线，然后确认绑线，此时选中的音符就会被绑线到你选择的判定线上，但显示效果几乎没有差别。你可以在被绑线的判定线的其他事件层级上新增事件，以控制每一个单独的音符。<br>
+            绑线时，程序会按照时间先后顺序，将音符轮流移到每一条判定线上，并给其加上事件以让音符沿原来的轨迹运动。如果这些事件出现了重叠，请增加绑线的判定线数量。
+        </p>
     </div>
 </template>
 <script setup lang="ts">
