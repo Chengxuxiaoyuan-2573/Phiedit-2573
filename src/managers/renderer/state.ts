@@ -69,7 +69,10 @@ export default class StateManager extends Manager {
         autoplay: true,
 
         /** 判定规则 */
-        judgementRule: structuredClone(defaultJudgementRule)
+        judgementRule: structuredClone(defaultJudgementRule),
+
+        /** 当前是否处于全屏状态 */
+        isFullscreen: false
     };
 
     /** 状态对象，响应式 */

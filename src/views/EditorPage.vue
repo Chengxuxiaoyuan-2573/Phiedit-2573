@@ -225,7 +225,7 @@
                         :size="25"
                         class="tool-icon"
                         :class="{
-                            active: isFullscreen
+                            active: stateManager.state.isFullscreen
                         }"
                         title="全屏（F11），全屏时进入预览"
                         @click="globalEventEmitter.emit('TOGGLE_FULLSCREEN')"
@@ -1076,15 +1076,12 @@ const audioIsPlaying = ref(false);
 /** 中间画布区域的根元素（也是全屏的元素） */
 const mainRef = ref<InstanceType<typeof ElMain> | null>(null);
 
-/** 当前是否处于全屏状态 */
-const isFullscreen = ref(false);
-
 /** 预览开启且音乐暂停时，在画布上显示蒙版（退出 / 重开 / 继续） */
 const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value && !stateManager.state.autoplay);
 
 /** 切换全屏（F11 或工具栏按钮），进入全屏时强制进入预览状态 */
 async function toggleFullscreen() {
-    if (isFullscreen.value) {
+    if (stateManager.state.isFullscreen) {
         await document.exitFullscreen();
         return;
     }
@@ -1102,12 +1099,12 @@ async function toggleFullscreen() {
 }
 
 function onFullscreenChange() {
-    isFullscreen.value = document.fullscreenElement !== null;
+    stateManager.state.isFullscreen = document.fullscreenElement !== null;
 }
 
 /** 蒙版上的退出按钮：退出全屏（如果是全屏状态的话）并退出预览 */
 function exitPreview() {
-    if (isFullscreen.value) {
+    if (stateManager.state.isFullscreen) {
         document.exitFullscreen();
     }
 
@@ -1818,7 +1815,7 @@ onMounted(() => {
         audio.pause();
 
         // 退出全屏
-        if (isFullscreen.value) {
+        if (stateManager.state.isFullscreen) {
             document.exitFullscreen();
         }
 
