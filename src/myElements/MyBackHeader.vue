@@ -7,7 +7,9 @@
             class="back-arrow"
             @click="emit('back')"
         />
-        <h2 :class="props.class + ' title'" />
+        <h2 :class="props.class + ' title'">
+            <slot />
+        </h2>
     </div>
 </template>
 <script setup lang="ts">

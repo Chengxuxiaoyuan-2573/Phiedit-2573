@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { NoteType } from "@/models/rpe/note";
+import { defaultJudgementRule, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import { reactive } from "vue";
@@ -67,6 +67,9 @@ export default class StateManager extends Manager {
 
         /** 是否为自动播放 */
         autoplay: true,
+
+        /** 判定规则 */
+        judgementRule: structuredClone(defaultJudgementRule)
     };
 
     /** 状态对象，响应式 */

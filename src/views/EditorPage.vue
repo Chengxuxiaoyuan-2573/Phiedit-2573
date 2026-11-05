@@ -344,20 +344,28 @@
             <div
                 v-if="!stateManager.state.autoplay"
                 class="left-inner default-panel flex-container"
-                style="justify-content: space-between;"
             >
+                <MyBackHeader
+                    class="title-left"
+                    @back="exitPlayChart"
+                >
+                    试玩模式
+                </MyBackHeader>
                 <div>
-                    <p>当前处于试玩模式，请使用键盘游玩</p>
+                    <h3>玩法说明</h3>
                     <p>Tap：落到判定线上时按下任意键</p>
                     <p>Hold：落到判定线上时按住任意键直到其结束</p>
                     <p>Drag、Flick：落到判定线上时有任意键被按下即可</p>
                 </div>
-                <MyButton
-                    type="primary"
-                    @click="exitPlayChart()"
-                >
-                    退出试玩
-                </MyButton>
+                <div>
+                    <h3>判定信息</h3>
+                    <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
+                    <p>Good：{{ judgeManager.judgeInfo.good }}</p>
+                    <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
+                    <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
+                    <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
+                    <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+                </div>
             </div>
             <template v-else-if="isBlockAreaModeLeftPanel">
                 <MyBackHeader
@@ -642,12 +650,57 @@
             @wheel.passive.stop
         >
             <div v-if="!stateManager.state.autoplay">
-                <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
-                <p>Good：{{ judgeManager.judgeInfo.good }}</p>
-                <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
-                <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
-                <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
-                <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+                <MyBackHeader
+                    class="title-right"
+                    @back="exitPlayChart"
+                >
+                    判定区间设置
+                </MyBackHeader>
+                <MyGridContainer
+                    class="judgement-rule-wrapper"
+                    :width="[1, 2, 2, 2]"
+                    :gap="5"
+                >
+                    <p />
+                    <p>Perfect</p>
+                    <p>Good</p>
+                    <p>Bad</p>
+                    <p>Tap</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.bad[1]" />
+                    <p>Hold</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.bad[1]" />
+                    <p>Drag</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.bad[1]" />
+                    <p>Flick</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.bad[1]" />
+                </MyGridContainer>
+                <p style="margin-top: 10px">
+                    单位为秒。每个种类的音符对应两行，分别代表判定区间的两个端点。
+                </p>
             </div>
             <div
                 v-else-if="stateManager.state.right == RightPanelState.Default"
@@ -1966,5 +2019,11 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.judgement-rule-wrapper p {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 </style>

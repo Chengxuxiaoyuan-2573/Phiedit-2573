@@ -73,6 +73,7 @@ export default class JudgeManager extends Manager {
         });
     }
     resetHitState() {
+        const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
 
         // 时间比上一帧还早，说明用户把时间轴往回拖了，音符的击打状态会被下面这段代码重置，
@@ -88,8 +89,8 @@ export default class JudgeManager extends Manager {
             }
 
             if (note.type === NoteType.Hold) {
-                const range = note.getJudgementRange();
-                if (seconds < note.cachedStartSeconds - range.bad) {
+                const range = note.getJudgementRange(stateManager._state.judgementRule);
+                if (seconds < note.cachedStartSeconds - range.bad[0]) {
                     note.missed = false;
                 }
 
@@ -119,6 +120,7 @@ export default class JudgeManager extends Manager {
      * 中途出现 miss 或者 bad 就把连击清零。
      */
     recalculateCombo() {
+        const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
         const judgements: { seconds: number, success: boolean }[] = [];
 
@@ -130,7 +132,7 @@ export default class JudgeManager extends Manager {
             // 已经 miss 的音符记一个「断连」时刻。音符在 startSeconds + bad 之后就会被判定为 miss
             if (note.missed) {
                 judgements.push({
-                    seconds: note.cachedStartSeconds + note.getJudgementRange().bad,
+                    seconds: note.cachedStartSeconds + note.getJudgementRange(stateManager._state.judgementRule).bad[0],
                     success: false
                 });
                 continue;
@@ -141,7 +143,7 @@ export default class JudgeManager extends Manager {
                 continue;
             }
 
-            const judgement = note.getJudgement();
+            const judgement = note.getJudgement(stateManager._state.judgementRule);
             const success = judgement === "perfect" || judgement === "good";
 
             if (note.type === NoteType.Hold) {
@@ -170,6 +172,7 @@ export default class JudgeManager extends Manager {
     }
 
     calculate() {
+        const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
         let perfect = 0, good = 0, bad = 0, miss = 0, realNotes = 0;
         for (const note of this.cachedAllNotes) {
@@ -177,7 +180,7 @@ export default class JudgeManager extends Manager {
                 realNotes++;
                 const endSeconds = note.cachedEndSeconds;
                 if (note.type !== NoteType.Hold || endSeconds - seconds <= HOLD_PREUNTOUCH) {
-                    switch (note.getJudgement()) {
+                    switch (note.getJudgement(stateManager._state.judgementRule)) {
                         case "perfect":
                             perfect++;
                             break;
@@ -216,6 +219,7 @@ export default class JudgeManager extends Manager {
     /** 每帧运行一次 */
     framely() {
         const resourcePackage = store.useResourcePackage();
+        const stateManager = store.useManager("stateManager");
         const settingsManager = store.useManager("settingsManager");
         const mouseManager = store.useManager("mouseManager");
         const coordinateManager = store.useManager("coordinateManager");
@@ -244,7 +248,7 @@ export default class JudgeManager extends Manager {
 
             const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
             const delta = startSeconds - seconds;
-            const range = note.getJudgementRange();
+            const range = note.getJudgementRange(stateManager._state.judgementRule);
 
             const distance = pointToLineDistance(
                 note.cachedPosX,
@@ -254,7 +258,7 @@ export default class JudgeManager extends Manager {
                 coordinateManager.convertYToChart(mouseManager.mouseY)
             );
 
-            const timeValid = Math.abs(delta) <= range.bad;
+            const timeValid = delta >= range.bad[0] && delta <= range.bad[1];
 
             /** 按照 Drag 的判定，该音符是否能被鼠标判定上。被噪域污染的手指无法判定任何音符 */
             const mouseJudgeSucceed = mouseManager.mousePressed && !this.isFingerGlitched && distance <= threshold;
@@ -262,7 +266,7 @@ export default class JudgeManager extends Manager {
             /** 按照 Drag 的判定，该音符是否能被键盘判定上 */
             const keyboardJudgeSucceed = store.pressedKeys.size > 0;
 
-            if (delta < -range.bad && note.hitSeconds === undefined && !note.missed) {
+            if (delta < range.bad[0] && note.hitSeconds === undefined && !note.missed) {
                 note.missed = true;
                 this.judgeInfo.combo = 0;
                 continue;
@@ -290,7 +294,7 @@ export default class JudgeManager extends Manager {
 
                     if (!note.holdJudged && endSeconds - seconds <= HOLD_PREUNTOUCH) {
                         note.holdJudged = true;
-                        const judgement = note.getJudgement();
+                        const judgement = note.getJudgement(stateManager._state.judgementRule);
                         if (judgement === "perfect" || judgement === "good") {
                             this.judgeInfo.combo++;
                         }
@@ -300,9 +304,14 @@ export default class JudgeManager extends Manager {
 
             if (note.type === NoteType.Drag || note.type === NoteType.Flick) {
                 if (note.hitSeconds === undefined && note.prejudgedSeconds !== undefined && seconds >= startSeconds) {
-                    note.hit(seconds);
+                    note.hit(seconds, stateManager._state.judgementRule);
                     resourcePackage.playSound(store.audioContext, note.hitSoundType, settingsManager._settings.hitSoundVolume);
                     this.judgeInfo.combo++;
+
+                    const judgement = note.getJudgement(stateManager._state.judgementRule);
+                    if (judgement === "bad") {
+                        this.judgeInfo.combo = 0;
+                    }
                 }
             }
         }
@@ -331,10 +340,10 @@ export default class JudgeManager extends Manager {
                 if (note.type === NoteType.Flick) {
                     const startSeconds = note.cachedStartSeconds;
 
-                    const range = note.getJudgementRange();
+                    const range = note.getJudgementRange(stateManager._state.judgementRule);
                     const delta = startSeconds - seconds;
 
-                    if (Math.abs(delta) > range.bad) {
+                    if (delta > range.bad[1] || delta < range.bad[0]) {
                         continue;
                     }
 
@@ -395,10 +404,10 @@ export default class JudgeManager extends Manager {
                 }
 
                 const startSeconds = note.cachedStartSeconds;
-                const range = note.getJudgementRange();
+                const range = note.getJudgementRange(stateManager._state.judgementRule);
                 const delta = startSeconds - seconds;
                 const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
-                if (Math.abs(delta) > range.bad) {
+                if (delta > range.bad[1] || delta < range.bad[0]) {
                     continue;
                 }
 
@@ -412,7 +421,7 @@ export default class JudgeManager extends Manager {
                     0;
 
                 if (distance <= threshold) {
-                    note.hit(seconds);
+                    note.hit(seconds, stateManager._state.judgementRule);
                     switch (note.hitsound) {
                         case undefined:
                             resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
@@ -430,7 +439,7 @@ export default class JudgeManager extends Manager {
                             console.error(`WHAT??? (${note.hitsound})`);
                     }
 
-                    const judgement = note.getJudgement();
+                    const judgement = note.getJudgement(stateManager._state.judgementRule);
                     if (judgement === "bad") {
                         this.judgeInfo.combo = 0;
                     }

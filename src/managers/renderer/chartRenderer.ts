@@ -1112,7 +1112,7 @@ export default class ChartRenderer extends Manager {
             const drawNote = (note: Note) => {
                 // 把当前判定线的角度转为弧度
                 const radians = MathUtils.degToRad(judgeLineInfo.angle);
-                const missSeconds = note.getJudgementRange().bad;
+                const missSeconds = -note.getJudgementRange(stateManager._state.judgementRule).bad[0];
                 const startSeconds = note.cachedStartSeconds;
                 const endSeconds = note.cachedEndSeconds;
 
@@ -1347,7 +1347,7 @@ export default class ChartRenderer extends Manager {
                                 getAngle: true
                             });
                             const radians = MathUtils.degToRad(angle);
-                            const judgement = note.getJudgement();
+                            const judgement = note.getJudgement(stateManager._state.judgementRule);
 
                             /** 一个随机数种子生成器，只要保证输入不同的数字输出也不同就可以，这个是最优的方案 */
                             const hash = (a: number, b: number, c: number) => a * a + b * b + c * c;
@@ -1551,7 +1551,7 @@ export default class ChartRenderer extends Manager {
                 }
 
                 // 不论是什么种类的音符，被判定为bad的都不绘制，只绘制打击特效
-                if (note.getJudgement() === "bad") continue;
+                if (note.getJudgement(stateManager._state.judgementRule) === "bad") continue;
 
                 // 已经结束的Hold音符不绘制
                 if (note.type === NoteType.Hold) {
@@ -1560,7 +1560,7 @@ export default class ChartRenderer extends Manager {
 
                 // 已经被判定的非Hold音符不绘制
                 else {
-                    if (note.getJudgement() !== "none") continue;
+                    if (note.getJudgement(stateManager._state.judgementRule) !== "none") continue;
                 }
                 drawNote(note);
             }

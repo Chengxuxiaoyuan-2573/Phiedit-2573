@@ -70,6 +70,28 @@ export interface INoteJudgement {
     }
     getJudgement(): "perfect" | "good" | "bad" | "none"
 }
+export interface JudgementRule {
+    tap: {
+        perfect: [number, number]
+        good: [number, number]
+        bad: [number, number]
+    }
+    hold: {
+        perfect: [number, number]
+        good: [number, number]
+        bad: [number, number]
+    }
+    drag: {
+        perfect: [number, number]
+        good: [number, number]
+        bad: [number, number]
+    }
+    flick: {
+        perfect: [number, number]
+        good: [number, number]
+        bad: [number, number]
+    }
+}
 export interface INoteHighlight {
     highlight: boolean;
 }
@@ -94,14 +116,32 @@ const noteHitSoundMap: Record<string, NoteType> = {
     ["flick.mp3"]: NoteType.Flick
 };
 
+/* eslint-disable no-magic-numbers */
+export const defaultJudgementRule: JudgementRule = {
+    tap: {
+        perfect: [-0.08, 0.08],
+        good: [-0.16, 0.16],
+        bad: [-0.18, 0.18],
+    },
+    hold: {
+        perfect: [-0.08, 0.08],
+        good: [-0.16, 0.16],
+        bad: [-0.16, 0.16]
+    },
+    drag: {
+        perfect: [-0.18, 0.18],
+        good: [-0.18, 0.18],
+        bad: [-0.18, 0.18]
+    },
+    flick: {
+        perfect: [-0.18, 0.18],
+        good: [-0.18, 0.18],
+        bad: [-0.18, 0.18]
+    }
+};
+/* eslint-enable no-magic-numbers */
+
 const
-    TAP_PERFECT = 0.08,
-    TAP_GOOD = 0.16,
-    TAP_BAD = 0.18,
-    HOLD_PERFECT = 0.08,
-    HOLD_GOOD = 0.16,
-    HOLD_BAD = 0.16,
-    DRAGFLICK_PERFECT = 0.18,
     DEFAULT_ABOVE = NoteAbove.Above,
     DEFAULT_ALPHA = 255,
     DEFAULT_ISFAKE = NoteFake.Real,
@@ -187,7 +227,7 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
 
     /** 是否已经完成判定，只对 Hold 有意义 */
     holdJudged: boolean = false;
-    hit(seconds: number) {
+    hit(seconds: number, judgementRule = defaultJudgementRule) {
         if (this.isFake) {
             // 该音符是假音符，无法被击打
             return "FAKE";
@@ -198,7 +238,7 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
             return "ALREADY_HIT";
         }
         this.hitSeconds = seconds;
-        if (this.getJudgement() === "none") {
+        if (this.getJudgement(judgementRule) === "none") {
             // 该音符击打的时间不在判定范围内，击打无效
             this.hitSeconds = undefined;
             return "NOT_IN_JUDGEMENT_RANGE";
@@ -208,36 +248,26 @@ export class Note extends TimeSegment implements INote, ITimeSegment, IObjectiza
     unhit() {
         this.hitSeconds = undefined;
     }
-    getJudgementRange() {
+    getJudgementRange(judgementRule = defaultJudgementRule) {
         switch (this.type) {
             case NoteType.Tap:
-                return {
-                    perfect: TAP_PERFECT,
-                    good: TAP_GOOD,
-                    bad: TAP_BAD
-                };
+                return judgementRule.tap;
             case NoteType.Hold:
-                return {
-                    perfect: HOLD_PERFECT,
-                    good: HOLD_GOOD,
-                    bad: HOLD_BAD
-                };
-            default:
-                return {
-                    perfect: DRAGFLICK_PERFECT,
-                    good: DRAGFLICK_PERFECT,
-                    bad: DRAGFLICK_PERFECT
-                };
+                return judgementRule.hold;
+            case NoteType.Drag:
+                return judgementRule.drag;
+            case NoteType.Flick:
+                return judgementRule.flick;
         }
     }
-    getJudgement() {
+    getJudgement(judgementRule = defaultJudgementRule) {
         if (this.hitSeconds === undefined) return "none";
         const startSeconds = this.cachedStartSeconds;
-        const delta = this.hitSeconds - startSeconds;
-        const { perfect, good, bad } = this.getJudgementRange();
-        if (delta >= -perfect && delta < perfect) return "perfect";
-        if (delta >= -good && delta < good) return "good";
-        else if (delta >= -bad && delta < bad) return "bad";
+        const delta = startSeconds - this.hitSeconds;
+        const { perfect, good, bad } = this.getJudgementRange(judgementRule);
+        if (delta >= perfect[0] && delta <= perfect[1]) return "perfect";
+        else if (delta >= good[0] && delta <= good[1]) return "good";
+        else if (delta >= bad[0] && delta <= bad[1]) return "bad";
         else return "none";
     }
     constructor(note: unknown, options: Optional<INoteExtendedOptions, "id">) {
