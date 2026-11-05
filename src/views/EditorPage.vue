@@ -224,6 +224,17 @@
                     <ElIcon
                         :size="25"
                         class="tool-icon"
+                        :class="{
+                            active: isFullscreen
+                        }"
+                        title="全屏（F11），全屏时进入预览"
+                        @click="globalEventEmitter.emit('TOGGLE_FULLSCREEN')"
+                    >
+                        <FullScreen />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
                         title="保存（Ctrl+S）"
                         @click="globalEventEmitter.emit('SAVE')"
                     >
@@ -637,7 +648,10 @@
                 />
             </template>
         </ElAside>
-        <ElMain id="main">
+        <ElMain
+            id="main"
+            ref="mainRef"
+        >
             <canvas
                 ref="canvasRef"
                 class="canvas"
@@ -891,6 +905,7 @@ import { clamp, isNumber, mean } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
+import Constants from "@/constants";
 import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
@@ -1052,6 +1067,64 @@ const judgeManager = store.useManager("judgeManager");
 const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
+
+/** 中间画布区域的根元素（也是全屏的元素） */
+const mainRef = ref<InstanceType<typeof ElMain> | null>(null);
+
+/** 当前是否处于全屏状态 */
+const isFullscreen = ref(false);
+
+/** 预览开启且音乐暂停时，在画布上显示蒙版（退出 / 重开 / 继续） */
+const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value);
+
+/** 切换全屏（F11 或工具栏按钮），进入全屏时强制进入预览状态 */
+async function toggleFullscreen() {
+    if (isFullscreen.value) {
+        await document.exitFullscreen();
+        return;
+    }
+
+    const main = mainRef.value?.$el as HTMLElement | undefined;
+    if (!main) {
+        throw new Error("找不到画布区域元素，无法全屏");
+    }
+
+    await main.requestFullscreen();
+
+    if (!stateManager.state.isPreviewing) {
+        globalEventEmitter.emit("TOGGLE_PREVIEW");
+    }
+}
+
+function onFullscreenChange() {
+    isFullscreen.value = document.fullscreenElement !== null;
+}
+
+/** 蒙版上的退出按钮：退出全屏（如果是全屏状态的话）并退出预览 */
+function exitPreview() {
+    if (isFullscreen.value) {
+        document.exitFullscreen();
+    }
+
+    if (stateManager.state.autoplay) {
+        stateManager.state.isPreviewing = false;
+        store.pauseAudio();
+    }
+    else {
+        exitPlayChart();
+    }
+}
+
+/** 蒙版上的重开按钮：把音乐时间设为 0 然后播放 */
+function restartPreviewMusic() {
+    store.setTime(0);
+    store.playAudio();
+}
+
+/** 蒙版上的继续按钮：直接播放 */
+function resumePreviewMusic() {
+    store.playAudio();
+}
 
 /** 当前选中的第一个元素（左侧面板根据它的类型决定显示哪个编辑面板） */
 const selectedElement = computed<SelectableElement | undefined>(() => selectionManager.selectedElements[0]);
@@ -1536,6 +1609,12 @@ function canvasMouseDown(e: MouseEvent) {
         return;
     }
 
+    // 预览暂停蒙版显示时，点击只会命中蒙版上的按钮，不参与音符判定
+    if (showPreviewMask.value) {
+        handlePreviewMaskClick(x, y);
+        return;
+    }
+
     switch (e.button) {
         case MOUSE_LEFT:
             globalEventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
@@ -1543,6 +1622,43 @@ function canvasMouseDown(e: MouseEvent) {
         case MOUSE_RIGHT:
             globalEventEmitter.emit("MOUSE_RIGHT_CLICK", x, y, options);
             return;
+    }
+}
+
+/**
+ * 双击画布左上角的暂停按键暂停音乐。
+ *
+ * 即使暂停按键被 UI 绑定并被判定线事件移到了别处，
+ * 双击的判定区域也始终是默认的左上角位置。
+ */
+function canvasDblClick(e: MouseEvent) {
+    if (!stateManager.state.isPreviewing) {
+        return;
+    }
+
+    const { x, y } = coordinateManager.calculatePositionOfObjectFitContainCanvas(e, cachedRect);
+    const centerX = coordinateManager.convertXToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.x);
+    const centerY = coordinateManager.convertYToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.y);
+    const halfWidth = Constants.CHART_VIEW_PAUSE_WIDTH / 2 + Constants.PAUSE_BUTTON_HIT_PADDING;
+    const halfHeight = Constants.CHART_VIEW_PAUSE_HEIGHT / 2 + Constants.PAUSE_BUTTON_HIT_PADDING;
+
+    if (Math.abs(x - centerX) <= halfWidth && Math.abs(y - centerY) <= halfHeight) {
+        store.pauseAudio();
+    }
+}
+
+/** 蒙版显示时处理画布点击：检测点击到了退出、重开、继续中的哪个按钮 */
+function handlePreviewMaskClick(x: number, y: number) {
+    const chartRenderer = store.useManager("chartRenderer");
+    const button = chartRenderer.hitTestPreviewMaskButton(x, y);
+    if (button === "exit") {
+        exitPreview();
+    }
+    else if (button === "restart") {
+        restartPreviewMusic();
+    }
+    else if (button === "resume") {
+        resumePreviewMusic();
     }
 }
 
@@ -1698,6 +1814,7 @@ onMounted(() => {
     cachedRect = canvas.getBoundingClientRect();
 
     canvas.addEventListener("mousedown", canvasMouseDown);
+    canvas.addEventListener("dblclick", canvasDblClick);
     canvas.addEventListener("mousemove", canvasMouseMove);
     canvas.addEventListener("mouseup", canvasMouseUp);
     canvas.addEventListener("mouseenter", canvasMouseEnter);
@@ -1728,17 +1845,31 @@ onMounted(() => {
         tip.value = getRandomTip();
     }, TIP_SHOW_TIME);
 
+    // 全屏状态同步（用户按 Esc 退出全屏时也要更新按钮高亮）
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    globalEventEmitter.on("TOGGLE_FULLSCREEN", toggleFullscreen);
+
     renderLoop();
 
     onBeforeUnmount(() => {
         // 停止播放音乐
         audio.pause();
 
+        // 退出全屏
+        if (isFullscreen.value) {
+            document.exitFullscreen();
+        }
+
+        // 清除全屏相关的事件监听器
+        document.removeEventListener("fullscreenchange", onFullscreenChange);
+        globalEventEmitter.off("TOGGLE_FULLSCREEN", toggleFullscreen);
+
         // 取消视频导出
         cancelVideoRendering();
 
         // 清除事件监听器
         canvas.removeEventListener("mousedown", canvasMouseDown);
+        canvas.removeEventListener("dblclick", canvasDblClick);
         canvas.removeEventListener("mousemove", canvasMouseMove);
         canvas.removeEventListener("mouseup", canvasMouseUp);
         canvas.removeEventListener("mouseenter", canvasMouseEnter);
@@ -1929,6 +2060,11 @@ onMounted(() => {
 #main {
     grid-area: main;
     --el-main-padding: 0;
+}
+
+/* 全屏时中间的画布占据整个屏幕，黑边区域也是黑色 */
+#main:fullscreen {
+    background-color: black;
 }
 
 .el-aside {

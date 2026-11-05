@@ -158,6 +158,24 @@ export default class Constants {
     /** 暂停按钮的高度 */
     static readonly CHART_VIEW_PAUSE_HEIGHT = 40;
 
+    /** 双击暂停按键的判定区域在按键矩形基础上的留白，单位为像素 */
+    static readonly PAUSE_BUTTON_HIT_PADDING = 30;
+
+    /** 预览暂停时蒙版的模糊半径，单位为像素 */
+    static readonly PREVIEW_MASK_BLUR_RADIUS = 10;
+
+    /** 预览暂停时蒙版的背景颜色 */
+    static readonly PREVIEW_MASK_BACKGROUND = "rgba(0, 0, 0, 0.5)";
+
+    /** 预览暂停时蒙版上按钮的文字大小 */
+    static readonly PREVIEW_MASK_BUTTON_FONT_SIZE = 48;
+
+    /** 预览暂停时蒙版上按钮之间的间距，单位为像素 */
+    static readonly PREVIEW_MASK_BUTTON_GAP = 200;
+
+    /** 预览暂停时蒙版上按钮的点击判定区域比文字多出的留白，单位为像素 */
+    static readonly PREVIEW_MASK_BUTTON_HIT_PADDING = 15;
+
     /** 进度条的粗细 */
     static readonly CHART_VIEW_BAR_THICKNESS = 6;
 

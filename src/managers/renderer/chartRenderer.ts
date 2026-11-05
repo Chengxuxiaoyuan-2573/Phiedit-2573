@@ -25,6 +25,10 @@ import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVar
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
 import LimitedMap from "@/tools/limitedMap";
+import MediaUtils from "@/tools/mediaUtils";
+import backIconUrl from "../../../resources/icons/Back.png";
+import retryIconUrl from "../../../resources/icons/Retry.png";
+import resumeIconUrl from "../../../resources/icons/Resume.png";
 import type { MultiPolygon, Pair, Polygon } from "polygon-clipping";
 
 interface ShaderInfo {
@@ -92,6 +96,18 @@ interface BlockAreaOverlay {
     color: RGBAcolor
 }
 
+/** 预览暂停蒙版上按钮的名字 */
+type PreviewMaskButtonName = "exit" | "restart" | "resume";
+
+/** 预览暂停蒙版上按钮的碰撞箱（canvas 坐标系） */
+interface PreviewMaskButton {
+    name: PreviewMaskButtonName
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 export default class ChartRenderer extends Manager {
     private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
     private shaderCanvas: HTMLCanvasElement | null = null;
@@ -107,11 +123,36 @@ export default class ChartRenderer extends Manager {
     private cachedTintedNormalNote: LimitedMap<string, OffscreenCanvas> = new LimitedMap(LIMIT);
     private cachedTintedHoldNote: LimitedMap<string, { head: OffscreenCanvas, body: OffscreenCanvas, end: OffscreenCanvas }> = new LimitedMap(LIMIT);
 
+    /** 预览暂停蒙版上按钮的碰撞箱，每次绘制蒙版时更新 */
+    private previewMaskButtons: PreviewMaskButton[] = [];
+
+    /** 预览暂停蒙版上的按钮图标（退出、重开、继续），加载完成前为 null */
+    private previewMaskIcons: Record<PreviewMaskButtonName, HTMLImageElement> | null = null;
+
     constructor() {
         super();
         globalEventEmitter.on("RENDER_CHART", createCatchErrorByMessage(() => {
             this.render();
         }, "渲染谱面", false));
+
+        // 提前加载预览暂停蒙版上的按钮图标
+        this.loadPreviewMaskIcons();
+    }
+
+    /** 加载预览暂停蒙版上按钮的图标 */
+    private async loadPreviewMaskIcons() {
+        try {
+            const [exit, restart, resume] = await Promise.all([
+                MediaUtils.createImage(backIconUrl),
+                MediaUtils.createImage(retryIconUrl),
+                MediaUtils.createImage(resumeIconUrl)
+            ]);
+            this.previewMaskIcons = { exit, restart, resume };
+        }
+        catch (error) {
+            // 图标加载失败时使用文字代替，不打断渲染
+            console.error("加载预览蒙版按钮图标失败：", error);
+        }
     }
 
     /** 显示谱面到 canvas 上 */
@@ -165,6 +206,9 @@ export default class ChartRenderer extends Manager {
 
         // 手指被噪域污染时，在手指的位置显示故障效果
         this.drawGlitchedFinger(ctx);
+
+        // 预览暂停时，在谱面画面上绘制蒙版和按钮
+        this.drawPreviewPausedMask(ctx);
     }
 
     /**
@@ -190,6 +234,114 @@ export default class ChartRenderer extends Manager {
         ctx.arc(mouseManager.mouseX, mouseManager.mouseY, Constants.JUDGE_GLITCH_FINGER_RADIUS, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+    }
+
+    /**
+     * 预览开启且音乐暂停时，在谱面画面上绘制半透明黑色模糊蒙版，
+     * 中间依次显示退出、重开、继续三个按钮。
+     */
+    private drawPreviewPausedMask(ctx: CanvasRenderingContext2D) {
+        this.previewMaskButtons = [];
+
+        const stateManager = store.useManager("stateManager");
+        if (!stateManager._state.isPreviewing) {
+            return;
+        }
+
+        // 渲染视频时不绘制蒙版，避免蒙版被画进导出的视频里
+        if (store.isRenderingVideo.value) {
+            return;
+        }
+
+        const audio = store.useAudio();
+        if (!audio.paused) {
+            return;
+        }
+
+        const canvas = store.useCanvas();
+
+        // 把谱面画面模糊一遍，作为蒙版的背景
+        ctx.save();
+        ctx.filter = `blur(${Constants.PREVIEW_MASK_BLUR_RADIUS}px)`;
+        ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // 半透明黑色蒙版
+        ctx.save();
+        ctx.fillStyle = Constants.PREVIEW_MASK_BACKGROUND;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // 依次绘制退出、重开、继续三个按钮（Back、Retry、Resume 图标），并记录碰撞箱用于点击检测
+        const labels: [PreviewMaskButtonName, string][] = [
+            ["exit", "退出"],
+            ["restart", "重开"],
+            ["resume", "继续"]
+        ];
+        const gap = Constants.PREVIEW_MASK_BUTTON_GAP;
+        const hitPadding = Constants.PREVIEW_MASK_BUTTON_HIT_PADDING;
+        const centerY = canvas.height / 2;
+        const icons = this.previewMaskIcons;
+
+        ctx.save();
+        if (icons) {
+            // 图标加载完成时绘制图片
+            const widths = labels.map(([name]) => icons[name].naturalWidth);
+            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * (labels.length - 1);
+            let left = canvas.width / 2 - totalWidth / 2;
+
+            labels.forEach(([name], index) => {
+                const image = icons[name];
+                const height = image.naturalHeight;
+                ctx.drawImage(image, left, centerY - height / 2);
+                this.previewMaskButtons.push({
+                    name,
+                    x: left - hitPadding,
+                    y: centerY - height / 2 - hitPadding,
+                    width: widths[index] + hitPadding * 2,
+                    height: height + hitPadding * 2
+                });
+                left += widths[index] + gap;
+            });
+        }
+        else {
+            // 图标还没加载出来时，退回为绘制文字
+            const fontSize = Constants.PREVIEW_MASK_BUTTON_FONT_SIZE;
+            ctx.font = `${fontSize}px PhiFont`;
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "white";
+
+            const widths = labels.map(([, label]) => ctx.measureText(label).width);
+            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * (labels.length - 1);
+            let left = canvas.width / 2 - totalWidth / 2;
+
+            labels.forEach(([name, label], index) => {
+                const width = widths[index];
+                ctx.fillText(label, left + width / 2, centerY);
+                this.previewMaskButtons.push({
+                    name,
+                    x: left - hitPadding,
+                    y: centerY - fontSize / 2 - hitPadding,
+                    width: width + hitPadding * 2,
+                    height: fontSize + hitPadding * 2
+                });
+                left += width + gap;
+            });
+        }
+
+        ctx.restore();
+    }
+
+    /** 检测预览暂停蒙版上点击到了哪个按钮，没有点到按钮时返回 null */
+    hitTestPreviewMaskButton(x: number, y: number): PreviewMaskButtonName | null {
+        for (const button of this.previewMaskButtons) {
+            if (x >= button.x && x <= button.x + button.width &&
+                y >= button.y && y <= button.y + button.height) {
+                return button.name;
+            }
+        }
+        return null;
     }
 
     private getShaderInfo(): ShaderInfo[] {

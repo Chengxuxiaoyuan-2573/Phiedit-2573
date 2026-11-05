@@ -84,6 +84,7 @@ export interface GlobalEventMap {
     PREVIEW: [boolean]
     STOP_PREVIEW: [boolean]
     TOGGLE_PREVIEW: []
+    TOGGLE_FULLSCREEN: []
     MOVE_TO_JUDGE_LINE: [number?]
     MOVE_TO_PREVIOUS_JUDGE_LINE: []
     MOVE_TO_NEXT_JUDGE_LINE: []
