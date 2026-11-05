@@ -248,7 +248,7 @@ export default class ChartRenderer extends Manager {
             return;
         }
 
-        if (stateManager._state.autoplay) {
+        if (stateManager._state.autoplay && !stateManager._state.isFullscreen) {
             return;
         }
 

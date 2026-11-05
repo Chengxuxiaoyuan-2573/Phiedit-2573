@@ -1077,7 +1077,7 @@ const audioIsPlaying = ref(false);
 const mainRef = ref<InstanceType<typeof ElMain> | null>(null);
 
 /** 预览开启且音乐暂停时，在画布上显示蒙版（退出 / 重开 / 继续） */
-const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value && !stateManager.state.autoplay);
+const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value && (!stateManager.state.autoplay || stateManager._state.isFullscreen));
 
 /** 切换全屏（F11 或工具栏按钮），进入全屏时强制进入预览状态 */
 async function toggleFullscreen() {
