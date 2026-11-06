@@ -156,6 +156,14 @@ export default class MutipleEditManager extends Manager {
             event[attr] = newValue;
         }
 
+        function getNewTime(oldValue: Beats, value: Beats, mode: string) {
+            switch (mode) {
+                case "to": return value;
+                case "by": return addBeats(oldValue, value);
+                default: return oldValue;
+            }
+        }
+
         function modifyWithBeats(element: Note | AbstractEvent, attr: "startTime" | "endTime" | "bothTime", value: Beats, mode: "to" | "by" | "times" | "invert" | "random" = "to") {
             if (attr === "bothTime") {
                 modifyWithBeats(element, "startTime", value, mode);
@@ -163,20 +171,7 @@ export default class MutipleEditManager extends Manager {
                 return;
             }
 
-            let newValue: Beats;
-            switch (mode) {
-                case "to":
-                    newValue = value;
-                    break;
-                case "by":
-                    // 这里必须用 element[attr] 而不是 element.startTime。
-                    // 否则在修改 endTime 时会以 startTime 为基准，得到错误的结果。
-                    newValue = addBeats(element[attr], value);
-                    break;
-                default:
-                    newValue = element[attr];
-            }
-
+            const newValue = getNewTime(element[attr], value, mode);
             if (isNoteLike(element)) {
                 historyManager.recordModifyNote(element.id, attr, newValue, element[attr]);
             }
@@ -186,6 +181,19 @@ export default class MutipleEditManager extends Manager {
             element[attr] = newValue;
         }
         mouseManager.checkMouseUp();
+        const settings = stateManager.cache.mutipleEdit;
+        const eventAttribute = settings.attributeEvent;
+        if (settings.type === "event" &&
+            (eventAttribute === "startTime" || eventAttribute === "endTime" || eventAttribute === "bothTime") &&
+            (settings.mode === "to" || settings.mode === "by")) {
+            const types = settings.eventTypes.length === 0 ? [...baseEventTypes, ...extendedEventTypes] : settings.eventTypes;
+            const events = selectionManager.selectedElements.filter(isEvent).filter(event => types.includes(event.type));
+            store.validateBlockAreaEventTimes(events.map(event => ({
+                event,
+                startTime: eventAttribute === "endTime" ? event.startTime : getNewTime(event.startTime, settings.paramBeats, settings.mode),
+                endTime: eventAttribute === "startTime" ? event.endTime : getNewTime(event.endTime, settings.paramBeats, settings.mode)
+            })));
+        }
         historyManager.group("批量编辑");
 
         // 用 try/finally 保证分组一定会关闭，否则中途抛出异常会让分组卡死，后续所有记录都会并进这个组

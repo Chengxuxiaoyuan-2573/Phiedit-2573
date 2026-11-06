@@ -67,7 +67,7 @@ import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ActiveInterval } from "@/models/rpe/blockArea";
-import { Beats } from "@/models/rpe/beats";
+import { Beats, isEqualBeats } from "@/models/rpe/beats";
 import store from "@/store";
 
 const props = defineProps<{
@@ -78,6 +78,7 @@ const props = defineProps<{
     titleTeleport: string
 }>();
 const selectionManager = store.useManager("selectionManager");
+const historyManager = store.useManager("historyManager");
 
 const startTimeInput = useTemplateRef("startTimeInput");
 const endTimeInput = useTemplateRef("endTimeInput");
@@ -91,23 +92,46 @@ function update() {
 }
 watch(() => props.modelValue, update);
 
-/** 修改激活区间的起止时间 */
-function setTime(attribute: "startTime" | "endTime", value?: Beats) {
+/** 侧栏修改时间时可能改变区间顺序，历史记录需同时保存修改前后的位置 */
+function editInterval(edit: (interval: ActiveInterval) => void) {
     const interval = props.modelValue;
-    if (!interval || value === undefined) {
+    const owner = interval?.owner;
+    if (!interval || !owner) {
         return;
     }
-    interval[attribute] = value;
-    interval.makeSureTimeValid();
+
+    const intervals = owner.activeIntervals;
+    const position = intervals.indexOf(interval);
+    if (position === -1) {
+        return;
+    }
+
+    const before = { ...interval.toObject(), position };
+    edit(interval);
+    const after = { ...interval.toObject(), position: intervals.indexOf(interval) };
+    if (before.position !== after.position || before.readyFlash !== after.readyFlash ||
+        !isEqualBeats(before.startTime, after.startTime) || !isEqualBeats(before.endTime, after.endTime)) {
+        historyManager.recordModifyActiveInterval(owner.index, before, after);
+    }
+}
+
+/** 修改激活区间的起止时间 */
+function setTime(attribute: "startTime" | "endTime", value?: Beats) {
+    if (value !== undefined) {
+        editInterval(interval => {
+            interval[attribute] = value;
+            interval.makeSureTimeValid();
+        });
+    }
 }
 
 /** 修改激活区间的反应时间 */
 function setReadyFlash(value?: number) {
-    const interval = props.modelValue;
-    if (!interval || value === undefined) {
-        return;
+    if (value !== undefined) {
+        editInterval(interval => {
+            interval.readyFlash = value;
+        });
     }
-    interval.readyFlash = value;
 }
 
 /** 删除当前激活区间 */

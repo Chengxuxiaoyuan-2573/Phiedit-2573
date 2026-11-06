@@ -35,12 +35,12 @@ import MutipleEditManager from "./managers/renderer/mutipleEdit";
 import ChartPackageLoader from "./managers/renderer/chartPackageLoader";
 import ResourcePackageLoader from "./managers/renderer/resourcePackageLoader";
 
-import { Beats, beatsToSeconds, secondsToBeats } from "./models/rpe/beats";
+import { Beats, beatsCompare, beatsToSeconds, secondsToBeats } from "./models/rpe/beats";
 import { ArrayedObject } from "./tools/algorithm";
 import { SEC_TO_MS } from "./tools/mathUtils";
 import MediaUtils from "./tools/mediaUtils";
 import JudgeManager from "./managers/renderer/judge";
-import { BLOCK_AREA_EVENT_LAYER_ID, BlockArea, BlockAreaEventType, IBlockArea } from "./models/rpe/blockArea";
+import { BLOCK_AREA_EVENT_LAYER_ID, BlockArea, BlockAreaEventState, BlockAreaEventType, IBlockArea } from "./models/rpe/blockArea";
 
 /**
  * 用来存储 managers 的构造函数
@@ -320,6 +320,43 @@ class Store {
         return this.getEventList(event.judgeLineNumber, event.eventLayerId, event.type);
     }
 
+    /** 在改动前检查每个受影响的噪域事件栏，批量移动按所有事件的新位置检查 */
+    validateBlockAreaEventTimes(changes: {
+        event: Pick<AbstractEvent, "id" | "judgeLineNumber" | "eventLayerId" | "type">
+        startTime: Beats
+        endTime: Beats
+        insertInto?: number
+    }[]) {
+        const tracks = new Map<AbstractEvent[], typeof changes>();
+        for (const change of changes) {
+            const { event, insertInto } = change;
+            if (event.eventLayerId !== BLOCK_AREA_EVENT_LAYER_ID) {
+                continue;
+            }
+
+            const track = this.getEventList(insertInto ?? event.judgeLineNumber, event.eventLayerId, event.type);
+            const pending = tracks.get(track) ?? [];
+            pending.push(change);
+            tracks.set(track, pending);
+        }
+
+        for (const [track, pending] of tracks) {
+            const replaced = new Set(pending.filter(change => change.insertInto === undefined).map(change => change.event.id));
+            const unaffected = track.filter(event => !replaced.has(event.id));
+            for (const [index, change] of pending.entries()) {
+                if (beatsCompare(change.startTime, change.endTime) > 0) {
+                    throw new Error("噪域事件的开始时间不能晚于结束时间");
+                }
+
+                const overlaps = (other: Pick<AbstractEvent, "startTime" | "endTime">) =>
+                    beatsCompare(change.startTime, other.endTime) < 0 && beatsCompare(change.endTime, other.startTime) > 0;
+                if (unaffected.some(overlaps) || pending.slice(0, index).some(overlaps)) {
+                    throw new Error("同栏噪域事件不能重叠");
+                }
+            }
+        }
+    }
+
     /** 根据编号获取噪域。注意这里的编号是噪域的稳定编号，不是它在 blockAreaList 中的下标 */
     getBlockAreaById(index: number) {
         const chart = this.useChart();
@@ -346,8 +383,8 @@ class Store {
     }
 
     /** 在指定位置插入一个噪域，返回被插入的噪域 */
-    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number) {
-        return this.useChart().insertBlockArea(blockAreaObject, position, index);
+    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number, eventState?: BlockAreaEventState) {
+        return this.useChart().insertBlockArea(blockAreaObject, position, index, eventState);
     }
 
     addNote(noteObject: INote, judgeLineNumber: number, id?: string) {

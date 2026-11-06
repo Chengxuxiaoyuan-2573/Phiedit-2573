@@ -39,7 +39,8 @@
         <template v-if="blockArea">
             <MyInput
                 ref="nameInput"
-                v-model="blockArea.Name"
+                :model-value="blockArea.Name"
+                @update:model-value="value => editArea('Name', value)"
             >
                 <template #prepend>
                     噪域名称
@@ -47,7 +48,8 @@
             </MyInput>
             <MyInputBeats
                 ref="appearTimeInput"
-                v-model="blockArea.appearTime"
+                :model-value="blockArea.appearTime"
+                @update:model-value="value => editArea('appearTime', value)"
             >
                 <template #prepend>
                     出现时间
@@ -59,7 +61,8 @@
             </MyInputBeats>
             <MyInputBeats
                 ref="disappearTimeInput"
-                v-model="blockArea.disappearTime"
+                :model-value="blockArea.disappearTime"
+                @update:model-value="value => editArea('disappearTime', value)"
             >
                 <template #prepend>
                     消失时间
@@ -96,7 +99,8 @@
             </MyInputVector>
             <MyInputNumber
                 ref="editorPositionXInput"
-                v-model="blockArea.editorPositionX"
+                :model-value="blockArea.editorPositionX"
+                @update:model-value="value => editArea('editorPositionX', value)"
             >
                 <template #prepend>
                     编辑器中的X坐标
@@ -107,7 +111,8 @@
             </MyInputNumber>
             <MySwitch
                 ref="isInvertInput"
-                v-model="blockArea.isInvert"
+                :model-value="blockArea.isInvert"
+                @update:model-value="value => editArea('isInvert', value)"
             >
                 反转
                 <MyQuestionMark>
@@ -127,8 +132,9 @@
     </div>
 </template>
 <script setup lang="ts">
-import { ElButtonGroup, ElMessageBox, ElTooltip } from "element-plus";
-import { computed, useTemplateRef, watch } from "vue";
+import { ElButtonGroup, ElMessage, ElMessageBox, ElTooltip } from "element-plus";
+import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
+import { isEqual } from "lodash";
 import MyButton from "@/myElements/MyButton.vue";
 import MyInput from "@/myElements/MyInput.vue";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
@@ -137,6 +143,10 @@ import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MySwitch from "@/myElements/MySwitch.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { createCatchErrorByMessage } from "@/tools/catchError";
+import { beatsCompare } from "@/models/rpe/beats";
+import { IBlockArea } from "@/models/rpe/blockArea";
+import { BlockAreaEditableAttribute } from "@/managers/renderer/history";
+import globalEventEmitter, { HistoryType } from "@/eventEmitter";
 import store from "@/store";
 
 const props = defineProps<{
@@ -144,6 +154,7 @@ const props = defineProps<{
 }>();
 const stateManager = store.useManager("stateManager");
 const selectionManager = store.useManager("selectionManager");
+const historyManager = store.useManager("historyManager");
 const blockArea = computed(() => stateManager.currentBlockArea);
 
 const nameInput = useTemplateRef("nameInput");
@@ -183,6 +194,33 @@ function update() {
 }
 watch(() => [stateManager.state.currentBlockAreaNumber, stateManager.state.blockAreaListVersion], update);
 
+function onHistoryUpdate(type: HistoryType) {
+    if (type === "UNDO" || type === "REDO") {
+        update();
+    }
+}
+onMounted(() => globalEventEmitter.on("HISTORY_UPDATE", onHistoryUpdate));
+onBeforeUnmount(() => globalEventEmitter.off("HISTORY_UPDATE", onHistoryUpdate));
+
+function editArea<K extends BlockAreaEditableAttribute>(key: K, value: IBlockArea[K] | undefined) {
+    const area = blockArea.value;
+    if (!area || value === undefined || isEqual(area[key], value)) {
+        return;
+    }
+
+    const next = { appearTime: area.appearTime, disappearTime: area.disappearTime, [key]: value };
+    if (beatsCompare(next.appearTime, next.disappearTime) > 0 && (key === "appearTime" || key === "disappearTime")) {
+        update();
+        ElMessage.error("噪域的出现时间不能晚于消失时间");
+        return;
+    }
+
+    store.useManager("mouseManager").checkMouseUp();
+    const previous = area[key];
+    area[key] = value;
+    historyManager.recordModifyBlockArea(area.index, key, area[key], previous);
+}
+
 /** 取噪域某个点的坐标，作为坐标输入框的值 */
 function pointOf(key: "bottomLeft" | "topRight") {
     const area = blockArea.value;
@@ -199,10 +237,10 @@ function setPoint(key: "bottomLeft" | "topRight", value?: number[]) {
         return;
     }
 
-    if (isNaN(value[0]) || isNaN(value[1])) {
+    if (!Number.isFinite(value[0]) || !Number.isFinite(value[1])) {
         return;
     }
-    area[key] = { x: value[0], y: value[1] };
+    editArea(key, { x: value[0], y: value[1] });
 }
 
 /** 输入编号切换当前编辑的噪域 */

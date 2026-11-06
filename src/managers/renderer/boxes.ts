@@ -85,10 +85,21 @@ export default class BoxesManager extends Manager {
      * 三者的坐标系不同，这里统一换算成绝对坐标，方便鼠标管理器用同一套逻辑处理。
      */
     private calculateBlockAreaModeBoxes(): BoxWithData<SelectableElement>[] {
+        const coordinateManager = store.useManager("coordinateManager");
+        const view = Constants.EDITOR_VIEW_EVENTS_VIEWBOX;
+        const minY = coordinateManager.absolute(view.bottom);
+        const maxY = coordinateManager.absolute(view.top);
+        const eventBoxes = [...this.calculateActiveIntervalBoxes(), ...this.calculateBlockAreaEventBoxes()];
+        const visible = eventBoxes.flatMap(box => {
+            const bottom = Math.max(box.top, minY);
+            const top = Math.min(box.bottom, maxY);
+            return bottom <= top && (bottom < top || box.height === 0) ?
+                [new BoxWithData(bottom, top, box.left, box.right, box.data)] :
+                [];
+        });
         return [
             ...this.calculateBlockAreaRegionBoxes(),
-            ...this.calculateActiveIntervalBoxes(),
-            ...this.calculateBlockAreaEventBoxes()
+            ...visible
         ];
     }
 

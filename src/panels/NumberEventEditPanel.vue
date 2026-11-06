@@ -13,8 +13,8 @@
         <MyInput
             ref="inputStartEndTime"
             v-model="inputEvent.startEndTime"
-            @change="createHistory()"
-            @input="updateModel('startTime', 'endTime')"
+            @change="commitTime()"
+            @input="model.eventLayerId !== BLOCK_AREA_EVENT_LAYER_ID && updateModel('startTime', 'endTime')"
         >
             <template #prepend>
                 时间
@@ -183,7 +183,8 @@ import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import { ElTooltip } from "element-plus";
+import { ElMessage, ElTooltip } from "element-plus";
+import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
 import MyInputBezier from "@/myElements/MyInputBezier.vue";
 import MyEasing from "@/myElements/MyEasing.vue";
 import MathUtils from "@/tools/mathUtils";
@@ -368,6 +369,26 @@ function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
 
 function updateTime() {
     updateInput("startTime", "endTime");
+}
+
+function commitTime() {
+    if (model.value.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID) {
+        mouseManager.checkMouseUp();
+        try {
+            store.validateBlockAreaEventTimes([{
+                event: model.value,
+                startTime: inputEvent.startTime,
+                endTime: inputEvent.endTime
+            }]);
+        }
+        catch (error) {
+            updateTime();
+            ElMessage.error(error instanceof Error ? error.message : String(error));
+            return;
+        }
+        updateModel("startTime", "endTime");
+    }
+    createHistory();
 }
 
 /**

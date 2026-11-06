@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, Beats, beatsToSeconds, isGreaterThanBeats, isLessThanBeats, MAX_BEATS, MIN_BEATS, subBeats } from "@/models/rpe/beats";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue, isGreaterThanBeats, isLessThanBeats, MAX_BEATS, MIN_BEATS, subBeats } from "@/models/rpe/beats";
 import store from "@/store";
 import { isNoteLike } from "@/models/rpe/note";
 import globalEventEmitter from "@/eventEmitter";
@@ -14,6 +14,7 @@ import MathUtils from "@/tools/mathUtils";
 import Constants from "@/constants";
 import { SelectableElement, getElementEndTime, getElementStartTime } from "@/models/rpe/element";
 import { isEvent } from "@/models/rpe/event";
+import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
 export default class CloneManager extends Manager {
     constructor() {
         super();
@@ -35,8 +36,22 @@ export default class CloneManager extends Manager {
         if (stateManager.cache.clone.targetJudgeLines.length === 0) {
             throw new Error("请选择要克隆的目标判定线");
         }
+
+        if (selectionManager.selectedElements.some(element => isEvent(element) && element.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID)) {
+            throw new Error("不能将噪域事件克隆到判定线");
+        }
+
+        const { timeDuration, timeDelta } = stateManager.cache.clone;
+        if (!Number.isFinite(getBeatsValue(timeDuration)) || !isLessThanBeats(beats, timeDuration)) {
+            throw new Error("克隆持续时间必须大于零");
+        }
+
+        if (!Number.isFinite(getBeatsValue(timeDelta)) || !isLessThanBeats(beats, timeDelta)) {
+            throw new Error("克隆时间差必须大于零");
+        }
+
         historyManager.group("克隆");
-        while (isLessThanBeats(beats, stateManager.cache.clone.timeDuration)) {
+        while (isLessThanBeats(beats, timeDuration)) {
             for (const element of selectionManager.selectedElements) {
                 if (isNoteLike(element)) {
                     const noteObject = element.toObject();
@@ -53,7 +68,7 @@ export default class CloneManager extends Manager {
                     historyManager.recordAddEvent(newEvent.id);
                 }
             }
-            beats = addBeats(beats, stateManager.cache.clone.timeDelta);
+            beats = addBeats(beats, timeDelta);
             i = (i + 1) % stateManager.cache.clone.targetJudgeLines.length;
         }
 
@@ -88,6 +103,12 @@ export default class CloneManager extends Manager {
         }
 
         const length = subBeats(maxTime, minTime);
+        store.validateBlockAreaEventTimes(selectionManager.selectedElements.filter(isEvent).map(event => ({
+            event,
+            startTime: addBeats(event.startTime, length),
+            endTime: addBeats(event.endTime, length),
+            insertInto: event.judgeLineNumber
+        })));
         historyManager.group("连续粘贴");
         const elements: SelectableElement[] = [];
         for (const element of selectionManager.selectedElements) {

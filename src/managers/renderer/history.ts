@@ -12,7 +12,7 @@ import store from "@/store";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import Manager from "./abstract";
 import { toUnique } from "@/tools/algorithm";
-import { IActiveInterval, IBlockArea } from "@/models/rpe/blockArea";
+import { BlockArea, IActiveInterval, IBlockArea } from "@/models/rpe/blockArea";
 
 const NAME_MAP = {
     addNote: "ADD_NOTE",
@@ -30,10 +30,13 @@ const NAME_MAP = {
 } as const;
 
 /** 可以通过历史记录修改的噪域属性 */
-export type BlockAreaEditableAttribute = "appearTime" | "disappearTime" | "editorPositionX";
+export type BlockAreaEditableAttribute = "Name" | "appearTime" | "disappearTime" | "editorPositionX" | "bottomLeft" | "topRight" | "isInvert";
 
-/** 可以通过历史记录修改的激活区间属性 */
-export type ActiveIntervalEditableAttribute = "startTime" | "endTime" | "readyFlash";
+/** 激活区间的起止时间、列表位置以及侧栏可修改的反应时间 */
+type ActiveIntervalState = Pick<IActiveInterval, "startTime" | "endTime"> & {
+    position: number
+    readyFlash?: number
+};
 
 export default class HistoryManager extends Manager {
     /** 撤销栈，最先被执行的操作在最前面 */
@@ -139,12 +142,12 @@ export default class HistoryManager extends Manager {
         const record = new ModifyBlockAreaRecord(blockAreaIndex, attribute, newValue, oldValue);
         this.addRecord(record);
     }
-    recordAddBlockArea(blockAreaObject: IBlockArea, blockAreaIndex: number, position: number) {
-        const record = new AddBlockAreaRecord(blockAreaObject, blockAreaIndex, position);
+    recordAddBlockArea(blockArea: BlockArea, position: number) {
+        const record = new AddBlockAreaRecord(blockArea, position);
         this.addRecord(record);
     }
-    recordRemoveBlockArea(blockAreaObject: IBlockArea, blockAreaIndex: number, position: number) {
-        const record = new RemoveBlockAreaRecord(blockAreaObject, blockAreaIndex, position);
+    recordRemoveBlockArea(blockArea: BlockArea, position: number) {
+        const record = new RemoveBlockAreaRecord(blockArea, position);
         this.addRecord(record);
     }
     recordAddActiveInterval(blockAreaIndex: number, intervalObject: IActiveInterval, position: number) {
@@ -155,8 +158,8 @@ export default class HistoryManager extends Manager {
         const record = new ActiveIntervalListRecord("remove", blockAreaIndex, intervalObject, position);
         this.addRecord(record);
     }
-    recordModifyActiveInterval<T extends ActiveIntervalEditableAttribute>(blockAreaIndex: number, intervalIndex: number, attribute: T, newValue: IActiveInterval[T], oldValue?: IActiveInterval[T]) {
-        const record = new ModifyActiveIntervalRecord(blockAreaIndex, intervalIndex, attribute, newValue, oldValue);
+    recordModifyActiveInterval(blockAreaIndex: number, before: ActiveIntervalState, after: ActiveIntervalState) {
+        const record = new ModifyActiveIntervalRecord(blockAreaIndex, before, after);
         this.addRecord(record);
     }
 
@@ -186,7 +189,6 @@ export default class HistoryManager extends Manager {
         }
 
         this.endMerge();
-        this.redoStack = [];
         this.mergingKey = key;
         this.mergingRecord = new RecordGroup([], name);
         this.undoStack.push(this.mergingRecord);
@@ -225,7 +227,6 @@ export default class HistoryManager extends Manager {
             return;
         }
         this.groupDepth = 1;
-        this.redoStack = [];
         this.undoStack.push(new RecordGroup([], name));
     }
     ungroup() {
@@ -277,6 +278,8 @@ export default class HistoryManager extends Manager {
     }
 
     undo() {
+        store.useManager("mouseManager").checkMouseUp();
+
         // 防御：分组未正常关闭时（例如操作中途抛出异常），强制结束分组状态
         this.groupDepth = 0;
 
@@ -295,6 +298,8 @@ export default class HistoryManager extends Manager {
         globalEventEmitter.emit("HISTORY_UPDATE", "UNDO");
     }
     redo() {
+        store.useManager("mouseManager").checkMouseUp();
+
         this.groupDepth = 0;
         this.endMerge();
         const record = this.redoStack[this.redoStack.length - 1];
@@ -602,23 +607,30 @@ class ModifyBlockAreaRecord<T extends BlockAreaEditableAttribute> extends Histor
     }
 }
 
+function snapshotBlockArea(blockArea: BlockArea) {
+    return {
+        index: blockArea.index,
+        object: copyHistoryValue(blockArea.toObject()),
+        eventState: blockArea.getEventState()
+    };
+}
+
 /** 添加噪域 */
 class AddBlockAreaRecord extends HistoryRecord {
     readonly type = "addBlockArea";
-    private blockAreaObject: IBlockArea;
-    private position: number;
+    private snapshot: ReturnType<typeof snapshotBlockArea>;
 
-    constructor(blockAreaObject: IBlockArea, private blockAreaIndex: number, position: number) {
+    constructor(blockArea: BlockArea, private position: number) {
         super();
-        this.blockAreaObject = copyHistoryValue(blockAreaObject);
-        this.position = position;
+        this.snapshot = snapshotBlockArea(blockArea);
     }
     redo() {
         super.redo();
         const blockArea = store.insertBlockArea(
-            copyHistoryValue(this.blockAreaObject),
+            copyHistoryValue(this.snapshot.object),
             this.position,
-            this.blockAreaIndex
+            this.snapshot.index,
+            this.snapshot.eventState
         );
         this.position = store.useChart().blockAreaList.indexOf(blockArea);
         const stateManager = store.useManager("stateManager");
@@ -629,52 +641,51 @@ class AddBlockAreaRecord extends HistoryRecord {
     undo() {
         super.undo();
         const chart = store.useChart();
-        const blockArea = chart.blockAreaList.find(area => area.index === this.blockAreaIndex);
-        if (!blockArea) {
-            throw new Error(`噪域${this.blockAreaIndex}不存在`);
-        }
-        this.blockAreaObject = copyHistoryValue(blockArea.toObject());
+        const blockArea = store.getBlockAreaById(this.snapshot.index);
+        this.snapshot = snapshotBlockArea(blockArea);
         this.position = chart.blockAreaList.indexOf(blockArea);
         store.removeBlockArea(blockArea);
         store.useManager("stateManager").notifyBlockAreaListChanged({ removedPosition: this.position });
         return blockArea;
     }
     getDescription() {
-        return `添加噪域 ${this.blockAreaObject.Name}`;
+        return `添加噪域 ${this.snapshot.object.Name}`;
     }
 }
 
 /** 删除噪域 */
 class RemoveBlockAreaRecord extends HistoryRecord {
     readonly type = "removeBlockArea";
-    constructor(private blockAreaObject: IBlockArea,
-        private blockAreaIndex: number,
-        private position: number) {
+    private snapshot: ReturnType<typeof snapshotBlockArea>;
+
+    constructor(blockArea: BlockArea, private position: number) {
         super();
-        this.blockAreaObject = copyHistoryValue(blockAreaObject);
+        this.snapshot = snapshotBlockArea(blockArea);
     }
     redo() {
         super.redo();
         const chart = store.useChart();
-        const blockArea = chart.blockAreaList.find(blockArea => blockArea.index === this.blockAreaIndex);
-        if (!blockArea) {
-            throw new Error(`噪域${this.blockAreaIndex}不存在`);
-        }
-        this.blockAreaObject = copyHistoryValue(blockArea.toObject());
+        const blockArea = store.getBlockAreaById(this.snapshot.index);
+        this.snapshot = snapshotBlockArea(blockArea);
         this.position = chart.blockAreaList.indexOf(blockArea);
         store.removeBlockArea(blockArea);
         store.useManager("stateManager").notifyBlockAreaListChanged({ removedPosition: this.position });
     }
     undo() {
         super.undo();
-        const blockArea = store.insertBlockArea(copyHistoryValue(this.blockAreaObject), this.position, this.blockAreaIndex);
+        const blockArea = store.insertBlockArea(
+            copyHistoryValue(this.snapshot.object),
+            this.position,
+            this.snapshot.index,
+            this.snapshot.eventState
+        );
         const stateManager = store.useManager("stateManager");
         stateManager.state.currentBlockAreaNumber = this.position;
         stateManager.notifyBlockAreaListChanged();
         return blockArea;
     }
     getDescription() {
-        return `删除噪域 ${this.blockAreaIndex}`;
+        return `删除噪域 ${this.snapshot.index}`;
     }
 }
 
@@ -727,47 +738,46 @@ class ActiveIntervalListRecord extends HistoryRecord {
     }
 }
 
-/** 修改激活区间的属性 */
-class ModifyActiveIntervalRecord<T extends ActiveIntervalEditableAttribute> extends HistoryRecord {
+/** 移动激活区间时同时记录起止时间和排序前后的位置 */
+class ModifyActiveIntervalRecord extends HistoryRecord {
     readonly type = "modifyActiveInterval";
     constructor(private blockAreaIndex: number,
-        private intervalIndex: number,
-        private attribute: T,
-        private newValue: IActiveInterval[T],
-        private oldValue?: IActiveInterval[T]) {
+        private before: ActiveIntervalState,
+        private after: ActiveIntervalState) {
         super();
-        const interval = store.getBlockAreaById(blockAreaIndex).activeIntervals[intervalIndex];
-        if (!interval) {
-            throw new Error(`噪域${blockAreaIndex}中不存在第${intervalIndex}个激活区间`);
-        }
-        this.newValue = copyHistoryValue(newValue);
-        this.oldValue = copyHistoryValue(oldValue ?? interval[attribute]);
+        this.before = copyHistoryValue(before);
+        this.after = copyHistoryValue(after);
     }
     redo(): void {
         super.redo();
-        this.apply(this.newValue);
+        this.apply(this.before.position, this.after);
     }
     undo(): void {
         super.undo();
-        this.apply(this.oldValue);
+        this.apply(this.after.position, this.before);
     }
-    private apply(value: IActiveInterval[T] | undefined) {
-        if (value === undefined) {
-            throw new Error(`激活区间的${this.attribute}没有旧值`);
+    private apply(fromPosition: number, to: ActiveIntervalState) {
+        const intervals = store.getBlockAreaById(this.blockAreaIndex).activeIntervals;
+        const interval = intervals[fromPosition];
+        if (!interval) {
+            throw new Error(`噪域${this.blockAreaIndex}中不存在第${fromPosition}个激活区间`);
         }
 
-        const interval = store.getBlockAreaById(this.blockAreaIndex).activeIntervals[this.intervalIndex];
-        if (!interval) {
-            throw new Error(`噪域${this.blockAreaIndex}中不存在第${this.intervalIndex}个激活区间`);
+        interval.startTime = copyHistoryValue(to.startTime);
+        interval.endTime = copyHistoryValue(to.endTime);
+        if (to.readyFlash !== undefined) {
+            interval.readyFlash = to.readyFlash;
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (interval as any)[this.attribute] = copyHistoryValue(value);
-    }
-    getMergeKey(): string {
-        return `interval:${this.blockAreaIndex}:${this.intervalIndex}`;
+
+        // 开始时间相同时，恢复原来的相对顺序，后续历史记录才会命中同一区间
+        const position = intervals.indexOf(interval);
+        if (position !== to.position) {
+            intervals.splice(position, 1);
+            intervals.splice(to.position, 0, interval);
+        }
     }
     getDescription(): string {
-        return `将激活区间的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
+        return `修改噪域${this.blockAreaIndex}的激活区间`;
     }
 }
 

@@ -13,7 +13,7 @@ import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
 import { IObjectizable } from "../objectizable";
-import { BlockArea, IBlockArea } from "./blockArea";
+import { BlockArea, BlockAreaEventState, IBlockArea } from "./blockArea";
 
 /** RPEJSON 格式谱面 */
 export interface IChart {
@@ -146,10 +146,11 @@ export class Chart implements IChart, IObjectizable {
     }
 
     /** 在指定位置插入一个噪域（撤销删除时使用），返回被插入的噪域 */
-    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number) {
+    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number, eventState?: BlockAreaEventState) {
         const newBlockArea = new BlockArea(blockAreaObject, {
             BPMList: this.BPMList,
-            index: index ?? this.nextBlockAreaIndex
+            index: index ?? this.nextBlockAreaIndex,
+            eventState
         });
         this.blockAreaList.splice(clamp(position, 0, this.blockAreaList.length), 0, newBlockArea);
         this.nextBlockAreaId = Math.max(this.nextBlockAreaId, newBlockArea.index + 1);

@@ -18,6 +18,7 @@ import { addBeats, Beats, beatsToSeconds, getBeatsValue, isEqualBeats, isGreater
 import { findLastEventIndex } from "@/models/rpe/event";
 import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { ElMessage } from "element-plus";
+import { reactive } from "vue";
 import { VERTICAL_ZOOM_MAX, VERTICAL_ZOOM_MIN } from "./state";
 import {
     SelectableElement,
@@ -41,6 +42,9 @@ export enum MouseMoveMode {
 /** 拖动开始时元素与鼠标的初始状态，用于按偏移量拖动整个元素 */
 interface DragOrigin {
 
+    /** 被拖动的元素，拖动过程中不随选区变化 */
+    element: SelectableElement
+
     /** 按下鼠标时的鼠标拍数 */
     mouseBeats: Beats
 
@@ -55,6 +59,9 @@ interface DragOrigin {
 
     /** 按下鼠标时元素的 x 坐标（音符的 positionX 或噪域的 editorPositionX） */
     positionX: number
+
+    /** 拖动前激活区间在所属噪域中的位置 */
+    intervalPosition?: number
 }
 const MAX_WHEEL_VELOCITY = 100;
 
@@ -115,17 +122,6 @@ export default class MouseManager extends Manager {
         globalEventEmitter.on("RENDER_FRAME", () => {
             this.updateWheelVelocity();
         });
-
-        // canvas 的 mouseup 只有在画布内松开时才会触发。
-        // 如果拖动时把鼠标移到画布外再松开，拖动就永远不会结束，
-        // 元素已经被移动却没有写入历史记录，之后撤销就会回到错误的状态。
-        // 这里在 window 上再做一层兜底，保证任何位置松开鼠标都能结束拖动并记录历史
-        window.addEventListener("mouseup", () => {
-            this.mouseUp(false);
-        });
-        window.addEventListener("blur", () => {
-            this.mouseUp(false);
-        });
     }
 
     /**
@@ -144,7 +140,6 @@ export default class MouseManager extends Manager {
         const boxesManager = store.useManager("boxesManager");
         const historyManager = store.useManager("historyManager");
         const stateManager = store.useManager("stateManager");
-        const firstElement = selectionManager.selectedElements[0];
 
         if (this.addedElement) {
             const addedElement = this.addedElement;
@@ -160,7 +155,7 @@ export default class MouseManager extends Manager {
                 if (position === -1) {
                     throw new Error(`新添加的噪域${addedElement.index}不在噪域列表中`);
                 }
-                historyManager.recordAddBlockArea(addedElement.toObject(), addedElement.index, position);
+                historyManager.recordAddBlockArea(addedElement, position);
             }
             else if (isEvent(addedElement)) {
                 // 确保没有与之重叠的事件
@@ -183,13 +178,10 @@ export default class MouseManager extends Manager {
             this.addedElement = null;
         }
         else if (this.mouseMoveMode === MouseMoveMode.Drag || this.mouseMoveMode === MouseMoveMode.DragEnd || this.mouseMoveMode === MouseMoveMode.DragWhole) {
-            if (firstElement) {
-                makeSureElementTimeValid(firstElement);
-            }
-
-            // Skip modification recording for newly added elements
-            if (this.addedElement === null && firstElement) {
-                this.recordDrag(firstElement);
+            const element = this.dragOrigin?.element;
+            if (element) {
+                makeSureElementTimeValid(element);
+                this.recordDrag(element);
             }
         }
         else if (this.mouseMoveMode === MouseMoveMode.Select) {
@@ -265,6 +257,14 @@ export default class MouseManager extends Manager {
                 return;
             }
 
+            if (store.getSiblingEvents(element).some(event => event.id !== element.id && element.isOverlapped(event))) {
+                element.startTime = origin.start;
+                element.endTime = origin.end;
+                globalEventEmitter.emit("ELEMENT_DRAGGED");
+                ElMessage.error("不能将事件拖动至重叠位置");
+                return;
+            }
+
             historyManager.group(`拖动事件 ${element.id}`);
             try {
                 if (startTimeChanged) {
@@ -312,49 +312,46 @@ export default class MouseManager extends Manager {
             }
 
             const intervalIndex = blockArea.activeIntervals.indexOf(element);
-            if (intervalIndex === -1) {
+            if (intervalIndex === -1 || origin.intervalPosition === undefined || origin.intervalPosition === -1) {
                 return;
             }
 
             const startTimeChanged = !isEqualBeats(element.startTime, origin.start);
             const endTimeChanged = !isEqualBeats(element.endTime, origin.end);
-            if (!startTimeChanged && !endTimeChanged) {
+            if (!startTimeChanged && !endTimeChanged && intervalIndex === origin.intervalPosition) {
                 return;
             }
 
-            historyManager.group("拖动激活区间");
-            try {
-                if (startTimeChanged) {
-                    historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", element.startTime, origin.start);
-                }
-
-                if (endTimeChanged) {
-                    historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", element.endTime, origin.end);
-                }
-            }
-            finally {
-                historyManager.ungroup();
-            }
+            historyManager.recordModifyActiveInterval(blockArea.index, {
+                position: origin.intervalPosition,
+                startTime: origin.start,
+                endTime: origin.end
+            }, {
+                position: intervalIndex,
+                startTime: element.startTime,
+                endTime: element.endTime
+            });
         }
     }
     mouseMove(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
         const judgeManager = store.useManager("judgeManager");
-        const selectionManager = store.useManager("selectionManager");
         const coordinateManager = store.useManager("coordinateManager");
         if (stateManager.state.isPreviewing) {
             store.setCursor("default");
             judgeManager.move(coordinateManager.convertXToChart(x), coordinateManager.convertYToChart(y));
         }
         else {
-            const firstElement = selectionManager.selectedElements[0];
+            const draggedElement = this.addedElement ?
+                reactive(this.addedElement) as SelectableElement :
+                this.dragOrigin?.element;
             switch (this.mouseMoveMode) {
                 case MouseMoveMode.Drag: {
-                    if (!firstElement) {
+                    if (!draggedElement) {
                         break;
                     }
 
-                    if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
+                    if (isNoteLike(draggedElement) && draggedElement.type !== NoteType.Hold) {
                         store.setCursor("move");
                     }
                     else {
@@ -362,29 +359,29 @@ export default class MouseManager extends Manager {
                     }
 
                     const beats = coordinateManager.attatchY(y);
-                    if (isNoteLike(firstElement)) {
-                        firstElement.startTime = beats;
-                        if (firstElement.type !== NoteType.Hold) {
-                            firstElement.endTime = beats;
+                    if (isNoteLike(draggedElement)) {
+                        draggedElement.startTime = beats;
+                        if (draggedElement.type !== NoteType.Hold) {
+                            draggedElement.endTime = beats;
                         }
-                        firstElement.positionX = coordinateManager.attatchX(x);
+                        draggedElement.positionX = coordinateManager.attatchX(x);
                     }
-                    else if (isBlockAreaLike(firstElement)) {
-                        setElementStartTime(firstElement, beats);
-                        if (isGreaterThanBeats(getElementStartTime(firstElement), getElementEndTime(firstElement))) {
-                            const startTime = getElementStartTime(firstElement);
-                            setElementStartTime(firstElement, getElementEndTime(firstElement));
-                            setElementEndTime(firstElement, startTime);
+                    else if (isBlockAreaLike(draggedElement)) {
+                        setElementStartTime(draggedElement, beats);
+                        if (isGreaterThanBeats(getElementStartTime(draggedElement), getElementEndTime(draggedElement))) {
+                            const startTime = getElementStartTime(draggedElement);
+                            setElementStartTime(draggedElement, getElementEndTime(draggedElement));
+                            setElementEndTime(draggedElement, startTime);
                             this.mouseMoveMode = MouseMoveMode.DragEnd;
                         }
                     }
                     else {
-                        firstElement.startTime = beats;
+                        draggedElement.startTime = beats;
                     }
 
-                    if (isNoteLike(firstElement) || isEvent(firstElement)) {
-                        if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                            [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                    if (isNoteLike(draggedElement) || isEvent(draggedElement)) {
+                        if (isGreaterThanBeats(draggedElement.startTime, draggedElement.endTime)) {
+                            [draggedElement.startTime, draggedElement.endTime] = [draggedElement.endTime, draggedElement.startTime];
                             this.mouseMoveMode = MouseMoveMode.DragEnd;
                         }
                     }
@@ -393,11 +390,11 @@ export default class MouseManager extends Manager {
                 }
 
                 case MouseMoveMode.DragEnd: {
-                    if (!firstElement) {
+                    if (!draggedElement) {
                         break;
                     }
 
-                    if (isNoteLike(firstElement) && firstElement.type !== NoteType.Hold) {
+                    if (isNoteLike(draggedElement) && draggedElement.type !== NoteType.Hold) {
                         store.setCursor("move");
                     }
                     else {
@@ -405,29 +402,29 @@ export default class MouseManager extends Manager {
                     }
 
                     const beats = coordinateManager.attatchY(y);
-                    if (isNoteLike(firstElement)) {
-                        firstElement.endTime = beats;
-                        if (firstElement.type !== NoteType.Hold) {
-                            firstElement.startTime = beats;
+                    if (isNoteLike(draggedElement)) {
+                        draggedElement.endTime = beats;
+                        if (draggedElement.type !== NoteType.Hold) {
+                            draggedElement.startTime = beats;
                         }
-                        firstElement.positionX = coordinateManager.attatchX(x);
+                        draggedElement.positionX = coordinateManager.attatchX(x);
                     }
-                    else if (isBlockAreaLike(firstElement)) {
-                        setElementEndTime(firstElement, beats);
-                        if (isGreaterThanBeats(getElementStartTime(firstElement), getElementEndTime(firstElement))) {
-                            const endTime = getElementEndTime(firstElement);
-                            setElementEndTime(firstElement, getElementStartTime(firstElement));
-                            setElementStartTime(firstElement, endTime);
+                    else if (isBlockAreaLike(draggedElement)) {
+                        setElementEndTime(draggedElement, beats);
+                        if (isGreaterThanBeats(getElementStartTime(draggedElement), getElementEndTime(draggedElement))) {
+                            const endTime = getElementEndTime(draggedElement);
+                            setElementEndTime(draggedElement, getElementStartTime(draggedElement));
+                            setElementStartTime(draggedElement, endTime);
                             this.mouseMoveMode = MouseMoveMode.Drag;
                         }
                     }
                     else {
-                        firstElement.endTime = beats;
+                        draggedElement.endTime = beats;
                     }
 
-                    if (isNoteLike(firstElement) || isEvent(firstElement)) {
-                        if (isGreaterThanBeats(firstElement.startTime, firstElement.endTime)) {
-                            [firstElement.startTime, firstElement.endTime] = [firstElement.endTime, firstElement.startTime];
+                    if (isNoteLike(draggedElement) || isEvent(draggedElement)) {
+                        if (isGreaterThanBeats(draggedElement.startTime, draggedElement.endTime)) {
+                            [draggedElement.startTime, draggedElement.endTime] = [draggedElement.endTime, draggedElement.startTime];
                             this.mouseMoveMode = MouseMoveMode.Drag;
                         }
                     }
@@ -436,21 +433,21 @@ export default class MouseManager extends Manager {
                 }
 
                 case MouseMoveMode.DragWhole: {
-                    if (!firstElement || !this.dragOrigin) {
+                    if (!draggedElement || !this.dragOrigin) {
                         break;
                     }
 
                     store.setCursor("move");
                     const beats = coordinateManager.attatchY(y);
                     const deltaBeats = subBeats(beats, this.dragOrigin.mouseBeats);
-                    setElementStartTime(firstElement, addBeats(this.dragOrigin.start, deltaBeats));
-                    setElementEndTime(firstElement, addBeats(this.dragOrigin.end, deltaBeats));
+                    setElementStartTime(draggedElement, addBeats(this.dragOrigin.start, deltaBeats));
+                    setElementEndTime(draggedElement, addBeats(this.dragOrigin.end, deltaBeats));
 
                     // 噪域的横向位置是 editorPositionX，按鼠标的横向位移换算
-                    if (isBlockArea(firstElement)) {
+                    if (isBlockArea(draggedElement)) {
                         const canvas = store.useCanvas();
                         const deltaX = (x - this.dragOrigin.mouseX) * canvas.width / Constants.EDITOR_VIEW_NOTES_VIEWBOX.width;
-                        firstElement.editorPositionX = this.dragOrigin.positionX + deltaX;
+                        draggedElement.editorPositionX = this.dragOrigin.positionX + deltaX;
                     }
                     globalEventEmitter.emit("ELEMENT_DRAGGED");
                     break;
@@ -501,11 +498,12 @@ export default class MouseManager extends Manager {
         const boxesManager = store.useManager("boxesManager");
         const coordinateManager = store.useManager("coordinateManager");
         const boxes = boxesManager.calculateBoxes();
+        const absoluteY = coordinateManager.absolute(y);
         let minDistance = Infinity;
         let clickedBox: BoxWithData<SelectableElement> | null = null;
         for (const box of boxes) {
-            if (box.touch(x, coordinateManager.absolute(y))) {
-                const distance = MathUtils.distance(x, y, box.middleX, box.middleY);
+            if (box.touch(x, absoluteY)) {
+                const distance = MathUtils.distance(x, absoluteY, box.middleX, box.middleY);
                 if (distance < minDistance) {
                     minDistance = distance;
                     clickedBox = box;
@@ -554,7 +552,7 @@ export default class MouseManager extends Manager {
                     }
 
                     selectionManager.select([clickedObject]);
-                    this.startDragging(clickedObject, clickedBox, x, y);
+                    this.startDragging(selectionManager.selectedElements[0], clickedBox, x, y);
                 }
             }
 
@@ -572,17 +570,24 @@ export default class MouseManager extends Manager {
         const coordinateManager = store.useManager("coordinateManager");
 
         this.dragOrigin = {
+            element,
             mouseBeats: coordinateManager.attatchY(y),
             mouseX: x,
             start: [...getElementStartTime(element)] as Beats,
             end: [...getElementEndTime(element)] as Beats,
-            positionX: isBlockArea(element) ? element.editorPositionX : isNoteLike(element) ? element.positionX : 0
+            positionX: isBlockArea(element) ? element.editorPositionX : isNoteLike(element) ? element.positionX : 0,
+            intervalPosition: isActiveInterval(element) ? element.owner?.activeIntervals.indexOf(element) : undefined
         };
         this.mouseMoveMode = MouseMoveMode.None;
 
         // 检测拖动头尾
-        const startY = coordinateManager.relative(box.top);
-        const endY = coordinateManager.relative(box.bottom);
+        const isClippedTrack = store.useManager("stateManager").state.isEditingBlockArea && !isBlockArea(element);
+        const startY = isClippedTrack ?
+            coordinateManager.getRelativePositionYOfSeconds(element.cachedStartSeconds) :
+            coordinateManager.relative(box.top);
+        const endY = isClippedTrack ?
+            coordinateManager.getRelativePositionYOfSeconds(element.cachedEndSeconds) :
+            coordinateManager.relative(box.bottom);
         if (this.mouseY >= startY - Constants.EDITOR_VIEW_SELECT_PADDING && this.mouseY <= startY) {
             this.mouseMoveMode = MouseMoveMode.Drag;
         }
@@ -652,7 +657,8 @@ export default class MouseManager extends Manager {
                     return extendedEventTypes;
                 }
             })();
-            const track = floor((x - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) / (Constants.EDITOR_VIEW_EVENTS_VIEWBOX.right - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) * types.length);
+            const viewBox = Constants.EDITOR_VIEW_EVENTS_VIEWBOX;
+            const track = Math.min(floor((x - viewBox.left) / viewBox.width * types.length), types.length - 1);
             const type = types[track];
             const timeSeconds = beatsToSeconds(chart.BPMList, time);
             const events = stateManager.currentEventLayer.getEventsByType(type);
@@ -753,7 +759,8 @@ export default class MouseManager extends Manager {
         const chart = store.useChart();
         const time = coordinateManager.attatchY(y);
         const trackCount = blockAreaEventTracks.length;
-        const column = floor((x - Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left) / Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * trackCount);
+        const viewBox = Constants.EDITOR_VIEW_EVENTS_VIEWBOX;
+        const column = Math.min(floor((x - viewBox.left) / viewBox.width * trackCount), trackCount - 1);
         const track = blockAreaEventTracks[column];
         const type = getBlockAreaEventTypeOfTrack(track);
 

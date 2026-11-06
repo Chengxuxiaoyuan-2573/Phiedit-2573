@@ -125,7 +125,7 @@ export default class SelectionManager extends Manager {
                     }
                     else if (isBlockArea(element)) {
                         const position = rememberRemoval(chart.blockAreaList, element);
-                        historyManager.recordRemoveBlockArea(element.toObject(), element.index, position);
+                        historyManager.recordRemoveBlockArea(element, position);
                         store.removeBlockArea(element);
                         if (position < currentPosition) {
                             currentPosition--;
