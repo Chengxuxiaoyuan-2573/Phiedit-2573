@@ -4,9 +4,9 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { RGBAcolor } from "../tools/color";
+import { RGBAcolor } from "../../tools/color";
 import { NoteType } from "./note";
-import MediaUtils from "../tools/mediaUtils";
+import MediaUtils from "../../tools/mediaUtils";
 interface IResourcePackage {
     tap: HTMLImageElement;
     flick: HTMLImageElement;

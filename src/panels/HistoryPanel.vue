@@ -10,21 +10,26 @@
             历史记录
         </Teleport>
         <em>
-            已记录{{ historyManager.getSize() }}条历史记录
+            共{{ historyManager.getSize() }}条历史记录
             （显示最近的{{ num * 2 }}条）
         </em>
-        <MyButton
-            type="primary"
-            @click="globalEventEmitter.emit('UNDO')"
+        <MyGridContainer
+            :columns="2"
+            :gap="10"
         >
-            撤销（Ctrl+Z）
-        </MyButton>
-        <MyButton
-            type="primary"
-            @click="globalEventEmitter.emit('REDO')"
-        >
-            重做（Ctrl+Y）
-        </MyButton>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('UNDO')"
+            >
+                撤销（Ctrl+Z）
+            </MyButton>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('REDO')"
+            >
+                重做（Ctrl+Y）
+            </MyButton>
+        </MyGridContainer>
         <ElTable
             :data="getData()"
             :row-class-name="rowClassName"
@@ -39,6 +44,7 @@ import MyButton from "@/myElements/MyButton.vue";
 import globalEventEmitter from "@/eventEmitter";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import store from "@/store";
+import MyGridContainer from "@/myElements/MyGridContainer.vue";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -66,7 +72,7 @@ function padEnd<T>(arr: T[], padLength: number, padding?: T): T[] {
     return padLength > arr.length ? arr.concat(Array(padLength - arr.length).fill(padding)) : [...arr];
 }
 
-const num = 3;
+const num = 5;
 function getData() {
     return [
         ...padStart(historyManager.undoStack.slice(-num).map(command => {

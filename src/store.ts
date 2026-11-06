@@ -5,10 +5,10 @@
  */
 
 import { Ref, ref } from "vue";
-import { ChartPackage } from "./models/chartPackage";
-import { ResourcePackage } from "./models/resourcePackage";
-import { INote } from "./models/note";
-import { IEvent } from "./models/event";
+import { ChartPackage } from "./models/rpe/chartPackage";
+import { ResourcePackage } from "./models/rpe/resourcePackage";
+import { INote } from "./models/rpe/note";
+import { AbstractEvent, IEvent } from "./models/rpe/event";
 import type { useRoute } from "vue-router";
 import ChartRenderer from "./managers/renderer/chartRenderer";
 import EditorRenderer from "./managers/renderer/editorRenderer";
@@ -35,11 +35,12 @@ import MutipleEditManager from "./managers/renderer/mutipleEdit";
 import ChartPackageLoader from "./managers/renderer/chartPackageLoader";
 import ResourcePackageLoader from "./managers/renderer/resourcePackageLoader";
 
-import { Beats, beatsToSeconds, secondsToBeats } from "./models/beats";
+import { Beats, beatsToSeconds, secondsToBeats } from "./models/rpe/beats";
 import { ArrayedObject } from "./tools/algorithm";
 import { SEC_TO_MS } from "./tools/mathUtils";
 import MediaUtils from "./tools/mediaUtils";
 import JudgeManager from "./managers/renderer/judge";
+import { BLOCK_AREA_EVENT_LAYER_ID, BlockArea, BlockAreaEventType, IBlockArea } from "./models/rpe/blockArea";
 
 /**
  * 用来存储 managers 的构造函数
@@ -287,14 +288,68 @@ class Store {
     /**
      * 根据 id 获取事件
      * 事件 id 的格式为：<判定线编号>-<事件层级编号>-<事件种类>-<事件编号>
+     * 噪域事件的 id 格式为：<噪域编号>-blockArea-<事件种类>-<事件编号>
      */
     getEventById(id: string) {
-        const chart = this.useChart();
         const { judgeLineNumber, eventLayerId, eventType } = this.parseEventId(id);
-        const judgeLine = chart.judgeLineList[judgeLineNumber];
-        const eventLayer = eventLayerId === "X" ? judgeLine.extended : judgeLine.eventLayers[+eventLayerId];
-        return eventLayer.getEventsByType(eventType).find(event => event.id === id) ?? null;
+        const events = this.getEventList(judgeLineNumber, eventLayerId, eventType);
+        return events.find(event => event.id === id) ?? null;
     }
+
+    /**
+     * 按“判定线编号 + 事件层 + 事件类型”取到存有这些事件的列表。
+     *
+     * 噪域的事件层标识是 "blockArea"，此时 judgeLineNumber 实际上是噪域编号。
+     */
+    getEventList(judgeLineNumber: number, eventLayerId: string, eventType: string) {
+        if (eventLayerId === BLOCK_AREA_EVENT_LAYER_ID) {
+            const blockArea = this.getBlockAreaById(judgeLineNumber);
+            return blockArea.getEventsByType(eventType as BlockAreaEventType);
+        }
+
+        const judgeLine = this.getJudgeLineById(judgeLineNumber);
+        const eventLayer = eventLayerId === "X" ? judgeLine.extended : judgeLine.eventLayers[+eventLayerId];
+        if (!eventLayer) {
+            throw new Error(`不存在编号为${eventLayerId}的事件层`);
+        }
+        return eventLayer.getEventsByType(eventType);
+    }
+
+    /** 获取与指定事件处于同一个列表的所有事件（同一判定线、同一事件层、同一类型，或同一噪域、同一类型） */
+    getSiblingEvents(event: Pick<AbstractEvent, "judgeLineNumber" | "eventLayerId" | "type">) {
+        return this.getEventList(event.judgeLineNumber, event.eventLayerId, event.type);
+    }
+
+    /** 根据编号获取噪域。注意这里的编号是噪域的稳定编号，不是它在 blockAreaList 中的下标 */
+    getBlockAreaById(index: number) {
+        const chart = this.useChart();
+        const blockArea = chart.blockAreaList.find(blockArea => blockArea.index === index);
+        if (!blockArea) {
+            throw new Error(`${index}号噪域不存在`);
+        }
+        return blockArea;
+    }
+
+    /** 根据噪域在 blockAreaList 中的下标获取噪域 */
+    getBlockAreaByPosition(position: number) {
+        const chart = this.useChart();
+        const blockArea = chart.blockAreaList[position];
+        if (!blockArea) {
+            throw new Error(`第${position}个噪域不存在`);
+        }
+        return blockArea;
+    }
+
+    /** 删除一个噪域 */
+    removeBlockArea(blockArea: BlockArea) {
+        this.useChart().removeBlockArea(blockArea);
+    }
+
+    /** 在指定位置插入一个噪域，返回被插入的噪域 */
+    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number) {
+        return this.useChart().insertBlockArea(blockAreaObject, position, index);
+    }
+
     addNote(noteObject: INote, judgeLineNumber: number, id?: string) {
         const judgeLine = this.getJudgeLineById(judgeLineNumber);
         return judgeLine.addNote(noteObject, id);
@@ -306,6 +361,11 @@ class Store {
         judgeLine.notes.splice(noteIndex, 1);
     }
     addEvent(eventObject: IEvent<unknown>, eventType: string, eventLayerId: string, judgeLineNumber: number, id?: string) {
+        if (eventLayerId === BLOCK_AREA_EVENT_LAYER_ID) {
+            const blockArea = this.getBlockAreaById(judgeLineNumber);
+            return blockArea.addEvent(eventObject, eventType as BlockAreaEventType, id);
+        }
+
         const judgeLine = this.getJudgeLineById(judgeLineNumber);
         const eventLayer = eventLayerId === "X" ? judgeLine.extended : judgeLine.eventLayers[+eventLayerId];
         if (!eventLayer) {
@@ -315,10 +375,11 @@ class Store {
     }
     removeEvent(id: string) {
         const parsedId = this.parseEventId(id);
-        const judgeLine = this.getJudgeLineById(parsedId.judgeLineNumber);
-        const eventLayer = parsedId.eventLayerId === "X" ? judgeLine.extended : judgeLine.eventLayers[+parsedId.eventLayerId];
-        const events = eventLayer.getEventsByType(parsedId.eventType);
+        const events = this.getEventList(parsedId.judgeLineNumber, parsedId.eventLayerId, parsedId.eventType);
         const eventIndex = events.findIndex(event => event.id === id);
+        if (eventIndex === -1) {
+            throw new Error(`事件${id}不存在`);
+        }
         events.splice(eventIndex, 1);
     }
 }

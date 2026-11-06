@@ -4,9 +4,9 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { getEasingValue } from "@/models/easing";
-import { Note, NoteAbove, NoteFake, NoteType } from "@/models/note";
+import { addBeats, Beats, beatsToSeconds, getBeatsValue } from "@/models/rpe/beats";
+import { getEasingValue } from "@/models/rpe/easing";
+import { Note, NoteAbove, NoteFake, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";

@@ -5,7 +5,6 @@
  */
 
 import { Chart, IChart } from "./chart";
-import ChartError from "./error";
 import { Extra, IExtra } from "./extra";
 export interface IChartPackage {
     chart: IChart;
@@ -23,6 +22,7 @@ export interface ChartConfig {
     noteSize: number,
 }
 export const SYMBOL_CHART_JSON_ERROR = Symbol("Chart JSON Error");
+export const SYMBOL_EXTRA_NOT_EXIST = Symbol("Extra Not Exist");
 export const SYMBOL_EXTRA_JSON_ERROR = Symbol("Extra JSON Error");
 export class ChartPackage implements IChartPackage {
     chart: Chart;
@@ -30,7 +30,7 @@ export class ChartPackage implements IChartPackage {
     musicSrc: string;
     textures: Record<string, HTMLImageElement>;
     extra: Extra;
-    errors: ChartError[] = [];
+    errorMessages: string[] = [];
     constructor(chartPackage: IChartPackage, version: string) {
         this.chart = new Chart(chartPackage.chart, version);
         this.musicSrc = chartPackage.musicSrc;
@@ -38,12 +38,13 @@ export class ChartPackage implements IChartPackage {
         this.textures = chartPackage.textures;
         this.extra = new Extra(chartPackage.extra);
 
-        this.errors.push(...this.chart.errors);
-        this.errors.push(...this.extra.errors);
+        this.errorMessages = this.errorMessages
+            .concat(this.chart.errorMessages)
+            .concat(this.extra.errorMessages);
 
         // 强制使 extra.bpm 与 chart.BPMList 相同
         this.extra.bpm.length = 0;
-        this.extra.bpm.push(...this.chart.BPMList);
+        this.extra.bpm = this.chart.BPMList.concat();
         this.extra.calculateSeconds();
     }
 }
@@ -53,7 +54,7 @@ export interface ChartReadResult {
     backgroundData: ArrayBuffer,
     chartContent: string,
     textures: Record<string, ArrayBuffer>,
-    extraContent: string
+    extraContent?: string
 }
 
 /*

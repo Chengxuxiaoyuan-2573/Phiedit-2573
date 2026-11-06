@@ -4,16 +4,16 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { isObject, isArray, isNumber, isString } from "lodash";
+import { isObject, isArray, isNumber, isString, clamp } from "lodash";
 import { beatsToSeconds, BPM, getBeatsValue, IBPM } from "./beats";
 import { ChartMeta, IChartMeta } from "./chartMeta";
 import { IJudgeLine, JudgeLine } from "./judgeLine";
 import { Note } from "./note";
 import { AbstractEvent } from "./event";
 import { markRaw, reactive } from "vue";
-import ChartError from "./error";
 import { SYMBOL_CHART_JSON_ERROR } from "./chartPackage";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
+import { BlockArea, IBlockArea } from "./blockArea";
 
 /** RPEJSON 格式谱面 */
 export interface IChart {
@@ -29,6 +29,9 @@ export interface IChart {
 
     /** 判定线列表 */
     judgeLineList: IJudgeLine[]
+
+    /** 噪域列表（Phigros 4.0.0 新增的噪域功能） */
+    blockAreaList: IBlockArea[]
 }
 
 export class Chart implements IChart, IObjectizable {
@@ -36,7 +39,8 @@ export class Chart implements IChart, IObjectizable {
     readonly META: ChartMeta;
     readonly judgeLineGroup: string[];
     readonly judgeLineList: JudgeLine[];
-    readonly errors: ChartError[] = [];
+    readonly blockAreaList: BlockArea[] = [];
+    readonly errorMessages: string[] = [];
 
     /** 把谱面转为JSON对象 */
     toObject(): IChart {
@@ -44,20 +48,21 @@ export class Chart implements IChart, IObjectizable {
             BPMList: this.BPMList.map(bpm => bpm.toObject()),
             META: this.META.toObject(),
             judgeLineGroup: this.judgeLineGroup,
-            judgeLineList: this.judgeLineList.map(judgeLine => judgeLine.toObject())
+            judgeLineList: this.judgeLineList.map(judgeLine => judgeLine.toObject()),
+            blockAreaList: this.blockAreaList.map(blockArea => blockArea.toObject())
         };
     }
     getAllNotes() {
-        const notes: Note[] = [];
+        let notes: Note[] = [];
         this.judgeLineList.forEach(judgeLine => {
-            notes.push(...judgeLine.notes);
+            notes = notes.concat(judgeLine.notes);
         });
         return notes.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
     getAllEvents() {
-        const events: AbstractEvent[] = [];
+        let events: AbstractEvent[] = [];
         this.judgeLineList.forEach(judgeLine => {
-            events.push(...judgeLine.getAllEvents());
+            events = events.concat(judgeLine.getAllEvents());
         });
         return events.sort((x, y) => getBeatsValue(x.startTime) - getBeatsValue(y.startTime));
     }
@@ -88,6 +93,19 @@ export class Chart implements IChart, IObjectizable {
             event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
             event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
         }
+
+        for (const blockArea of this.blockAreaList) {
+            blockArea.calculateSeconds();
+
+            for (const event of blockArea.getAllEvents()) {
+                event.cachedStartSeconds = beatsToSeconds(this.BPMList, event.startTime);
+                event.cachedEndSeconds = beatsToSeconds(this.BPMList, event.endTime);
+            }
+
+            for (const interval of blockArea.activeIntervals) {
+                interval.calculateSeconds();
+            }
+        }
     }
     deleteJudgeLine(judgeLineNumber: number) {
         if (judgeLineNumber < 0 || judgeLineNumber >= this.judgeLineList.length) {
@@ -109,6 +127,36 @@ export class Chart implements IChart, IObjectizable {
     }
 
     /**
+     * 噪域编号的下一个可用值。
+     *
+     * 噪域编号用于生成噪域事件的 id，删除噪域时不会重新编号，所以新噪域必须取一个没用过的编号。
+     */
+    get nextBlockAreaIndex() {
+        return this.blockAreaList.reduce((max, blockArea) => Math.max(max, blockArea.index + 1), 0);
+    }
+
+    /** 删除一个噪域 */
+    removeBlockArea(blockArea: BlockArea) {
+        const index = this.blockAreaList.indexOf(blockArea);
+        if (index === -1) {
+            throw new Error(`谱面中不存在噪域“${blockArea.Name}”`);
+        }
+        this.blockAreaList.splice(index, 1);
+    }
+
+    /** 在指定位置插入一个噪域（撤销删除时使用），返回被插入的噪域 */
+    insertBlockArea(blockAreaObject: IBlockArea, position: number, index?: number) {
+        const newBlockArea = new BlockArea(blockAreaObject, {
+            BPMList: this.BPMList,
+            index: index ?? this.nextBlockAreaIndex
+        });
+        this.blockAreaList.splice(clamp(position, 0, this.blockAreaList.length), 0, newBlockArea);
+        this.errorMessages.push(...newBlockArea.errorMessages);
+        this.calculateSeconds();
+        return newBlockArea;
+    }
+
+    /**
      * 传入谱面对象，加载谱面。如果传入的是一个数字，则创建一个有对应数量判定线的谱面。
      */
     constructor(chart: unknown, version: string) {
@@ -121,13 +169,16 @@ export class Chart implements IChart, IObjectizable {
                 for (const bpm of chart.BPMList) {
                     const newBPM = new BPM(bpm);
                     this.BPMList.push(newBPM);
-                    this.errors.push(...newBPM.errors);
+                    this.errorMessages = this.errorMessages.concat(newBPM.errorMessages);
                 }
+
+                // 拍数转秒数依赖 BPM 列表按时间有序，谱面文件里的列表不保证有序，加载后统一排序
+                this.BPMList.sort((a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
             }
 
             const newChartMeta = new ChartMeta("META" in chart ? chart.META : null, version);
             this.META = reactive(newChartMeta);
-            this.errors.push(...newChartMeta.errors);
+            this.errorMessages = this.errorMessages.concat(newChartMeta.errorMessages);
 
             if ("judgeLineGroup" in chart && isArray(chart.judgeLineGroup)) {
                 for (const group of chart.judgeLineGroup) {
@@ -136,10 +187,7 @@ export class Chart implements IChart, IObjectizable {
                         formatedGroup = group;
                     }
                     else {
-                        this.errors.push(new ChartError(
-                            `chart.judgeLineGroup 属性必须是字符串，但读取到了 ${group}。将会替换为字符串 "default"。`,
-                            "ChartReadError.TypeError"
-                        ));
+                        this.errorMessages.push(`chart.judgeLineGroup 属性必须是字符串，但读取到了 ${group}。将会替换为字符串 "default"。`,);
                     }
                     this.judgeLineGroup.push(formatedGroup);
                 }
@@ -152,7 +200,18 @@ export class Chart implements IChart, IObjectizable {
                         judgeLineNumber: i
                     });
                     this.judgeLineList.push(newJudgeLine);
-                    this.errors.push(...newJudgeLine.errors);
+                    this.errorMessages = this.errorMessages.concat(newJudgeLine.errorMessages);
+                }
+            }
+
+            if ("blockAreaList" in chart && isArray(chart.blockAreaList)) {
+                for (const [i, blockArea] of chart.blockAreaList.entries()) {
+                    const newBlockArea = new BlockArea(blockArea, {
+                        BPMList: this.BPMList,
+                        index: i
+                    });
+                    this.blockAreaList.push(newBlockArea);
+                    this.errorMessages = this.errorMessages.concat(newBlockArea.errorMessages);
                 }
             }
         }
@@ -162,32 +221,19 @@ export class Chart implements IChart, IObjectizable {
                 for (let i = 0; i < chart; i++) {
                     this.addNewJudgeLine();
                 }
-                this.errors.push(new ChartError(
-                    `谱面文件必须是一个对象，但读取到了数字${chart}。将会创建一个包含${this.judgeLineList.length}条判定线的谱面。`,
-                    "ChartReadError.TypeError",
-                    "info"
-                ));
+                this.errorMessages.push(`谱面文件必须是一个对象，但读取到了数字${chart}。将会创建一个包含${this.judgeLineList.length}条判定线的谱面。`);
             }
             else if (chart === SYMBOL_CHART_JSON_ERROR) {
-                this.errors.push(new ChartError(
-                    `谱面文件不存在或不能被 JSON 解析。请确保文件存在且格式正确。`,
-                    "ChartReadError.FormatError"
-                ));
+                this.errorMessages.push(`谱面文件不存在或不能被 JSON 解析。请确保文件存在且格式正确。`);
             }
             else {
-                this.errors.push(new ChartError(
-                    `谱面文件必须是一个对象，但读取到了${chart}。将会被替换为空谱面。`,
-                    "ChartReadError.TypeError"
-                ));
+                this.errorMessages.push(`谱面文件必须是一个对象，但读取到了${chart}。将会被替换为空谱面。`);
             }
         }
 
         if (this.judgeLineList.length === 0) {
             this.addNewJudgeLine();
-            this.errors.push(new ChartError(
-                `谱面没有任何判定线，将增加一条判定线。`,
-                "ChartReadError.MissingProperty"
-            ));
+            this.errorMessages.push(`谱面没有任何判定线，将增加一条判定线。`);
         }
         markRaw(this);
         this.highlightNotes();

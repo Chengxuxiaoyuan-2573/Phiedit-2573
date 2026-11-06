@@ -4,11 +4,11 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { Chart } from "@/models/chart";
+import { Chart } from "@/models/rpe/chart";
 import Manager from "../renderer/abstract";
 import filesManager from "./files";
 import fs from "fs";
-import { BPM } from "@/models/beats";
+import { BPM } from "@/models/rpe/beats";
 import path from "path";
 import chartListManager from "./chartList";
 import chartIdCreator from "./chartIdCreator";

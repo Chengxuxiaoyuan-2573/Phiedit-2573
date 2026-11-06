@@ -27,11 +27,11 @@ export default class SaveManager extends Manager {
         const chartContent = JSON.stringify(chartObject);
         const extraContent = JSON.stringify(extraObject);
         if (extraObject.effects.length === 0) {
-            window.electronAPI.saveChart(store.getChartId(), chartContent);
+            await window.electronAPI.saveChart(store.getChartId(), chartContent);
         }
         else {
-            window.electronAPI.saveChart(store.getChartId(), chartContent, extraContent);
+            await window.electronAPI.saveChart(store.getChartId(), chartContent, extraContent);
         }
-        window.electronAPI.writeChartInfo(store.getChartId(), chart.META.toObject());
+        await window.electronAPI.writeChartInfo(store.getChartId(), chart.META.toObject());
     }
 }

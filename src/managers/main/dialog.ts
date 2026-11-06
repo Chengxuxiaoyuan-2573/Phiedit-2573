@@ -9,12 +9,20 @@ import Manager from "../renderer/abstract";
 
 class DialogManager extends Manager {
     async showOpenDialog(dialogOptions: OpenDialogOptions) {
-        const properties: Array<"openFile" | "multiSelections"> = [];
-        properties.push("openFile");
+        const properties: Array<"openFile" | "multiSelections" | "openDirectory" | "createDirectory"> = [];
 
-        // 如果允许多选，则添加 multiSelections 属性
-        if (dialogOptions.multiple) {
-            properties.push("multiSelections");
+        // 如果是要选择文件夹，就不能选择文件
+        if (dialogOptions.directory) {
+            properties.push("openDirectory");
+            properties.push("createDirectory");
+        }
+        else {
+            properties.push("openFile");
+
+            // 如果允许多选，则添加 multiSelections 属性
+            if (dialogOptions.multiple) {
+                properties.push("multiSelections");
+            }
         }
 
         const result = await dialog.showOpenDialog({
@@ -44,6 +52,9 @@ interface OpenDialogOptions {
     title?: string;
     defaultPath?: string;
     multiple?: boolean;
+
+    /** 为 true 时选择的是文件夹而不是文件 */
+    directory?: boolean;
     filters?: {
         name: string;
         extensions: string[];

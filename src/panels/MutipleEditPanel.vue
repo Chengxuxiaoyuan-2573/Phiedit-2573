@@ -30,79 +30,84 @@
                 已选中{{ numOfNotes }}个音符和{{ numOfEvents }}个事件
             </template>
         </em>
-        <MyDialog open-text="移动到判定线">
-            <MyInputNumber
-                v-model="targetJudgeLineNumber"
-                :min="0"
-                :max="chart.judgeLineList.length - 1"
-            >
-                <template #prepend>
-                    移动到
-                </template>
-                <template #append>
-                    号判定线
-                </template>
-            </MyInputNumber>
-            <template #footer="{ close }">
-                <MyButton
-                    type="primary"
-                    @click="globalEventEmitter.emit('MOVE_TO_JUDGE_LINE', targetJudgeLineNumber), close()"
+        <MyGridContainer
+            v-if="numOfEvents > 0"
+            :columns="2"
+        >
+            <MyDialog open-text="移动到判定线">
+                <MyInputNumber
+                    v-model="targetJudgeLineNumber"
+                    :min="0"
+                    :max="chart.judgeLineList.length - 1"
                 >
-                    确定
-                </MyButton>
-            </template>
-        </MyDialog>
-        <MyDialog open-text="克隆">
-            请选择克隆的目标判定线：{{ stateManager.cache.clone.targetJudgeLines }}
-            <ElCheckboxGroup v-model="stateManager.cache.clone.targetJudgeLines">
-                <MyGridContainer :columns="10">
-                    <ElCheckboxButton
-                        v-for="(_, index) in chart.judgeLineList.length"
-                        :key="index"
-                        :value="index"
-                        :label="index"
+                    <template #prepend>
+                        移动到
+                    </template>
+                    <template #append>
+                        号判定线
+                    </template>
+                </MyInputNumber>
+                <template #footer="{ close }">
+                    <MyButton
+                        type="primary"
+                        @click="globalEventEmitter.emit('MOVE_TO_JUDGE_LINE', targetJudgeLineNumber), close()"
                     >
-                        {{ index }}
-                    </ElCheckboxButton>
-                </MyGridContainer>
-            </ElCheckboxGroup>
-            <MyInputBeats v-model="stateManager.cache.clone.timeDuration">
-                <template #prepend>
-                    持续时间
+                        确定
+                    </MyButton>
                 </template>
-            </MyInputBeats>
-            <MyInputBeats v-model="stateManager.cache.clone.timeDelta">
-                <template #prepend>
-                    克隆时间差
+            </MyDialog>
+            <MyDialog open-text="克隆">
+                请选择克隆的目标判定线：{{ stateManager.cache.clone.targetJudgeLines }}
+                <ElCheckboxGroup v-model="stateManager.cache.clone.targetJudgeLines">
+                    <MyGridContainer :columns="10">
+                        <ElCheckboxButton
+                            v-for="(_, index) in chart.judgeLineList.length"
+                            :key="index"
+                            :value="index"
+                            :label="index"
+                        >
+                            {{ index }}
+                        </ElCheckboxButton>
+                    </MyGridContainer>
+                </ElCheckboxGroup>
+                <MyInputBeats v-model="stateManager.cache.clone.timeDuration">
+                    <template #prepend>
+                        持续时间
+                    </template>
+                </MyInputBeats>
+                <MyInputBeats v-model="stateManager.cache.clone.timeDelta">
+                    <template #prepend>
+                        克隆时间差
+                    </template>
+                </MyInputBeats>
+                <p>
+                    例如：你选中了1~8号判定线，持续时间为8.0/1（8拍），克隆事件差为0.1/4（1/4拍），<br>
+                    则会把你选中的音符和事件依次复制到1，2，3，4，5，6，7，8，1，2，3...号判定线上，<br>
+                    每次复制都会延迟四分之一拍，一共复制32次。（因为8除以1/4等于32）<br>
+                    <em>注意，选择的判定线过少可能会导致事件重叠</em>
+                </p>
+                <template #footer="{ close }">
+                    <MyButton
+                        type="primary"
+                        @click="clone(), close()"
+                    >
+                        确定
+                    </MyButton>
                 </template>
-            </MyInputBeats>
-            <p>
-                例如：你选中了1~8号判定线，持续时间为8.0/1（8拍），克隆事件差为0.1/4（1/4拍），<br>
-                则会把你选中的音符和事件依次复制到1，2，3，4，5，6，7，8，1，2，3...号判定线上，<br>
-                每次复制都会延迟四分之一拍，一共复制32次。（因为8除以1/4等于32）<br>
-                <em>注意，选择的判定线过少可能会导致事件重叠</em>
-            </p>
-            <template #footer="{ close }">
-                <MyButton
-                    type="primary"
-                    @click="clone(), close()"
-                >
-                    确定
-                </MyButton>
-            </template>
-        </MyDialog>
-        <MyButton
-            v-if="numOfEvents > 0"
-            @click="globalEventEmitter.emit('DISABLE')"
-        >
-            禁用选中的{{ numOfEvents }}个事件（Ctrl+D）
-        </MyButton>
-        <MyButton
-            v-if="numOfEvents > 0"
-            @click="globalEventEmitter.emit('ENABLE')"
-        >
-            启用选中的{{ numOfEvents }}个事件（Ctrl+E）
-        </MyButton>
+            </MyDialog>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('DISABLE')"
+            >
+                禁用（Ctrl+D）
+            </MyButton>
+            <MyButton
+                type="primary"
+                @click="globalEventEmitter.emit('ENABLE')"
+            >
+                启用（Ctrl+E）
+            </MyButton>
+        </MyGridContainer>
         <MySelect
             v-model="stateManager.cache.mutipleEdit.type"
             :options="[
@@ -125,7 +130,7 @@
                 v-model="stateManager.cache.mutipleEdit.eventTypes"
                 multiple
                 placeholder="所有种类的事件"
-                :options="[...baseEventTypes, ...extendedEventTypes].map(type => {
+                :options="selectedEventTypes.map(type => {
                     return {
                         label: type,
                         text: type,
@@ -152,6 +157,7 @@
                 目标属性
             </MySelect>
             <MySelect
+                ref="modeSelect"
                 v-model="stateManager.cache.mutipleEdit.mode"
                 :options="modeOptions"
             >
@@ -282,28 +288,27 @@
     </div>
 </template>
 <script setup lang="ts">
-import { isNoteLike, Note, NoteType } from "@/models/note";
+import { isNoteLike, Note, NoteType } from "@/models/rpe/note";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyButton from "@/myElements/MyButton.vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 import MyDialog from "@/myElements/MyDialog.vue";
 import globalEventEmitter from "@/eventEmitter";
 import store from "@/store";
 import MyInputBeats from "@/myElements/MyInputBeats.vue";
 import MySwitch from "@/myElements/MySwitch.vue";
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import MySelect from "@/myElements/MySelect.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
 import MySelectNoteType from "@/myElements/MySelectNoteType.vue";
-import { baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
 import { colorToHex } from "@/tools/color";
 import MyInputColor from "@/myElements/MyInputColor.vue";
 import MyInput from "@/myElements/MyInput.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { ElCheckboxButton, ElCheckboxGroup } from "element-plus";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/event";
-import { describeBeats } from "@/models/beats";
+import { isColorEvent, isEvent, isNumberEvent, isTextEvent } from "@/models/rpe/event";
+import { describeBeats } from "@/models/rpe/beats";
 const props = defineProps<{
     titleTeleport: string
 }>();
@@ -311,14 +316,11 @@ const chart = store.useChart();
 const selectionManager = store.useManager("selectionManager");
 const stateManager = store.useManager("stateManager");
 
-const numOfSelectedElements = computed(() => {
-    return selectionManager.selectedElements.length;
-});
 const numOfNotes = computed(() => {
     return selectionManager.selectedElements.filter(element => element instanceof Note).length;
 });
 const numOfEvents = computed(() => {
-    return numOfSelectedElements.value - numOfNotes.value;
+    return selectionManager.selectedElements.filter(element => isEvent(element)).length;
 });
 
 const targetJudgeLineNumber = ref(0);
@@ -517,9 +519,29 @@ const validModes = computed((): readonly ("to" | "by" | "times" | "invert")[] =>
 const lines = computed(() => {
     const set = new Set<number>();
     for (const element of selectionManager.selectedElements) {
-        set.add(element.judgeLineNumber);
+        // 噪域和激活区间不属于任何判定线
+        if (isNoteLike(element) || isEvent(element)) {
+            set.add(element.judgeLineNumber);
+        }
     }
     return set.size;
+});
+
+/**
+ * 当前选中的所有事件涉及的事件类型。
+ *
+ * 事件类型下拉菜单只应展示这些类型。
+ * 之前展示的是全部事件类型，用户可以选择一个并没有被选中的类型，
+ * 点击确定后只会得到"当前没有选中X事件"的报错。
+ */
+const selectedEventTypes = computed(() => {
+    const types: string[] = [];
+    for (const element of selectionManager.selectedElements) {
+        if (isEvent(element) && !types.includes(element.type)) {
+            types.push(element.type);
+        }
+    }
+    return types;
 });
 
 function getModeLabel(mode: string) {
@@ -532,18 +554,28 @@ function getModeLabel(mode: string) {
     return labels[mode] || mode;
 }
 
+const modeSelect = useTemplateRef("modeSelect");
+
 function ensureModeValid() {
     if (!validModes.value.includes(stateManager.cache.mutipleEdit.mode)) {
         stateManager.cache.mutipleEdit.mode = validModes.value[0];
     }
+
+    // 即使 mode 本身依然合法，也要强制下拉菜单重新读取候选值。
+    // 否则像"事件缓动"这种只有 to 可用的属性，切换到"事件值"后
+    // 其它模式虽然已经解除禁用，但下拉菜单里仍然只显示 to。
+    modeSelect.value?.updateShowedValue();
 }
 
 watch(() => stateManager.cache.mutipleEdit.type, ensureModeValid);
 watch(() => stateManager.cache.mutipleEdit.attributeNote, ensureModeValid);
 watch(() => stateManager.cache.mutipleEdit.attributeEvent, ensureModeValid);
 
+// 选中元素变化时，可用的属性/模式都会变，需要重新校验
+watch(() => stateManager.cache.mutipleEdit.eventTypes, ensureModeValid, { deep: true });
+
 const description = computed(() => {
-    const subject = "选中的所有" + (stateManager.cache.mutipleEdit.type === "note" ? "音符" : stateManager.cache.mutipleEdit.eventTypes.join("、") + "事件");
+    const subject = "选中的所有" + (stateManager.cache.mutipleEdit.type === "note" ? "音符" : (stateManager.cache.mutipleEdit.eventTypes.length === 0 ? "" : stateManager.cache.mutipleEdit.eventTypes.join("、")) + "事件");
     const attribute = (() => {
         if (stateManager.cache.mutipleEdit.type === "note") {
             switch (stateManager.cache.mutipleEdit.attributeNote) {
@@ -635,9 +667,6 @@ const description = computed(() => {
             }
             else if (paramType.value === "color") {
                 let str = `以${EasingType[stateManager.cache.mutipleEdit.paramEasing]}缓动从${colorToHex(stateManager.cache.mutipleEdit.paramStartColor)}到${colorToHex(stateManager.cache.mutipleEdit.paramEndColor)}的值`;
-                if (stateManager.cache.mutipleEdit.isRandom) {
-                    str += `，并加上±${stateManager.cache.mutipleEdit.paramRandom}之内的随机数`;
-                }
                 return str;
             }
         }
@@ -684,6 +713,22 @@ async function clone() {
     globalEventEmitter.emit("CLONE");
 }
 
+/*
+function syncEventTypesFromSelection(selectedElements: readonly SelectableElement[]) {
+    const types: string[] = [];
+    for (const event of selectedElements) {
+        if (isEvent(event) && !types.includes(event.type)) {
+            types.push(event.type);
+        }
+    }
+
+    // 必须整体替换数组，不能先 length = 0 再逐个 push。
+    // 否则 Vue 会把这几次变更合并成一次通知，订阅方永远观察不到"被清空"这一中间状态，
+    // 导致下拉菜单里残留上一次选中的事件类型。
+    stateManager.cache.mutipleEdit.eventTypes = types;
+}
+*/
+
 function selectionUpdateHandler() {
     const selectedElements = selectionManager.selectedElements;
     if (selectedElements.length === 0) {
@@ -692,16 +737,23 @@ function selectionUpdateHandler() {
 
     if (selectedElements.every(element => isNoteLike(element))) {
         stateManager.cache.mutipleEdit.type = "note";
+        stateManager.cache.mutipleEdit.eventTypes = [];
     }
     else if (selectedElements.every(element => isEvent(element))) {
         stateManager.cache.mutipleEdit.type = "event";
-        stateManager.cache.mutipleEdit.eventTypes.length = 0;
-        for (const event of selectedElements) {
-            if (!stateManager.cache.mutipleEdit.eventTypes.includes(event.type)) {
-                stateManager.cache.mutipleEdit.eventTypes.push(event.type);
-            }
-        }
+
+        // syncEventTypesFromSelection(selectedElements);
     }
+    else {
+        // 混选了音符和事件时，批量编辑只能一次处理一种对象。
+        // 这里清空事件类型并保持"音符"以外的既有选择会导致属性/模式计算错乱，
+        // 所以统一回退到音符，与下方"至少选中一个音符"的判定保持一致。
+        stateManager.cache.mutipleEdit.type = "note";
+        stateManager.cache.mutipleEdit.eventTypes = [];
+    }
+
+    // 选中元素变化后，目标属性的可用模式可能也变了，需要重新校验一次
+    ensureModeValid();
 }
 
 onMounted(() => {

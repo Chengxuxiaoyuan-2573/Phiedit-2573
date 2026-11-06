@@ -17,10 +17,14 @@ class LoadManager extends Manager {
     private async loadTextures(chartId: string, backgroundPath: string) {
         const folderPath = filesManager.getChartPath(chartId);
         const texturePaths = [];
-        const allFiles = await fs.promises.readdir(folderPath);
+
+        // 递归读取谱面文件夹，保留多层目录结构，并把路径统一为正斜杠形式
+        const allFiles = await fs.promises.readdir(folderPath, { recursive: true });
+        const normalizedBackgroundPath = backgroundPath.replace(/\\/g, "/");
         for (const fileName of allFiles) {
-            if (FileUtils.isImage(fileName) && fileName !== backgroundPath) {
-                texturePaths.push(fileName);
+            const relativePath = fileName.replace(/\\/g, "/");
+            if (FileUtils.isImage(relativePath) && relativePath !== normalizedBackgroundPath) {
+                texturePaths.push(relativePath);
             }
         }
         return texturePaths;
@@ -40,7 +44,7 @@ class LoadManager extends Manager {
         const backgroundData = await fs.promises.readFile(backgroundWholePath);
         const chartContent = await fs.promises.readFile(chartWholePath, Constants.ENCODING).catch(() => "");
         const textureDatas = await Promise.all(textureWholePaths.map(texturePath => fs.promises.readFile(texturePath)));
-        const extraContent = await fs.promises.readFile(extraPath, Constants.ENCODING).catch(() => "");
+        const extraContent = await fs.promises.readFile(extraPath, Constants.ENCODING).catch(() => undefined);
 
         // 将texturePaths和textureDatas合并为一个对象
         const textures: Record<string, ArrayBuffer> = {};

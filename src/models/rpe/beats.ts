@@ -5,10 +5,9 @@
  */
 
 import { isNumber, isObject } from "lodash";
-import MathUtils, { MIN_TO_SEC } from "../tools/mathUtils";
+import MathUtils, { MIN_TO_SEC } from "../../tools/mathUtils";
 import { isArrayOfNumbers } from "@/tools/typeTools";
-import ChartError from "./error";
-import { IObjectizable } from "./objectizable";
+import { IObjectizable } from "../objectizable";
 export interface IBPM {
     bpm: number
     startTime: Beats
@@ -21,7 +20,7 @@ const DEFAULT_BPM = 120;
 export class BPM implements IBPM, IObjectizable {
     bpm: number = DEFAULT_BPM;
     _startTime: Beats = [0, 0, 1];
-    readonly errors: ChartError[] = [];
+    readonly errorMessages: string[] = [];
 
     /**
      * 为了兼容一些其他的格式，可能需要添加一些别名
@@ -66,17 +65,11 @@ export class BPM implements IBPM, IObjectizable {
                     this.bpm = bpm.bpm;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `BPM 对象的 bpm 属性必须是数字，但读取到了 ${bpm.bpm}。将会被替换为数字 120。`,
-                        "ChartReadError.TypeError",
-                    ));
+                    this.errorMessages.push(`BPM 对象的 bpm 属性必须是数字，但读取到了 ${bpm.bpm}。将会被设为 120。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `BPM 缺少 bpm 属性。将会被替换为数字 120。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`BPM 缺少 bpm 属性。将会被设为 120。`);
             }
 
             if ("startTime" in bpm) {
@@ -84,17 +77,11 @@ export class BPM implements IBPM, IObjectizable {
                     this._startTime = bpm.startTime;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `BPM 对象的 startTime 属性必须是一个长度为 3 的数字数组，但读取到了 ${bpm.startTime}。将会被替换为 [0, 0, 1]。`,
-                        "ChartReadError.TypeError"
-                    ));
+                    this.errorMessages.push(`BPM 对象的 startTime 属性必须是一个含有 3 个数的数组，但读取到了 ${bpm.startTime}。将会被设为 [0, 0, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `BPM 缺少 startTime 属性。将会被替换为 [0, 0, 1]。`,
-                    "ChartReadError.MissingProperty"
-                ));
+                this.errorMessages.push(`BPM 缺少 startTime 属性。将会被设为 [0, 0, 1]。`);
                 this._startTime = [0, 0, 1];
             }
         }

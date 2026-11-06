@@ -14,7 +14,7 @@
     </MySelect>
 </template>
 <script setup lang="ts">
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import MySelect from "./MySelect.vue";
 import { useTemplateRef } from "vue";
 const model = defineModel<EasingType>({

@@ -25,7 +25,7 @@
 </template>
 <script setup lang="ts">
 import globalEventEmitter from "@/eventEmitter";
-import { Note } from "@/models/note";
+import { Note } from "@/models/rpe/note";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
 import MySelectNoteType from "@/myElements/MySelectNoteType.vue";

@@ -6,7 +6,6 @@
         <Teleport :to="props.titleTeleport">
             设置
         </Teleport>
-        <em>设置不会存储到导出的谱面文件中</em>
         <MyButton
             type="primary"
             @click="settingsManager.setToDefault(), update()"
@@ -162,6 +161,9 @@
         <ElCheckbox v-model="resourcePackage.config.holdRepeat">
             Hold中间重复式拉伸
         </ElCheckbox> -->
+        <p class="extra-description">
+            此设置为编辑器的设置，并非谱面设置，不会存储到导出的谱面文件中。
+        </p>
     </div>
 </template>
 <script setup lang="ts">

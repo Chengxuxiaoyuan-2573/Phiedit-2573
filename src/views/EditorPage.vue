@@ -51,51 +51,98 @@
                     <ElRadioButton
                         class="note-type-option note-type-tap"
                         :value="NoteType.Tap"
+                        title="快捷键：Q"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.tap"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Tap（Q）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#00B3FF"
+                                />
+                            </svg>
+                            <p>Tap</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-drag"
                         :value="NoteType.Drag"
+                        title="快捷键：W"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.drag"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Drag（W）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#FFBA30"
+                                />
+                            </svg>
+                            <p>Drag</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-flick"
                         :value="NoteType.Flick"
+                        title="快捷键：E"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.flick"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Flick（E）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 10L90 10L90 20L10 20L10 10Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#FF8585"
+                                />
+                            </svg>
+                            <p>Flick</p>
+                        </div>
                     </ElRadioButton>
                     <ElRadioButton
                         class="note-type-option note-type-hold"
                         :value="NoteType.Hold"
+                        title="快捷键：R"
                     >
-                        <MyImage
-                            :image="resourcePackageRef.hold"
-                            rotate="anti-clockwise"
-                            :width="80"
-                            :height="30"
-                            shadow
-                        />
-                        <p>Hold（R）</p>
+                        <div class="note-type-button-wrapper">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="50"
+                                height="15"
+                                viewBox="0 0 100 30"
+                                fill="none"
+                            >
+                                <path
+                                    d="M10 1L90 1L90 29L10 29L10 1Z"
+                                    stroke="rgba(23, 73, 255, 1)"
+                                    stroke-width="1"
+                                    fill="#54CCFF"
+                                />
+                            </svg>
+                            <p>Hold</p>
+                        </div>
                     </ElRadioButton>
                 </ElRadioGroup>
                 <p class="info">
@@ -113,14 +160,122 @@
                         ({{ mouseX.toFixed(0) }}, {{ mouseY.toFixed(0) }})
                     </span>
                 </p>
-                <MySelect
+                <div class="tools">
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="剪切（Ctrl+X）"
+                        @click="globalEventEmitter.emit('CUT')"
+                    >
+                        <Scissor />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="复制（Ctrl+C）"
+                        @click="globalEventEmitter.emit('COPY')"
+                    >
+                        <CopyDocument />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="粘贴（Ctrl+V）"
+                        @click="globalEventEmitter.emit('PASTE')"
+                    >
+                        <DocumentCopy />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        color="#fe3400"
+                        class="tool-icon"
+                        title="删除（Delete）"
+                        @click="globalEventEmitter.emit('DELETE')"
+                    >
+                        <Delete />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="撤销（Ctrl+Z）"
+                        @click="globalEventEmitter.emit('UNDO')"
+                    >
+                        <RefreshLeft />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="重做（Ctrl+Y）"
+                        @click="globalEventEmitter.emit('REDO')"
+                    >
+                        <RefreshRight />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        :class="{
+                            active: stateManager.state.isPreviewing
+                        }"
+                        title="预览（I）"
+                        @click="globalEventEmitter.emit('TOGGLE_PREVIEW')"
+                    >
+                        <Monitor />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        :class="{
+                            active: stateManager.state.isFullscreen
+                        }"
+                        title="全屏（F11），全屏时进入预览"
+                        @click="globalEventEmitter.emit('TOGGLE_FULLSCREEN')"
+                    >
+                        <FullScreen />
+                    </ElIcon>
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="保存（Ctrl+S）"
+                        @click="globalEventEmitter.emit('SAVE')"
+                    >
+                        <svg viewBox="0 0 16 16">
+                            <path
+                                d="m14.414 3.207l-1.621-1.621A2 2 0 0 0 11.379 1H3c-1.103 0-2 .897-2 2v10c0 1.103.897 2 2 2h10c1.103 0 2-.897 2-2V4.621a2 2 0 0 0-.586-1.414M9 2v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5V2zM5 14V9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V14zm9-1c0 .551-.449 1-1 1h-1V9.5c0-.827-.673-1.5-1.5-1.5h-5C4.673 8 4 8.673 4 9.5V14H3c-.551 0-1-.449-1-1V3c0-.551.449-1 1-1h2v1.5C5 4.327 5.673 5 6.5 5h2c.827 0 1.5-.673 1.5-1.5V2h1.379c.263 0 .521.107.707.293l1.621 1.621c.186.186.293.444.293.707z"
+                            />
+                        </svg>
+                    </ElIcon>
+                    <el-divider direction="vertical" />
+                    <ElIcon
+                        :size="25"
+                        class="tool-icon"
+                        title="当前判定线编号"
+                    >
+                        <svg viewBox="0 0 56 56">
+                            <path
+                                fill="currentColor"
+                                d="M8.746 37.703h7.149l-2.133 10.594a4 4 0 0 0-.07.75c0 1.148.796 1.781 1.898 1.781c1.125 0 1.945-.61 2.18-1.758l2.296-11.367h11.086L29.02 48.297c-.07.234-.093.516-.093.75c0 1.148.797 1.781 1.922 1.781s1.945-.61 2.18-1.758L35.3 37.703h8.367c1.289 0 2.18-.937 2.18-2.203c0-1.031-.703-1.875-1.758-1.875h-7.946L38.63 21.25h8.203c1.29 0 2.18-.937 2.18-2.203c0-1.031-.703-1.875-1.758-1.875H39.45l1.922-9.445c.023-.141.07-.446.07-.75c0-1.149-.82-1.805-1.945-1.805c-1.312 0-1.898.726-2.133 1.828l-2.062 10.172H24.215l1.922-9.445c.023-.141.07-.446.07-.75c0-1.149-.844-1.805-1.945-1.805c-1.336 0-1.946.726-2.157 1.828l-2.062 10.172h-7.687c-1.29 0-2.18.984-2.18 2.273c0 1.055.703 1.805 1.758 1.805h7.289l-2.485 12.375h-7.57c-1.29 0-2.18.984-2.18 2.273c0 1.055.703 1.805 1.758 1.805m12.14-4.078l2.509-12.375H34.48l-2.508 12.375Z"
+                            />
+                        </svg>
+                    </ElIcon>
+                    <div class="judge-line-number-input-wrapper">
+                        <MyInputNumber
+                            v-model="stateManager.state.currentJudgeLineNumber"
+                            :min="0"
+                            :max="chart.judgeLineList.length - 1"
+                            title="当前判定线编号"
+                        />
+                    </div>
+                </div>
+                <MySlider
                     v-if="audioRef"
                     v-model="audioRef.playbackRate"
                     class="speed-select"
-                    :options="speedOptions"
+                    :min="0"
+                    :max="3"
+                    :step="0.1"
                 >
-                    倍速
-                </MySelect>
+                    倍速 {{ audioRef.playbackRate.toFixed(1) }}x
+                </MySlider>
                 <MyInputNumber
                     v-model="stateManager.state.horizonalLineCount"
                     class="horizontal-input"
@@ -145,14 +300,19 @@
                         竖线数
                         <MyQuestionMark>
                             左边的音符编辑区域内有多少条竖线。用于让排键更规整。<br>
-                            建议调为19或21。如果要取消竖线，请设为0。取消竖线后你的排键可能会很乱。<br>
+                            比较常用的值为21。如果要取消竖线，请设为0。取消竖线后你的排键可能会很乱。<br>
                         </MyQuestionMark>
                     </template>
                 </MyInputNumber>
-                <div>
-                    点击右侧按钮切换事件层级
-                </div>
+                <MyButton
+                    class="event-layer-hint-text"
+                    :type="stateManager.state.isEditingBlockArea ? 'success' : 'primary'"
+                    @click="stateManager.setBlockAreaEditing(!stateManager.state.isEditingBlockArea)"
+                >
+                    {{ stateManager.state.isEditingBlockArea ? "关闭噪域编辑" : "噪域编辑" }}
+                </MyButton>
                 <MyGridContainer
+                    v-if="!stateManager.state.isEditingBlockArea"
                     class="event-layer-select"
                     :columns="5"
                     :gap="5"
@@ -174,6 +334,7 @@
                         特殊
                     </MyButton>
                 </MyGridContainer>
+                <div v-else />
                 <MyInputNumber
                     v-model="chart.META.offset"
                     class="offset-input"
@@ -196,21 +357,47 @@
             <div
                 v-if="!stateManager.state.autoplay"
                 class="left-inner default-panel flex-container"
-                style="justify-content: space-between;"
             >
+                <MyBackHeader
+                    class="title-left"
+                    @back="exitPlayChart"
+                >
+                    试玩模式
+                </MyBackHeader>
                 <div>
-                    <p>当前处于试玩模式，请使用键盘游玩</p>
+                    <h3>玩法说明</h3>
                     <p>Tap：落到判定线上时按下任意键</p>
                     <p>Hold：落到判定线上时按住任意键直到其结束</p>
                     <p>Drag、Flick：落到判定线上时有任意键被按下即可</p>
                 </div>
-                <MyButton
-                    type="primary"
-                    @click="exitPlayChart()"
-                >
-                    退出试玩
-                </MyButton>
+                <div>
+                    <h3>判定信息</h3>
+                    <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
+                    <p>Good：{{ judgeManager.judgeInfo.good }}</p>
+                    <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
+                    <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
+                    <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
+                    <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+                </div>
+                <p class="extra-description">
+                    试玩模式仅用于试玩谱面，不能代表 Phigros 和 Phira 的游戏成绩。使用本软件的试玩模式游玩并公开屏元或手元时，应明确说明用 Phiedit 2573 的试玩模式游玩。
+                </p>
             </div>
+            <template v-else-if="isBlockAreaModeLeftPanel">
+                <MyBackHeader
+                    class="title-left"
+                    @back="stateManager.setBlockAreaEditing(false)"
+                />
+                <ActiveIntervalEditPanel
+                    v-if="selectedActiveInterval"
+                    :model-value="selectedActiveInterval"
+                    title-teleport=".title-left"
+                />
+                <BlockAreaEditPanel
+                    v-else
+                    title-teleport=".title-left"
+                />
+            </template>
             <div
                 v-else-if="selectionManager.selectedElements.length == 0"
                 class="left-inner default-panel flex-container"
@@ -242,6 +429,12 @@
                         @click="openChartFolder"
                     >
                         打开谱面文件夹
+                    </MyButton>
+                    <MyButton
+                        type="primary"
+                        @click="openTipsFolder"
+                    >
+                        打开 tips.txt 文件夹
                     </MyButton>
                     <MyButton
                         type="primary"
@@ -460,7 +653,10 @@
                 />
             </template>
         </ElAside>
-        <ElMain id="main">
+        <ElMain
+            id="main"
+            ref="mainRef"
+        >
             <canvas
                 ref="canvasRef"
                 class="canvas"
@@ -473,12 +669,57 @@
             @wheel.passive.stop
         >
             <div v-if="!stateManager.state.autoplay">
-                <p>Perfect：{{ judgeManager.judgeInfo.perfect }}</p>
-                <p>Good：{{ judgeManager.judgeInfo.good }}</p>
-                <p>Bad：{{ judgeManager.judgeInfo.bad }}</p>
-                <p>Miss：{{ judgeManager.judgeInfo.miss }}</p>
-                <p>Combo: {{ judgeManager.judgeInfo.combo }}</p>
-                <p>Score: {{ judgeManager.judgeInfo.score }}</p>
+                <MyBackHeader
+                    class="title-right"
+                    @back="exitPlayChart"
+                >
+                    判定区间设置
+                </MyBackHeader>
+                <MyGridContainer
+                    class="judgement-rule-wrapper"
+                    :width="[1, 2, 2, 2]"
+                    :gap="5"
+                >
+                    <p />
+                    <p>Perfect</p>
+                    <p>Good</p>
+                    <p>Bad</p>
+                    <p>Tap</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.tap.bad[1]" />
+                    <p>Hold</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.hold.bad[1]" />
+                    <p>Drag</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.drag.bad[1]" />
+                    <p>Flick</p>
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.perfect[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.good[0]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.bad[0]" />
+                    <p />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.perfect[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.good[1]" />
+                    <MyInputNumber v-model="stateManager.state.judgementRule.flick.bad[1]" />
+                </MyGridContainer>
+                <p class="extra-description">
+                    单位为秒。每个种类的音符对应两行，分别代表判定区间的两个端点。
+                </p>
             </div>
             <div
                 v-else-if="stateManager.state.right == RightPanelState.Default"
@@ -662,27 +903,28 @@
 </template>
 
 <script setup lang="ts">
-import { ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElRadioButton, ElRadioGroup, ElProgress } from "element-plus";
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { ElAside, ElScrollbar, ElContainer, ElHeader, ElIcon, ElMain, ElSlider, ElFooter, ElRadioButton, ElRadioGroup, ElProgress, ElMessage } from "element-plus";
+import { computed, h, inject, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { clamp, isNumber, mean } from "lodash";
 
 import MediaUtils from "@/tools/mediaUtils";
 import KeyboardUtils from "@/tools/keyboardUtils";
+import Constants from "@/constants";
 import { catchErrorByMessage, confirm, createCatchErrorByMessage } from "@/tools/catchError";
 import MathUtils, { SEC_TO_MS } from "@/tools/mathUtils";
 import { ArrayedObject, checkAndSort, unique } from "@/tools/algorithm";
 
-import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/event";
-import { isNoteLike, NoteType } from "@/models/note";
-import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/judgeLine";
+import { isNumberEvent, isColorEvent, isTextEvent } from "@/models/rpe/event";
+import { isNoteLike, NoteType } from "@/models/rpe/note";
+import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/element";
+import { IJudgeLine, JudgeLineExtendedOptions } from "@/models/rpe/judgeLine";
 
 import MyButton from "@/myElements/MyButton.vue";
-import MySelect from "@/myElements/MySelect.vue";
+import MySlider from "@/myElements/MySlider.vue";
 import MyInputNumber from "@/myElements/MyInputNumber.vue";
 import MyBackHeader from "@/myElements/MyBackHeader.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
-import MyImage from "@/myElements/MyImage.vue";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import MyLink from "@/myElements/MyLink.vue";
 import MyInput from "@/myElements/MyInput.vue";
@@ -705,11 +947,14 @@ import ColorEventEditPanel from "@/panels/ColorEventEditPanel.vue";
 import TextEventEditPanel from "@/panels/TextEventEditPanel.vue";
 import ErrorPanel from "@/panels/ErrorPanel.vue";
 import ShaderPanel from "@/panels/ShaderPanel.vue";
+import BlockAreaEditPanel from "@/panels/BlockAreaEditPanel.vue";
+import ActiveIntervalEditPanel from "@/panels/ActiveIntervalEditPanel.vue";
 
 import globalEventEmitter, { VideoRenderingProgress } from "@/eventEmitter";
 import store, { managersMap } from "@/store";
 import { RightPanelState } from "@/managers/renderer/state";
 import getKeyHandler from "@/keyHandlers";
+import { formatDate } from "@/tools/date";
 
 const loadStart = inject("loadStart", () => {
     throw new Error("loadStart is not defined");
@@ -745,14 +990,77 @@ store.resourcePackageRef.value = await resourcePackageLoader.load(respackArrayBu
 
 loadEnd();
 
+/** 当前谱面音乐的时长，音频元数据加载完成后才能确定 */
+let musicDuration: number | null = null;
+
+/** 渲染起止时间是否已经根据音乐时长初始化过 */
+let renderTimeInitialized = false;
+
+/**
+ * 使用当前谱面音乐的时长初始化渲染起止时间。
+ *
+ * 渲染起止时间由当前谱面的音乐决定，
+ * 不从设置文件继承，避免打开新谱面时沿用上一个谱面的值。
+ */
+function initRenderTime() {
+    if (renderTimeInitialized) return;
+    if (musicDuration === null) return;
+    renderTimeInitialized = true;
+    const duration = musicDuration;
+    const manager = store.useManager("settingsManager");
+    manager.settings.renderTimeStart = 0;
+    manager.settings.renderTimeEnd = duration;
+    manager.saveSettings();
+}
+
+/** 音频元数据加载完毕，此时才能确定音乐时长 */
+function onAudioMetadataReady() {
+    const audio = store.audioRef.value;
+    if (!audio) return;
+    const duration = audio.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    musicDuration = duration;
+    initRenderTime();
+}
+
 // 创建并设置非全局的 managers
 new ArrayedObject(managersMap).forEach((managerName, managerConstructor) => {
     store.setManager(managerName, new managerConstructor());
 });
 
-const { audioRef, canvasRef, resourcePackageRef, isRenderingVideo } = store;
+const { audioRef, canvasRef, chartPackageRef, resourcePackageRef, isRenderingVideo } = store;
 
 const { chart, textures } = store.chartPackageRef.value;
+
+const errorMessages = chartPackageRef.value!.errorMessages;
+const errorsCount = chartPackageRef.value!.errorMessages.length;
+if (errorsCount > 0) {
+    const logFileName = `${formatDate(new Date(), "YYYYMMDD_HHmmss")}_${chartId}.log`;
+    const logFilePath = await window.electronAPI.openLog(logFileName);
+    await window.electronAPI.addLog(`${formatDate(new Date(), "YYYY/MM/DD HH:mm:ss")} 读取谱面 ${chartId} 时出现了 ${errorsCount} 个文件错误：`);
+    for (const message of errorMessages) {
+        await window.electronAPI.addLog(message);
+    }
+    await window.electronAPI.closeLog();
+    ElMessage.warning({
+        message: h("p", null, [
+            `本次谱面加载存在文件错误，如有异常请查看`,
+            h("a", {
+                href: "#",
+                onClick: (e) => {
+                    e.preventDefault();
+                    window.electronAPI.openPath(logFilePath);
+                }
+            }, [
+                "日志文件"
+            ]),
+            "。"
+        ]),
+        dangerouslyUseHTMLString: true,
+        duration: 0,
+        showClose: true
+    });
+}
 
 const stateManager = store.useManager("stateManager");
 const settingsManager = store.useManager("settingsManager");
@@ -765,7 +1073,77 @@ const fps = ref(0);
 const time = ref(0);
 const audioIsPlaying = ref(false);
 
-/** tip 完全来自软件根目录的 tips.txt（文件缺失或为空时显示空白） */
+/** 中间画布区域的根元素（也是全屏的元素） */
+const mainRef = ref<InstanceType<typeof ElMain> | null>(null);
+
+/** 预览开启且音乐暂停时，在画布上显示蒙版（退出 / 重开 / 继续） */
+const showPreviewMask = computed(() => stateManager.state.isPreviewing && !audioIsPlaying.value && (!stateManager.state.autoplay || stateManager._state.isFullscreen));
+
+/** 切换全屏（F11 或工具栏按钮），进入全屏时强制进入预览状态 */
+async function toggleFullscreen() {
+    if (stateManager.state.isFullscreen) {
+        await document.exitFullscreen();
+        return;
+    }
+
+    const main = mainRef.value?.$el as HTMLElement | undefined;
+    if (!main) {
+        throw new Error("找不到画布区域元素，无法全屏");
+    }
+
+    await main.requestFullscreen();
+
+    if (!stateManager.state.isPreviewing) {
+        globalEventEmitter.emit("TOGGLE_PREVIEW");
+    }
+}
+
+function onFullscreenChange() {
+    stateManager.state.isFullscreen = document.fullscreenElement !== null;
+}
+
+/** 蒙版上的退出按钮：退出全屏（如果是全屏状态的话）并退出预览 */
+function exitPreview() {
+    if (stateManager.state.isFullscreen) {
+        document.exitFullscreen();
+    }
+
+    if (stateManager.state.autoplay) {
+        stateManager.state.isPreviewing = false;
+        store.pauseAudio();
+    }
+    else {
+        exitPlayChart();
+    }
+}
+
+/** 蒙版上的重开按钮：把音乐时间设为 0 然后播放 */
+function restartPreviewMusic() {
+    store.setTime(0);
+    store.playAudio();
+}
+
+/** 蒙版上的继续按钮：直接播放 */
+function resumePreviewMusic() {
+    store.playAudio();
+}
+
+/** 当前选中的第一个元素（左侧面板根据它的类型决定显示哪个编辑面板） */
+const selectedElement = computed<SelectableElement | undefined>(() => selectionManager.selectedElements[0]);
+
+/** 当前选中的激活区间 */
+const selectedActiveInterval = computed(() => {
+    const element = selectedElement.value;
+    return element && isActiveInterval(element) ? element : null;
+});
+
+/** 噪域编辑时，左栏是否应该显示噪域 / 激活区间的编辑面板 */
+const isBlockAreaModeLeftPanel = computed(() => {
+    return stateManager.state.isEditingBlockArea &&
+        selectionManager.selectedElements.every(element => isBlockArea(element) || isActiveInterval(element));
+});
+
+/** tip 完全来自 tips.txt（打包版放在 AppData 里；文件缺失或为空时显示空白） */
 const allTips = ref<string[]>([]);
 const getRandomTip = () => allTips.value.length === 0 ? "" : allTips.value[Math.floor(Math.random() * allTips.value.length)];
 const tip = ref(getRandomTip());
@@ -777,7 +1155,7 @@ const judgeLineFilter = ref("");
 const judgeLineList: Required<(IJudgeLine & JudgeLineExtendedOptions)[]> = reactive([]);
 
 onMounted(() => {
-    // 读取软件根目录 tips.txt 中的 tip，存在时以文件内容为准
+    // 读取 tips.txt 中的 tip，存在时以文件内容为准
     window.electronAPI.readTips().then(({ tips, created }) => {
         if (created) {
             // 用户删除了 tips.txt：先显示俏皮提示，之后用自动重建的默认 tips 轮换
@@ -886,7 +1264,7 @@ const filteredJudgeLines = computed(() => {
                 return judgeLine.Texture.includes(textureMatch[3]);
             }
             else {
-                return Object.keys(textures).includes(judgeLine.Texture);
+                return Object.keys(textures).includes(judgeLine.Texture.replace(/\\/g, "/"));
             }
         }));
     }
@@ -946,49 +1324,6 @@ const fpsColor = computed(() => {
     }
 });
 
-const speedOptions = [
-    {
-        label: "1.0x",
-        value: 1,
-        text: "1.0x",
-    },
-    {
-        label: "0.5x",
-        value: 0.5,
-        text: "0.5x",
-    },
-    {
-        label: "0.25x",
-        value: 0.25,
-        text: "0.25x",
-    },
-    {
-        label: "0.125x",
-        value: 0.125,
-        text: "0.125x",
-    },
-    {
-        label: "0.0x",
-        value: 0,
-        text: "0.0x",
-    },
-    {
-        label: "1.5x",
-        value: 1.5,
-        text: "1.5x",
-    },
-    {
-        label: "2.0x",
-        value: 2,
-        text: "2.0x",
-    },
-    {
-        label: "3.0x",
-        value: 3,
-        text: "3.0x",
-    },
-] as const;
-
 /** 视频渲染的进度 */
 const videoRenderingProgress = reactive({
     message: "正在加载……",
@@ -1027,10 +1362,25 @@ function openChartFolder() {
     window.electronAPI.openChartFolder(store.getChartId());
 }
 
+/** 打开 tips.txt 所在的文件夹 */
+function openTipsFolder() {
+    window.electronAPI.openTipsFolder();
+}
+
 /** 渲染为视频 */
 async function renderVideo() {
     const fps = settingsManager._settings.renderFPS;
     const cachedSettings = { ...settingsManager._settings };
+
+    // 渲染区间必须落在音乐时长之内，
+    // 否则截取出来的音视频会不完整
+    if (musicDuration !== null) {
+        settingsManager.settings.renderTimeStart = clamp(settingsManager.settings.renderTimeStart, 0, musicDuration);
+        settingsManager.settings.renderTimeEnd = clamp(settingsManager.settings.renderTimeEnd, 0, musicDuration);
+        if (settingsManager.settings.renderTimeEnd <= settingsManager.settings.renderTimeStart) {
+            settingsManager.settings.renderTimeEnd = musicDuration;
+        }
+    }
 
     let videoRenderingTotalTime = 0;
     let videoRenderingCount = 0;
@@ -1167,23 +1517,7 @@ async function renderVideo() {
     }
 }
 
-function onSettingsLoaded() {
-    const audio = store.useAudio();
-    audio.addEventListener("canplay", () => {
-        settingsManager.settings.renderTimeStart = 0;
-        settingsManager.settings.renderTimeEnd = audio.duration;
-        settingsManager.saveSettings();
-    }, {
-        once: true
-    });
-}
-
-onMounted(() => {
-    globalEventEmitter.on("SETTINGS_LOADED", onSettingsLoaded);
-});
-
 onBeforeUnmount(() => {
-    globalEventEmitter.off("SETTINGS_LOADED", onSettingsLoaded);
     settingsManager.saveSettings();
 });
 
@@ -1234,6 +1568,12 @@ function canvasMouseDown(e: MouseEvent) {
         return;
     }
 
+    // 预览暂停蒙版显示时，点击只会命中蒙版上的按钮，不参与音符判定
+    if (showPreviewMask.value) {
+        handlePreviewMaskClick(x, y);
+        return;
+    }
+
     switch (e.button) {
         case MOUSE_LEFT:
             globalEventEmitter.emit("MOUSE_LEFT_CLICK", x, y, options);
@@ -1241,6 +1581,43 @@ function canvasMouseDown(e: MouseEvent) {
         case MOUSE_RIGHT:
             globalEventEmitter.emit("MOUSE_RIGHT_CLICK", x, y, options);
             return;
+    }
+}
+
+/**
+ * 双击画布左上角的暂停按键暂停音乐。
+ *
+ * 即使暂停按键被 UI 绑定并被判定线事件移到了别处，
+ * 双击的判定区域也始终是默认的左上角位置。
+ */
+function canvasDblClick(e: MouseEvent) {
+    if (!stateManager.state.isPreviewing) {
+        return;
+    }
+
+    const { x, y } = coordinateManager.calculatePositionOfObjectFitContainCanvas(e, cachedRect);
+    const centerX = coordinateManager.convertXToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.x);
+    const centerY = coordinateManager.convertYToCanvas(Constants.CHART_VIEW_PAUSE_POSITION.y);
+    const halfWidth = Constants.CHART_VIEW_PAUSE_WIDTH / 2 + Constants.PAUSE_BUTTON_HIT_PADDING;
+    const halfHeight = Constants.CHART_VIEW_PAUSE_HEIGHT / 2 + Constants.PAUSE_BUTTON_HIT_PADDING;
+
+    if (Math.abs(x - centerX) <= halfWidth && Math.abs(y - centerY) <= halfHeight) {
+        store.pauseAudio();
+    }
+}
+
+/** 蒙版显示时处理画布点击：检测点击到了退出、重开、继续中的哪个按钮 */
+function handlePreviewMaskClick(x: number, y: number) {
+    const chartRenderer = store.useManager("chartRenderer");
+    const button = chartRenderer.hitTestPreviewMaskButton(x, y);
+    if (button === "exit") {
+        exitPreview();
+    }
+    else if (button === "restart") {
+        restartPreviewMusic();
+    }
+    else if (button === "resume") {
+        resumePreviewMusic();
     }
 }
 
@@ -1396,6 +1773,7 @@ onMounted(() => {
     cachedRect = canvas.getBoundingClientRect();
 
     canvas.addEventListener("mousedown", canvasMouseDown);
+    canvas.addEventListener("dblclick", canvasDblClick);
     canvas.addEventListener("mousemove", canvasMouseMove);
     canvas.addEventListener("mouseup", canvasMouseUp);
     canvas.addEventListener("mouseenter", canvasMouseEnter);
@@ -1412,9 +1790,23 @@ onMounted(() => {
     audio.addEventListener("pause", audioOnPause);
     audio.addEventListener("play", audioOnPlay);
 
+    // 音乐时长要等音频元数据加载完成后才能确定，
+    // 这里用它来初始化渲染结束时间
+    audio.addEventListener("loadedmetadata", onAudioMetadataReady);
+    audio.addEventListener("durationchange", onAudioMetadataReady);
+
+    // 音频有可能在挂载之前就已经加载完了，这时需要主动读取一次时长
+    if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        onAudioMetadataReady();
+    }
+
     const tipInterval = setInterval(() => {
         tip.value = getRandomTip();
     }, TIP_SHOW_TIME);
+
+    // 全屏状态同步（用户按 Esc 退出全屏时也要更新按钮高亮）
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    globalEventEmitter.on("TOGGLE_FULLSCREEN", toggleFullscreen);
 
     renderLoop();
 
@@ -1422,11 +1814,21 @@ onMounted(() => {
         // 停止播放音乐
         audio.pause();
 
+        // 退出全屏
+        if (stateManager.state.isFullscreen) {
+            document.exitFullscreen();
+        }
+
+        // 清除全屏相关的事件监听器
+        document.removeEventListener("fullscreenchange", onFullscreenChange);
+        globalEventEmitter.off("TOGGLE_FULLSCREEN", toggleFullscreen);
+
         // 取消视频导出
         cancelVideoRendering();
 
         // 清除事件监听器
         canvas.removeEventListener("mousedown", canvasMouseDown);
+        canvas.removeEventListener("dblclick", canvasDblClick);
         canvas.removeEventListener("mousemove", canvasMouseMove);
         canvas.removeEventListener("mouseup", canvasMouseUp);
         canvas.removeEventListener("mouseenter", canvasMouseEnter);
@@ -1440,6 +1842,8 @@ onMounted(() => {
         audio.removeEventListener("timeupdate", audioOnTimeUpdate);
         audio.removeEventListener("pause", audioOnPause);
         audio.removeEventListener("play", audioOnPlay);
+        audio.removeEventListener("loadedmetadata", onAudioMetadataReady);
+        audio.removeEventListener("durationchange", onAudioMetadataReady);
 
         // 停止渲染循环
         pauseRenderLoop();
@@ -1508,7 +1912,7 @@ onMounted(() => {
     grid-template-areas:
         "audio-player audio-player audio-player info"
         "note-type-select speed-select horizontal-input vertical-input"
-        "note-type-select hint-text event-layer-select offset-input";
+        "tools hint-text event-layer-select offset-input";
     gap: 10px;
 }
 
@@ -1525,6 +1929,30 @@ onMounted(() => {
     justify-content: space-between;
 }
 
+.tools {
+    grid-area: tools;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-icon {
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.tool-icon:hover {
+    color: var(--el-color-primary);
+}
+
+.tool-icon:active {
+    color: var(--el-color-primary-dark);
+}
+
+.tool-icon.active {
+    color: var(--el-color-primary);
+}
+
 .event-layer-hint-text {
     grid-area: hint-text;
     display: flex;
@@ -1533,6 +1961,11 @@ onMounted(() => {
 
 .note-type-select {
     grid-area: note-type-select;
+}
+
+.note-type-button-wrapper {
+    display: flex;
+    align-items: center;
 }
 
 .speed-select {
@@ -1588,6 +2021,11 @@ onMounted(() => {
     --el-main-padding: 0;
 }
 
+/* 全屏时中间的画布占据整个屏幕，黑边区域也是黑色 */
+#main:fullscreen {
+    background-color: black;
+}
+
 .el-aside {
     padding: 10px;
 }
@@ -1619,11 +2057,13 @@ onMounted(() => {
 
 .left-inner,
 .right-inner {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
     width: 100%;
+    padding-top: 10px;
 }
 
 .default-panel {
@@ -1676,5 +2116,11 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.judgement-rule-wrapper p {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 </style>

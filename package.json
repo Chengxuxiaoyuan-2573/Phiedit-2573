@@ -1,6 +1,6 @@
 {
     "name": "phiedit2573",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "private": true,
     "description": "一款 Phigros 谱面编辑器、渲染器二合一的软件",
     "author": {
@@ -39,6 +39,7 @@
         "lodash": "^4.17.21",
         "mathjs": "^14.2.0",
         "path": "^0.12.7",
+        "polygon-clipping": "^0.15.7",
         "vue": "^3.2.13",
         "vue-codemirror": "^6.1.1",
         "vue-router": "^4.5.1"

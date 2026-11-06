@@ -5,12 +5,11 @@
  */
 
 import { isArray, isBoolean, isNumber, isObject, isString } from "lodash";
-import { Beats, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSureBeatsValid } from "./beats";
-import ChartError from "./error";
+import { Beats, beatsCompare, beatsToSeconds, BPM, isGreaterThanBeats, isLessThanBeats, makeSureBeatsValid } from "./beats";
 import { IEvent, ShaderVariableEvent } from "./event";
 import { ArrayRepeat, DeepNotReadonly, isArrayOfNumbers, NotReadonly } from "@/tools/typeTools";
-import { ArrayedObject } from "@/tools/algorithm";
-import { IObjectizable } from "./objectizable";
+import { ArrayedObject, insert } from "@/tools/algorithm";
+import { IObjectizable } from "../objectizable";
 import { RGBAcolor } from "@/tools/color";
 
 export interface IEffect {
@@ -125,7 +124,7 @@ export class Effect implements IEffect, IObjectizable {
     description = "";
     global: boolean = false;
     readonly vars: Record<string, ShaderNumberType | ShaderVariableEvent[]> = {};
-    errors: ChartError[] = [];
+    errorMessages: string[] = [];
     BPMList: BPM[];
     id: number;
     cachedStartSeconds: number;
@@ -213,6 +212,7 @@ export class Effect implements IEffect, IObjectizable {
             varName: varName,
             eventNumber: this.eventNumber++,
         });
+        this.errorMessages = this.errorMessages.concat(newEvent.errorMessages);
         if (isLessThanBeats(newEvent.startTime, this.startTime)) {
             newEvent.startTime = [...this.startTime];
         }
@@ -220,7 +220,10 @@ export class Effect implements IEffect, IObjectizable {
         if (isGreaterThanBeats(newEvent.endTime, this.endTime)) {
             newEvent.endTime = [...this.endTime];
         }
-        value.push(newEvent);
+
+        // 按开始时间有序插入，取某一时刻的变量值时依赖二分查找，列表必须保持有序
+        insert(value, newEvent, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newEvent.sortedArray = value;
     }
     removeEvent(event: unknown, varName: string) {
         if (isNumberOrVector(this.vars[varName])) return;
@@ -255,19 +258,11 @@ export class Effect implements IEffect, IObjectizable {
                     this._start = [...effect.start];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.start 必须是一个包含3个数字的数组，但读取到了 ${JSON.stringify(effect.start)}。将会被替换为默认值 [0, 0, 1]。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.start 必须是一个含有 3 个数的数组，但读取到了 ${JSON.stringify(effect.start)}。将会被设为默认值 [0, 0, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `Effect：effect 缺少 start 属性。将会被设为默认值 [0, 0, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error"
-                ));
+                this.errorMessages.push(`Effect：effect 缺少 start 属性。将会被设为默认值 [0, 0, 1]。`);
             }
 
             if ("end" in effect) {
@@ -275,19 +270,11 @@ export class Effect implements IEffect, IObjectizable {
                     this._end = [...effect.end];
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.end 必须是一个包含3个数字的数组，但读取到了 ${JSON.stringify(effect.end)}。将会被替换为默认值 [0, 0, 1]。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.end 必须是一个含有 3 个数的数组，但读取到了 ${JSON.stringify(effect.end)}。将会被设为默认值 [0, 0, 1]。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `Effect：effect 缺少 end 属性。将会被设为默认值 [0, 0, 1]。`,
-                    "ChartReadError.MissingProperty",
-                    "error"
-                ));
+                this.errorMessages.push(`Effect：effect 缺少 end 属性。将会被设为默认值 [0, 0, 1]。`);
             }
 
             if ("shader" in effect) {
@@ -295,20 +282,12 @@ export class Effect implements IEffect, IObjectizable {
                     this._shader = effect.shader as ShaderName;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.shader 必须为${Object.keys(DEFAULT_VARS).map(str => `"${str}"`)
-                            .join("、")}中的一个，但读取到了 ${JSON.stringify(effect.shader)}。将会被替换为默认值 "chromatic"。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.shader 必须为${Object.keys(DEFAULT_VARS).map(str => `"${str}"`)
+                        .join("、")}中的一个，但读取到了 ${JSON.stringify(effect.shader)}。将会被设为默认值 "chromatic"。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `Effect：effect 缺少 shader 属性。将会被设为默认值 "chromatic"。`,
-                    "ChartReadError.MissingProperty",
-                    "error"
-                ));
+                this.errorMessages.push(`Effect：effect 缺少 shader 属性。将会被设为默认值 "chromatic"。`);
             }
 
             if ("global" in effect) {
@@ -316,19 +295,11 @@ export class Effect implements IEffect, IObjectizable {
                     this.global = effect.global;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.global 必须为一个布尔值，但读取到了 ${JSON.stringify(effect.global)}。将会被替换为默认值 false。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.global 必须为一个布尔值，但读取到了 ${JSON.stringify(effect.global)}。将会被设为默认值 false。`);
                 }
             }
             else {
-                this.errors.push(new ChartError(
-                    `Effect：effect 缺少 global 属性。将会被设为默认值 false。`,
-                    "ChartReadError.MissingProperty",
-                    "error"
-                ));
+                this.errorMessages.push(`Effect：effect 缺少 global 属性。将会被设为默认值 false。`);
             }
 
             if ("vars" in effect) {
@@ -345,20 +316,12 @@ export class Effect implements IEffect, IObjectizable {
                             }
                         }
                         else {
-                            this.errors.push(new ChartError(
-                                `Effect：effect.vars.${key} 必须为数字或矢量，但读取到了 ${JSON.stringify(value)}。将会被替换为空数组。`,
-                                "ChartReadError.TypeError",
-                                "error"
-                            ));
+                            this.errorMessages.push(`Effect：effect.vars.${key} 必须为数字或矢量，但读取到了 ${JSON.stringify(value)}。将会被设为空数组。`);
                         }
                     }
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.vars 必须为一个对象，但读取到了 ${JSON.stringify(effect.vars)}。将会被替换为空对象。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.vars 必须为一个对象，但读取到了 ${JSON.stringify(effect.vars)}。将会被设为空对象。`);
                 }
             }
 
@@ -367,20 +330,12 @@ export class Effect implements IEffect, IObjectizable {
                     this.description = effect.description;
                 }
                 else {
-                    this.errors.push(new ChartError(
-                        `Effect：effect.description 若存在，则必须为字符串，但读取到了 ${effect.description}。将会被替换为空字符串。`,
-                        "ChartReadError.TypeError",
-                        "error"
-                    ));
+                    this.errorMessages.push(`Effect：effect.description 若存在，则必须为字符串，但读取到了 ${effect.description}。将会被设为空字符串。`);
                 }
             }
         }
         else {
-            this.errors.push(new ChartError(
-                `Effect：effect 必须为一个对象，但读取到了 ${effect}。将会被替换为空对象。`,
-                "ChartReadError.TypeError",
-                "error"
-            ));
+            this.errorMessages.push(`Effect：effect 必须为一个对象，但读取到了 ${effect}。将会被设为空对象。`);
         }
         this.cachedStartSeconds = beatsToSeconds(this.BPMList, this.start);
         this.cachedEndSeconds = beatsToSeconds(this.BPMList, this.end);

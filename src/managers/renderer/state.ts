@@ -4,16 +4,19 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { NoteType } from "@/models/note";
+import { defaultJudgementRule, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import { reactive } from "vue";
 import Manager from "./abstract";
-import { EasingType } from "@/models/easing";
+import { EasingType } from "@/models/rpe/easing";
 import { ElMessageBox } from "element-plus";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { RGBcolor } from "@/tools/color";
-import { Beats } from "@/models/beats";
+import { Beats } from "@/models/rpe/beats";
+import { blockAreaEventTracks } from "@/models/rpe/blockArea";
+import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/rpe/eventLayer";
+import { clamp } from "lodash";
 
 /** 音符的属性中，类型为数字的属性 */
 export type NoteNumberAttrs = "size" | "alpha" | "speed" | "positionX" | "yOffset" | "visibleTime" | "judgeArea";
@@ -47,6 +50,15 @@ export default class StateManager extends Manager {
         /** 选中的判定线号 */
         currentJudgeLineNumber: 0,
 
+        /** 当前编辑的是判定线还是噪域。true 表示正在编辑噪域，false 表示正在编辑判定线 */
+        isEditingBlockArea: false,
+
+        /** 当前编辑的噪域编号（噪域在 blockAreaList 中的下标） */
+        currentBlockAreaNumber: 0,
+
+        /** 噪域列表的版本号。噪域列表本身不是响应式的，增删噪域时靠它通知界面刷新 */
+        blockAreaListVersion: 0,
+
         /** 选中的事件层级编号 */
         currentEventLayerId: "0",
 
@@ -55,6 +67,12 @@ export default class StateManager extends Manager {
 
         /** 是否为自动播放 */
         autoplay: true,
+
+        /** 判定规则 */
+        judgementRule: structuredClone(defaultJudgementRule),
+
+        /** 当前是否处于全屏状态 */
+        isFullscreen: false
     };
 
     /** 状态对象，响应式 */
@@ -66,7 +84,7 @@ export default class StateManager extends Manager {
             /** 要编辑的是音符还是事件 */
             type: "note" as "note" | "event",
 
-            /** 要编辑哪些类型的事件 */
+            /** 要编辑哪些类型的事件。空数组表示"所有种类的事件" */
             eventTypes: [] as string[],
 
             /** 要编辑音符的哪个属性 */
@@ -238,6 +256,76 @@ return {
     }
     get currentEventLayer() {
         return this.currentJudgeLine.getEventLayerById(this._state.currentEventLayerId);
+    }
+
+    /** 当前编辑的噪域。没有噪域时返回 null */
+    get currentBlockArea() {
+        const chart = store.useChart();
+
+        // 这里读取响应式的 state 而不是 _state，面板中的 computed 才能跟着噪域编号变化。
+        // blockAreaListVersion 用于在噪域增删后通知界面刷新（噪域列表本身不是响应式的）。
+        void this.state.blockAreaListVersion;
+        return chart.blockAreaList[this.state.currentBlockAreaNumber] ?? null;
+    }
+
+    /** 噪域的数量 */
+    get blockAreasCount() {
+        void this.state.blockAreaListVersion;
+        return store.useChart().blockAreaList.length;
+    }
+
+    /**
+     * 通知界面：噪域列表发生了增删。
+     *
+     * 删除 / 插入噪域后，后面噪域的下标会变化，这里顺便把当前噪域编号挪到正确的位置上。
+     */
+    notifyBlockAreaListChanged(options?: { removedPosition?: number, insertedPosition?: number }) {
+        this.state.blockAreaListVersion++;
+        const count = store.useChart().blockAreaList.length;
+        let current = this._state.currentBlockAreaNumber;
+        if (options?.removedPosition !== undefined && options.removedPosition < current) {
+            current--;
+        }
+
+        if (options?.insertedPosition !== undefined && options.insertedPosition <= current) {
+            current++;
+        }
+        this.state.currentBlockAreaNumber = count === 0 ? 0 : clamp(current, 0, count - 1);
+    }
+
+    /**
+     * 编辑器右侧事件编辑区中的事件栏名称。
+     *
+     * 编辑判定线时是判定线的事件类型，编辑噪域时是噪域的 6 栏事件。
+     */
+    get eventTracks(): readonly string[] {
+        if (this._state.isEditingBlockArea) {
+            return blockAreaEventTracks;
+        }
+
+        const eventLayer = this.currentEventLayer;
+        return isBaseEventLayer(eventLayer) ? baseEventTypes : extendedEventTypes;
+    }
+
+    /** 打开或关闭噪域编辑 */
+    setBlockAreaEditing(isEditing: boolean) {
+        this.state.isEditingBlockArea = isEditing;
+        if (isEditing) {
+            this.state.currentBlockAreaNumber = this.blockAreasCount === 0 ?
+                0 :
+                clamp(this._state.currentBlockAreaNumber, 0, this.blockAreasCount - 1);
+        }
+        store.useManager("selectionManager").unselectAll();
+    }
+
+    /** 切换到指定的噪域，并把该噪域设为选中元素 */
+    selectBlockArea(index: number) {
+        if (index < 0 || index >= this.blockAreasCount) {
+            return;
+        }
+        this.state.isEditingBlockArea = true;
+        this.state.currentBlockAreaNumber = index;
+        store.useManager("selectionManager").select([this.currentBlockArea!]);
     }
     get judgeLinesCount() {
         const chart = store.useChart();

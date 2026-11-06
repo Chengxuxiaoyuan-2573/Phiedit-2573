@@ -170,11 +170,13 @@
 </template>
 <script setup lang="ts">
 import MyButton from "@/myElements/MyButton.vue";
-import { Bezier, eventAttributes, IEvent, IEventExtendedOptions } from "../models/event";
+import { Bezier, eventAttributes, IEvent, IEventExtendedOptions } from "../models/rpe/event";
 import MyInput from "../myElements/MyInput.vue";
 import MySwitch from "../myElements/MySwitch.vue";
 import MySelectEasing from "@/myElements/MySelectEasing.vue";
-import { addBeats, beatsCompare, formatBeats, isEqualBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/beats";
+import { addBeats, beatsCompare, formatBeats, isLessThanOrEqualBeats, parseBeats, makeSureBeatsValid } from "@/models/rpe/beats";
+import { isEqual } from "lodash";
+import type { HistoryType } from "@/eventEmitter";
 import { onBeforeUnmount, onMounted, reactive, useTemplateRef } from "vue";
 import { watch } from "vue";
 import globalEventEmitter from "@/eventEmitter";
@@ -208,11 +210,16 @@ const attributes = eventAttributes;
 const historyManager = store.useManager("historyManager");
 const canvas = store.useCanvas();
 
-// const mouseManager = store.useManager("mouseManager");
+const mouseManager = store.useManager("mouseManager");
 watch(model, () => {
     for (const attr of attributes) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (inputEvent[attr] as any) = model.value[attr];
+
+        // 面板切换到了另一个事件，旧值也必须一起换成新事件的值，
+        // 否则编辑新事件时会把上一个事件的属性值当成旧值记进历史记录
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (oldValues[attr] as any) = model.value[attr];
     }
     inputStartEndTime.value?.updateShowedValue();
     inputStartEnd.value?.updateShowedValue();
@@ -304,16 +311,16 @@ const oldValues = {
 
 /** 检查属性是否被修改过，并记录到历史记录中 */
 function createHistory() {
-    // 遍历新值和旧值，找到不一样的属性
-    for (const attr of attributes) {
-        if (attr === "startTime" || attr === "endTime") {
-            if (isEqualBeats(inputEvent[attr], oldValues[attr])) {
-                continue;
-            }
-        }
+    // 遍历新值和旧值，找到真正发生了变化的属性（时间、颜色是数组，必须按值比较）
+    const changedAttributes = attributes.filter(attr => !isEqual(inputEvent[attr], oldValues[attr]));
 
-        if (inputEvent[attr] !== oldValues[attr]) {
-            // mouseManager.checkMouseUp();
+    if (changedAttributes.length > 0) {
+        // 如果鼠标还按着（正在拖动元素），先把拖动的历史记录补上，避免两种记录互相穿插导致错乱
+        mouseManager.checkMouseUp();
+
+        // 对同一个事件的连续编辑合并成一条历史记录
+        historyManager.beginMerge(`event:${model.value.id}`, `编辑事件 ${model.value.id}`);
+        for (const attr of changedAttributes) {
             historyManager.recordModifyEvent(model.value.id, attr, inputEvent[attr], oldValues[attr]);
         }
     }
@@ -362,12 +369,24 @@ function updateModel<K extends keyof IEvent<number>>(...attrNames: K[]) {
 function updateTime() {
     updateInput("startTime", "endTime");
 }
+
+/**
+ * 撤销 / 重做后，元素被外部修改，面板里的输入值和旧值都必须同步成元素当前的值，
+ * 否则下一次在面板里编辑时会把过期的值当成旧值记进历史记录，撤销就回不到正确的状态
+ */
+function syncWithModel(reason: HistoryType) {
+    if (reason !== "UNDO" && reason !== "REDO" && reason !== "CLEAR") {
+        return;
+    }
+    updateInput(...attributes);
+}
 onMounted(() => {
     globalEventEmitter.on("REVERSE", reverse);
     globalEventEmitter.on("SWAP", swap);
     globalEventEmitter.on("STICK", stick);
     globalEventEmitter.on("RANDOM", random);
     globalEventEmitter.on("ELEMENT_DRAGGED", updateTime);
+    globalEventEmitter.on("HISTORY_UPDATE", syncWithModel);
 });
 onBeforeUnmount(() => {
     if (store.getEventById(model.value.id)) {
@@ -378,6 +397,7 @@ onBeforeUnmount(() => {
     globalEventEmitter.off("STICK", stick);
     globalEventEmitter.off("RANDOM", random);
     globalEventEmitter.off("ELEMENT_DRAGGED", updateTime);
+    globalEventEmitter.off("HISTORY_UPDATE", syncWithModel);
 });
 function reverse() {
     inputEvent.start = -inputEvent.start;
@@ -395,9 +415,7 @@ function swap() {
 }
 
 function stick() {
-    const judgeLine = store.getJudgeLineById(model.value.judgeLineNumber);
-    const eventLayer = judgeLine.getEventLayerById(model.value.eventLayerId);
-    const events = eventLayer.getEventsByType(model.value.type) as IEvent<number>[];
+    const events = store.getSiblingEvents(model.value) as IEvent<number>[];
     events.sort((event1, event2) => beatsCompare(event1.endTime, event2.endTime));
 
     // 找到结束时间小于model的开始时间的最大的事件

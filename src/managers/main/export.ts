@@ -10,19 +10,30 @@ import chartInfoManager from "./chartInfo";
 import fs from "fs";
 import path from "path";
 import Constants from "@/constants";
-import { Chart } from "@/models/chart";
-import { baseEventTypes } from "@/models/eventLayer";
+import { Chart } from "@/models/rpe/chart";
+import { baseEventTypes } from "@/models/rpe/eventLayer";
 import { hashToDigits } from "@/tools/hash";
 import { app } from "electron";
 
 const DIGITS = 12;
+
+/** 文件名中不允许出现的字符 */
+const INVALID_FILE_NAME_CHARS_REGEX = /[\\/:*?"<>|]/;
+
+export interface BatchExportRequest {
+    chartId: string;
+
+    /** 导出的文件名，可以带后缀名，会原样使用 */
+    fileName: string;
+}
 
 class ExportChartManager extends Manager {
     async export(chartId: string, targetPath: string) {
         const chartDir = filesManager.getChartPath(chartId);
         const exportTempPath = filesManager.getTempPath("chartExport", chartId);
 
-        // 确保目录存在
+        // 确保目录存在。先清空，避免上一次导出残留的文件被打进压缩包里
+        await fs.promises.rm(exportTempPath, { recursive: true, force: true });
         await fs.promises.mkdir(exportTempPath, { recursive: true });
 
         // 复制
@@ -80,6 +91,80 @@ class ExportChartManager extends Manager {
 
         const data = await filesManager.packageFolderToZip(exportTempPath);
         await fs.promises.writeFile(targetPath, data);
+    }
+
+    /**
+     * 读取导出文件夹的信息，用于在导出前检查文件名冲突
+     * @param folderPath 导出文件夹
+     * @returns 文件夹是否存在，以及文件夹内已有的文件名
+     */
+    async readFolderInfo(folderPath: string) {
+        try {
+            const stat = await fs.promises.stat(folderPath);
+            if (!stat.isDirectory()) {
+                return { exists: false, files: [] as string[] };
+            }
+
+            const files = await fs.promises.readdir(folderPath);
+            return { exists: true, files };
+        }
+        catch {
+            // 路径不存在或者无法访问
+            return { exists: false, files: [] as string[] };
+        }
+    }
+
+    /**
+     * 批量导出谱面。文件夹不存在时会自动创建。
+     * @param folderPath 导出到的文件夹
+     * @param requests 每个谱面的 ID 和导出后的文件名
+     */
+    async batchExport(folderPath: string, requests: BatchExportRequest[]) {
+        const dir = folderPath.trim();
+        if (dir === "") {
+            throw new Error("导出文件夹不能为空");
+        }
+
+        // 文件名之间不能重复（Windows 的文件名不区分大小写）
+        const lowerNames = requests.map(request => request.fileName.trim().toLowerCase());
+        if (new Set(lowerNames).size !== lowerNames.length) {
+            throw new Error("存在重复的导出文件名");
+        }
+
+        // 校验每个文件名本身是否合法
+        for (const request of requests) {
+            const fileName = request.fileName.trim();
+            if (fileName === "") {
+                throw new Error("导出文件名不能为空");
+            }
+
+            if (INVALID_FILE_NAME_CHARS_REGEX.test(fileName)) {
+                throw new Error(`导出文件名 "${fileName}" 中含有非法字符`);
+            }
+
+            if (/[. ]$/.test(fileName)) {
+                throw new Error(`导出文件名 "${fileName}" 不能以空格或点结尾`);
+            }
+        }
+
+        // 不能与文件夹内已有的文件重名
+        const info = await this.readFolderInfo(dir);
+        if (info.exists) {
+            const existingNames = new Set(info.files.map(name => name.toLowerCase()));
+            const conflicts = requests
+                .map(request => request.fileName.trim())
+                .filter(fileName => existingNames.has(fileName.toLowerCase()));
+            if (conflicts.length > 0) {
+                throw new Error(`文件夹内已存在同名文件：${conflicts.join("、")}`);
+            }
+        }
+
+        // 文件夹不存在时自动创建
+        await fs.promises.mkdir(dir, { recursive: true });
+
+        for (const request of requests) {
+            await this.export(request.chartId, path.join(dir, request.fileName.trim()));
+        }
     }
 }
 export default new ExportChartManager();

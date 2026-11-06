@@ -91,7 +91,7 @@
     </ElDialog>
 </template>
 <script setup lang="ts">
-import { ElDialog, ElLoading, ElProgress } from "element-plus";
+import { ElDialog, ElLoading, ElMessage, ElProgress } from "element-plus";
 import { RouterView } from "vue-router";
 import { computed, provide, ref } from "vue";
 import { UpdateInfo, ProgressInfo } from "electron-updater";
@@ -99,6 +99,7 @@ import MyButton from "./myElements/MyButton.vue";
 import DOMPurify from "dompurify";
 import { Replace } from "./tools/typeTools";
 import MathUtils from "./tools/mathUtils";
+import router from "./router";
 defineOptions({
     name: "MainRoot"
 });
@@ -193,6 +194,10 @@ window.electronAPI.onUpdateError((err) => {
     updateState.value = UpdateState.ERROR;
     error.value = err;
     console.error(err);
+});
+
+router.afterEach(() => {
+    ElMessage.closeAll();
 });
 </script>
 <style scoped>

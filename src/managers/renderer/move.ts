@@ -4,15 +4,23 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { addBeats, subBeats } from "@/models/beats";
-import { isNoteLike } from "@/models/note";
+import { addBeats, Beats, subBeats } from "@/models/rpe/beats";
+import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
 import globalEventEmitter from "@/eventEmitter";
 import Manager from "./abstract";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { ElMessageBox } from "element-plus";
-import { SelectableElement } from "@/models/element";
-import { isEvent } from "@/models/event";
+import {
+    SelectableElement,
+    getElementEndTime,
+    getElementStartTime,
+    isActiveInterval,
+    isBlockArea,
+    setElementEndTime,
+    setElementStartTime
+} from "@/models/rpe/element";
+import { isEvent } from "@/models/rpe/event";
 
 export default class MoveManager extends Manager {
     constructor() {
@@ -44,37 +52,38 @@ export default class MoveManager extends Manager {
      * 左移
      */
     moveLeft() {
-        const stateManager = store.useManager("stateManager");
-        const selectionManager = store.useManager("selectionManager");
-        const historyManager = store.useManager("historyManager");
-        const mouseManager = store.useManager("mouseManager");
-        mouseManager.checkMouseUp();
-        const canvas = store.useCanvas();
-        historyManager.group("左移");
-        for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                historyManager.recordModifyNote(element.id, "positionX", element.positionX - canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
-                element.positionX -= canvas.width / (stateManager.state.verticalLineCount - 1);
-            }
-        }
-        historyManager.ungroup();
+        this.moveHorizontally(-1);
     }
 
     /**
      * 右移
      */
     moveRight() {
+        this.moveHorizontally(1);
+    }
+
+    /**
+     * 横向移动选中的元素。
+     *
+     * 音符改 positionX，噪域改 editorPositionX；激活区间没有横向位置，会被跳过。
+     */
+    private moveHorizontally(direction: 1 | -1) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
         const canvas = store.useCanvas();
-        historyManager.group("右移");
+        const step = canvas.width / (stateManager.state.verticalLineCount - 1) * direction;
+        historyManager.group(direction === 1 ? "右移" : "左移");
         for (const element of selectionManager.selectedElements) {
             if (isNoteLike(element)) {
-                historyManager.recordModifyNote(element.id, "positionX", element.positionX + canvas.width / (stateManager.state.verticalLineCount - 1), element.positionX);
-                element.positionX += canvas.width / (stateManager.state.verticalLineCount - 1);
+                historyManager.recordModifyNote(element.id, "positionX", element.positionX + step, element.positionX);
+                element.positionX += step;
+            }
+            else if (isBlockArea(element)) {
+                historyManager.recordModifyBlockArea(element.index, "editorPositionX", element.editorPositionX + step, element.editorPositionX);
+                element.editorPositionX += step;
             }
         }
         historyManager.ungroup();
@@ -84,76 +93,105 @@ export default class MoveManager extends Manager {
      * 上移
      */
     moveUp() {
-        const stateManager = store.useManager("stateManager");
-        const selectionManager = store.useManager("selectionManager");
-        const historyManager = store.useManager("historyManager");
-        const mouseManager = store.useManager("mouseManager");
-        mouseManager.checkMouseUp();
-        historyManager.group("上移");
-        for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                historyManager.recordModifyNote(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
-                historyManager.recordModifyNote(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
-            }
-            else {
-                historyManager.recordModifyEvent(element.id, "startTime", addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
-                historyManager.recordModifyEvent(element.id, "endTime", addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
-            }
-            element.startTime = addBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            element.endTime = addBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
-        }
-        historyManager.ungroup();
+        this.moveVertically(1);
     }
 
     /**
      * 下移
      */
     moveDown() {
+        this.moveVertically(-1);
+    }
+
+    /**
+     * 纵向移动选中的元素，单位为一条横线
+     */
+    private moveVertically(direction: 1 | -1) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
-        historyManager.group("下移");
+        const step: Beats = [0, 1, stateManager.state.horizonalLineCount];
+        const shift = (beats: Beats) => direction === 1 ? addBeats(beats, step) : subBeats(beats, step);
+        historyManager.group(direction === 1 ? "上移" : "下移");
         for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                historyManager.recordModifyNote(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
-                historyManager.recordModifyNote(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
-            }
-            else {
-                historyManager.recordModifyEvent(element.id, "startTime", subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]), element.startTime);
-                historyManager.recordModifyEvent(element.id, "endTime", subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]), element.endTime);
-            }
-            element.startTime = subBeats(element.startTime, [0, 1, stateManager.state.horizonalLineCount]);
-            element.endTime = subBeats(element.endTime, [0, 1, stateManager.state.horizonalLineCount]);
+            const startTime = getElementStartTime(element);
+            const endTime = getElementEndTime(element);
+            this.recordMove(element, shift(startTime), shift(endTime));
+            setElementStartTime(element, shift(startTime));
+            setElementEndTime(element, shift(endTime));
         }
         historyManager.ungroup();
     }
 
+    /** 记录一次沿时间轴的移动 */
+    private recordMove(element: SelectableElement, newStartTime: Beats, newEndTime: Beats) {
+        const historyManager = store.useManager("historyManager");
+        const startTime = getElementStartTime(element);
+        const endTime = getElementEndTime(element);
+
+        if (isNoteLike(element)) {
+            historyManager.recordModifyNote(element.id, "startTime", newStartTime, startTime);
+            historyManager.recordModifyNote(element.id, "endTime", newEndTime, endTime);
+        }
+        else if (isBlockArea(element)) {
+            historyManager.recordModifyBlockArea(element.index, "appearTime", newStartTime, startTime);
+            historyManager.recordModifyBlockArea(element.index, "disappearTime", newEndTime, endTime);
+        }
+        else if (isActiveInterval(element)) {
+            const blockArea = element.owner;
+            if (!blockArea) {
+                return;
+            }
+
+            const intervalIndex = blockArea.activeIntervals.indexOf(element);
+            historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", newStartTime, startTime);
+            historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", newEndTime, endTime);
+        }
+        else if (isEvent(element)) {
+            historyManager.recordModifyEvent(element.id, "startTime", newStartTime, startTime);
+            historyManager.recordModifyEvent(element.id, "endTime", newEndTime, endTime);
+        }
+    }
+
     async moveToJudgeLine(targetJudgeLineNumber?: number) {
+        const stateManager = store.useManager("stateManager");
+        if (stateManager._state.isEditingBlockArea) {
+            throw new Error("噪域编辑时不能把元素移动到其他判定线");
+        }
+
         if (targetJudgeLineNumber === undefined) {
             targetJudgeLineNumber = await ElMessageBox.prompt("请输入要移动到的判定线编号", "移动判定线").then(res => +res.value) as number;
         }
 
-        const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const historyManager = store.useManager("historyManager");
         const elements = new Array<SelectableElement>();
         historyManager.group(`移到${targetJudgeLineNumber}号判定线`);
-        for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                const note = store.addNote(element.toObject(), targetJudgeLineNumber);
-                elements.push(note);
-                historyManager.recordAddNote(element.id);
+        try {
+            for (const element of selectionManager.selectedElements) {
+                if (isNoteLike(element)) {
+                    const note = store.addNote(element.toObject(), targetJudgeLineNumber);
+                    elements.push(note);
+
+                    // 必须记录新音符的 id：撤销时要删掉的是新加的音符，
+                    // 记录旧元素 id 的话撤销会找不到元素或删错元素
+                    historyManager.recordAddNote(note.id);
+                }
+                else if (isEvent(element)) {
+                    const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
+                    elements.push(event);
+                    historyManager.recordAddEvent(event.id);
+                }
             }
-            else if (isEvent(element)) {
-                const event = store.addEvent(element.toObject(), element.type, element.eventLayerId, targetJudgeLineNumber);
-                elements.push(event);
-                historyManager.recordAddEvent(element.id);
-            }
+
+            // 删除原元素也要放在同一个分组里，这样新增和删除才能在一次撤销中一起回退
+            selectionManager.deleteSelection();
         }
-        historyManager.ungroup();
-        selectionManager.deleteSelection();
+        finally {
+            historyManager.ungroup();
+        }
         stateManager.state.currentJudgeLineNumber = targetJudgeLineNumber;
         selectionManager.addToSelection(elements);
     }

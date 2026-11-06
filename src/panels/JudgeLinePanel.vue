@@ -136,6 +136,16 @@
                 在音符前放置负数速度事件，观察音符是否隐藏。<br>
             </MyQuestionMark>
         </MySwitch>
+        <MySwitch
+            ref="rotateWithFatherInput"
+            v-model="judgeLine.rotateWithFather"
+        >
+            跟随父线旋转
+            <MyQuestionMark>
+                只对有父线的判定线有效。<br>
+                如果开启，则旋转事件的实际效果会叠加上父线的旋转效果。<br>
+            </MyQuestionMark>
+        </MySwitch>
 
         <MyButton
             v-if="judgeLine.isUseful"
@@ -164,7 +174,7 @@ import globalEventEmitter from "@/eventEmitter";
 import MyQuestionMark from "@/myElements/MyQuestionMark.vue";
 import { confirm } from "@/tools/catchError";
 import { computed, useTemplateRef } from "vue";
-import { JudgeLineCover } from "@/models/judgeLine";
+import { JudgeLineCover } from "@/models/rpe/judgeLine";
 import MyInput from "@/myElements/MyInput.vue";
 import { watch } from "vue";
 import MyInputCoordinate from "@/myElements/MyInputCoordinate.vue";
@@ -184,6 +194,7 @@ const zOrderInput = useTemplateRef("zOrderInput");
 const textureSelect = useTemplateRef("textureSelect");
 const UISelect = useTemplateRef("UISelect");
 const anchorInput = useTemplateRef("anchorInput");
+const rotateWithFatherInput = useTemplateRef("rotateWithFatherInput");
 function update() {
     nameInput.value?.updateShowedValue();
     fatherInput.value?.updateShowedValue();
@@ -192,6 +203,7 @@ function update() {
     textureSelect.value?.updateShowedValue();
     UISelect.value?.updateShowedValue();
     anchorInput.value?.updateShowedValue();
+    rotateWithFatherInput.value?.updateShowedValue();
 }
 watch(() => stateManager.state.currentJudgeLineNumber, update);
 const uiOptions = [

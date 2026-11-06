@@ -6,12 +6,13 @@
 
 import { reactive } from "vue";
 import globalEventEmitter from "@/eventEmitter";
-import { isNoteLike } from "@/models/note";
+import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
 import Manager from "./abstract";
-import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/eventLayer";
+import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe/eventLayer";
 import { createCatchErrorByMessage } from "@/tools/catchError";
-import { SelectableElement } from "@/models/element";
+import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/element";
+import { isEvent } from "@/models/rpe/event";
 
 export default class SelectionManager extends Manager {
     /** 被选中的元素。有时也用“selection”来代替“selectedElements”。 */
@@ -94,14 +95,36 @@ export default class SelectionManager extends Manager {
 
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
+        const stateManager = store.useManager("stateManager");
+        const chart = store.useChart();
         mouseManager.checkMouseUp();
         historyManager.group("删除");
-        for (const element of this.selectedElements) {
+
+        // 复制一份：删除噪域时可能会调整当前噪域编号，遍历过程中不能依赖原数组
+        for (const element of [...this.selectedElements]) {
             if (isNoteLike(element)) {
                 store.removeNote(element.id);
                 historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
             }
-            else {
+            else if (isBlockArea(element)) {
+                const position = chart.blockAreaList.indexOf(element);
+                const blockAreaObject = element.toObject();
+                store.removeBlockArea(element);
+                historyManager.recordRemoveBlockArea(blockAreaObject, element.index, position);
+                stateManager.notifyBlockAreaListChanged({ removedPosition: position });
+            }
+            else if (isActiveInterval(element)) {
+                const blockArea = element.owner;
+                if (!blockArea) {
+                    throw new Error("激活区间没有所属的噪域，无法删除");
+                }
+
+                const position = blockArea.activeIntervals.indexOf(element);
+                const intervalObject = element.toObject();
+                blockArea.removeActiveInterval(element);
+                historyManager.recordRemoveActiveInterval(blockArea.index, intervalObject, position);
+            }
+            else if (isEvent(element)) {
                 store.removeEvent(element.id);
                 historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
             }
@@ -115,6 +138,17 @@ export default class SelectionManager extends Manager {
     selectAll() {
         const stateManager = store.useManager("stateManager");
         this.unselectAll();
+
+        // 噪域编辑时只选中当前噪域的所有事件
+        if (stateManager._state.isEditingBlockArea) {
+            const blockArea = stateManager.currentBlockArea;
+            if (blockArea) {
+                this.selectedElements.push(...blockArea.getAllEvents());
+            }
+            globalEventEmitter.emit("SELECTION_UPDATE");
+            return;
+        }
+
         for (const element of stateManager.currentJudgeLine.notes) {
             this.selectedElements.push(element);
         }

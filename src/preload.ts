@@ -12,14 +12,17 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 import type { defaultSettings } from "./managers/renderer/settings";
-import type { ChartReadResult } from "./models/chartPackage";
+import type { ChartReadResult } from "./models/rpe/chartPackage";
+import type { ImportChartResult } from "./managers/main/import";
+import type { ChartFormat } from "./managers/main/convert";
 import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
 import type { Replace } from "./tools/typeTools";
 import type { HitSoundInfo } from "./managers/main/videoRenderer";
+import type { BatchExportRequest } from "./managers/main/export";
 
 const electronAPI: ElectronAPI = {
     getVersion: () => ipcRenderer.invoke("get-version"),
-    importChart: (chartPackagePath) => ipcRenderer.invoke("import-chart", chartPackagePath),
+    importChart: (chartPackagePath, format) => ipcRenderer.invoke("import-chart", chartPackagePath, format),
     addChart: (musicPath, backgroundPath, name) => ipcRenderer.invoke("add-chart", musicPath, backgroundPath, name),
     saveChart: (chartId, chartContent, extraContent) => ipcRenderer.invoke("save-chart", chartId, chartContent, extraContent),
     deleteChart: (chartId) => ipcRenderer.invoke("delete-chart", chartId),
@@ -30,6 +33,9 @@ const electronAPI: ElectronAPI = {
     readAllCharts: () => ipcRenderer.invoke("read-all-charts"),
     loadChart: (chartId) => ipcRenderer.invoke("load-chart", chartId),
     exportChart: (chartId, targetPath) => ipcRenderer.invoke("export-chart", chartId, targetPath),
+    batchExportCharts: (folderPath, requests) => ipcRenderer.invoke("batch-export-charts", folderPath, requests),
+    readExportFolderInfo: (folderPath) => ipcRenderer.invoke("read-export-folder-info", folderPath),
+    showOpenDirectoryDialog: (defaultPath) => ipcRenderer.invoke("show-open-directory-dialog", defaultPath),
     showSaveDialog: (name) => ipcRenderer.invoke("show-save-dialog", name),
     showOpenChartDialog: (multiple?) => ipcRenderer.invoke("show-open-chart-dialog", multiple),
     showOpenMusicDialog: (multiple?) => ipcRenderer.invoke("show-open-music-dialog", multiple),
@@ -42,6 +48,8 @@ const electronAPI: ElectronAPI = {
     saveSettings: (settings: typeof defaultSettings) => ipcRenderer.invoke("save-settings", settings),
     addTextures: (chartId, texturePaths) => ipcRenderer.invoke("add-textures", chartId, texturePaths),
     openChartFolder: (path) => ipcRenderer.invoke("open-chart-folder", path),
+    openTipsFolder: () => ipcRenderer.invoke("open-tips-folder"),
+    openPath: (filePath) => ipcRenderer.invoke("open-path", filePath),
     renameChartId: (chartId, newChartId) => ipcRenderer.invoke("rename-chart-id", chartId, newChartId),
     loadShaderFile: (shaderName) => ipcRenderer.invoke("load-shader-file", shaderName),
     openExternalLink: (url) => ipcRenderer.invoke("open-external-link", url),
@@ -95,6 +103,11 @@ const electronAPI: ElectronAPI = {
     finishVideoRendering: (outputPath) => ipcRenderer.invoke("finish-video-rendering", outputPath),
     addHitSounds: (sounds) => ipcRenderer.invoke("add-hit-sounds", sounds),
     cancelVideoRendering: () => ipcRenderer.invoke("cancel-video-rendering"),
+    openLog: (fileName) => ipcRenderer.invoke("open-log", fileName),
+    addLog: (content) => ipcRenderer.invoke("add-log", content),
+    closeLog: () => ipcRenderer.invoke("close-log"),
+    getCacheSize: () => ipcRenderer.invoke("get-cache-size"),
+    clearCache: () => ipcRenderer.invoke("clear-cache"),
     onWindowFocus(callback) {
         const listener = () => callback();
         ipcRenderer.on("window-focus", listener);
@@ -122,8 +135,8 @@ interface ElectronAPI {
     /** 获取软件版本 */
     getVersion: () => Promise<string>
 
-    /** 导入谱面 */
-    importChart: (chartPackagePath: string) => Promise<string>
+    /** 导入谱面。format 指定压缩包内谱面文件的格式，选择 official 时会先转谱为 RPE 再存储 */
+    importChart: (chartPackagePath: string, format?: ChartFormat) => Promise<ImportChartResult>
 
     /** 加载谱面 */
     loadChart: (chartId: string) => Promise<ChartReadResult>
@@ -143,7 +156,7 @@ interface ElectronAPI {
     /** 永久删除谱面 */
     permentlyDeleteChart: (chartId: string) => Promise<void>
 
-    /** 读取软件根目录 tips.txt 的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
+    /** 读取 tips.txt（打包版在 AppData 里）的 tip 列表。created 表示文件原本不存在，已自动重建默认内容 */
     readTips: () => Promise<{ tips: string[]; created: boolean }>
 
     /** 读取谱面列表 */
@@ -154,6 +167,15 @@ interface ElectronAPI {
 
     /** 导出谱面 */
     exportChart: (chartId: string, targetPath: string) => Promise<void>
+
+    /** 批量导出谱面到某个文件夹（文件夹不存在时会自动创建） */
+    batchExportCharts: (folderPath: string, requests: BatchExportRequest[]) => Promise<void>
+
+    /** 读取导出文件夹的信息（是否存在、已有的文件名），用于检查重名 */
+    readExportFolderInfo: (folderPath: string) => Promise<{ exists: boolean, files: string[] }>
+
+    /** 显示选择文件夹的对话框 */
+    showOpenDirectoryDialog: (defaultPath?: string) => Promise<string[] | null>
 
     /** 显示保存谱面（pez/zip）文件的对话框 */
     showSaveDialog: (name: string) => Promise<string | null>
@@ -206,6 +228,12 @@ interface ElectronAPI {
     /** 打开谱面文件夹 */
     openChartFolder: (chartId: string) => Promise<void>
 
+    /** 打开 tips.txt 所在的文件夹 */
+    openTipsFolder: () => Promise<void>
+
+    /** 打开文件或目录 */
+    openPath: (fileName: string) => Promise<{ ok: boolean, error: string }>
+
     /** 重命名谱面 ID */
     renameChartId: (chartId: string, newChartId: string) => Promise<void>
 
@@ -224,12 +252,12 @@ interface ElectronAPI {
     /** 退出并安装更新 */
     quitAndInstall: () => Promise<void>
 
-    onUpdateChecking: (callback: () => void) => ()=>void
-    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
-    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => ()=>void
-    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => ()=>void
-    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => ()=>void
-    onUpdateError: (callback: (error: Error) => void) => ()=>void
+    onUpdateChecking: (callback: () => void) => () => void
+    onUpdateAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => () => void
+    onUpdateNotAvailable: (callback: (info: Replace<UpdateInfo, "releaseNotes", string>) => void) => () => void
+    onUpdateDownloadProgress: (callback: (progress: ProgressInfo) => void) => () => void
+    onUpdateDownloaded: (callback: (info: Replace<UpdateDownloadedEvent, "releaseNotes", string>) => void) => () => void
+    onUpdateError: (callback: (error: Error) => void) => () => void
 
     /** Start video export session */
     startVideoRendering: (config: RenderingConfig) => Promise<void>
@@ -244,9 +272,19 @@ interface ElectronAPI {
 
     cancelVideoRendering: () => Promise<void>
 
-    onWindowFocus: (callback: () => void) => ()=>void
+    openLog: (fileName: string) => Promise<string>
 
-    onWindowBlur: (callback: () => void) => ()=>void
+    addLog: (content: string) => Promise<void>
+
+    closeLog: () => Promise<string>
+
+    getCacheSize: () => Promise<number>
+
+    clearCache: () => Promise<void>
+
+    onWindowFocus: (callback: () => void) => () => void
+
+    onWindowBlur: (callback: () => void) => () => void
 
     on: (name: string, callback: (event: unknown, ...args: any[]) => void) => void
     off: (name: string, callback: (event: unknown, ...args: any[]) => void) => void

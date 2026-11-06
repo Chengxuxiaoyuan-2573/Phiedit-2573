@@ -4,14 +4,16 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { easingFuncs, EasingType } from "@/models/easing";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/event";
-import { Note, NoteAbove, NoteType } from "@/models/note";
+import { easingFuncs, EasingType } from "@/models/rpe/easing";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, interpolateShaderVariableEventValue } from "@/models/rpe/event";
+import { Note, NoteAbove, NoteType } from "@/models/rpe/note";
+import { BlockArea } from "@/models/rpe/blockArea";
 import store from "@/store";
 import { ArrayedObject, sortAndForEach } from "@/tools/algorithm";
 import canvasUtils from "@/tools/canvasUtils";
-import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBcolor, WHITE } from "@/tools/color";
+import { colorToString, GREEN, isEqualRGBcolors, RGBAtoRGB, RGBAcolor, RGBcolor, WHITE } from "@/tools/color";
 import MathUtils from "@/tools/mathUtils";
+import { computeBlockAreaRegion } from "@/tools/blockAreaGeometry";
 import { ceil, isNull } from "lodash";
 import Manager from "./abstract";
 import globalEventEmitter from "@/eventEmitter";
@@ -19,10 +21,15 @@ import { ArrayRepeat, UnionToTuple } from "@/tools/typeTools";
 import EditableImage from "@/tools/editableImage";
 import Constants from "@/constants";
 import { ElMessage } from "element-plus";
-import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/effect";
+import { DEFAULT_VARS, isNumberOrVector, ShaderName, ShaderNumberType, ShaderVarType } from "@/models/rpe/effect";
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { LineColor } from "./judge";
 import LimitedMap from "@/tools/limitedMap";
+import MediaUtils from "@/tools/mediaUtils";
+import backIconUrl from "../../../resources/icons/Back.png";
+import retryIconUrl from "../../../resources/icons/Retry.png";
+import resumeIconUrl from "../../../resources/icons/Resume.png";
+import type { MultiPolygon, Pair, Polygon } from "polygon-clipping";
 
 interface ShaderInfo {
     name: ShaderName;
@@ -47,6 +54,60 @@ const TEXCOORD_OFFSET = POSITION_COMPONENTS * FLOAT_SIZE;
 
 const LIMIT = 4096;
 
+/**
+ * 比较 floor position 时使用的浮点误差容差。
+ *
+ * 音符与判定线的 floor position 差值是通过多个浮点数相减得到的，会存在浮点误差，
+ * 数学上应当为 0 的差值可能会变成一个极小的负数（例如 -9.094947017729282e-13），
+ * 从而使得本该正好落在判定线上的音符被误判为“在判定线下方”而被遮罩不显示。
+ * 因此凡是“判断差值是否小于 0”的地方都要带上这个容差。
+ */
+const FLOOR_POSITION_EPSILON = 1e-6;
+
+/**
+ * 噪域在某一时刻的显示状态。
+ *
+ * - `active`：已激活。参与「普通噪域并集 ⊕ 减算噪域并集」的布尔运算，绘制为带边框的红色区域
+ * - `flashing`：激活前的预备状态。不参与布尔运算，直接绘制为粉白交替的矩形
+ * - `inactive`：未激活。不参与布尔运算，直接绘制为粉色矩形
+ */
+type BlockAreaState = "active" | "flashing" | "inactive";
+
+/** 噪域在某一时刻的显示信息 */
+interface BlockAreaDisplay {
+
+    /** 噪域此刻的显示状态 */
+    state: BlockAreaState
+
+    /** 噪域此刻在画布坐标系下的四个角，依次为左上、右上、右下、左下 */
+    corners: Pair[]
+
+    /** 闪烁开始的时间，单位为秒。仅当 state 为 `flashing` 时有意义 */
+    flashStartSeconds: number
+}
+
+/** 未激活或闪烁中的噪域在直接叠加绘制时使用的信息 */
+interface BlockAreaOverlay {
+
+    /** 噪域在画布坐标系下的四个角 */
+    corners: Pair[]
+
+    /** 直接叠加绘制时使用的填充颜色 */
+    color: RGBAcolor
+}
+
+/** 预览暂停蒙版上按钮的名字 */
+type PreviewMaskButtonName = "exit" | "restart" | "resume";
+
+/** 预览暂停蒙版上按钮的碰撞箱（canvas 坐标系） */
+interface PreviewMaskButton {
+    name: PreviewMaskButtonName
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 export default class ChartRenderer extends Manager {
     private offscreenCanvas = new OffscreenCanvas(Constants.CANVAS_WIDTH, Constants.CANVAS_HEIGHT);
     private shaderCanvas: HTMLCanvasElement | null = null;
@@ -62,11 +123,36 @@ export default class ChartRenderer extends Manager {
     private cachedTintedNormalNote: LimitedMap<string, OffscreenCanvas> = new LimitedMap(LIMIT);
     private cachedTintedHoldNote: LimitedMap<string, { head: OffscreenCanvas, body: OffscreenCanvas, end: OffscreenCanvas }> = new LimitedMap(LIMIT);
 
+    /** 预览暂停蒙版上按钮的碰撞箱，每次绘制蒙版时更新 */
+    private previewMaskButtons: PreviewMaskButton[] = [];
+
+    /** 预览暂停蒙版上的按钮图标（退出、重开、继续），加载完成前为 null */
+    private previewMaskIcons: Record<PreviewMaskButtonName, HTMLImageElement> | null = null;
+
     constructor() {
         super();
         globalEventEmitter.on("RENDER_CHART", createCatchErrorByMessage(() => {
             this.render();
         }, "渲染谱面", false));
+
+        // 提前加载预览暂停蒙版上的按钮图标
+        this.loadPreviewMaskIcons();
+    }
+
+    /** 加载预览暂停蒙版上按钮的图标 */
+    private async loadPreviewMaskIcons() {
+        try {
+            const [exit, restart, resume] = await Promise.all([
+                MediaUtils.createImage(backIconUrl),
+                MediaUtils.createImage(retryIconUrl),
+                MediaUtils.createImage(resumeIconUrl)
+            ]);
+            this.previewMaskIcons = { exit, restart, resume };
+        }
+        catch (error) {
+            // 图标加载失败时使用文字代替，不打断渲染
+            console.error("加载预览蒙版按钮图标失败：", error);
+        }
     }
 
     /** 显示谱面到 canvas 上 */
@@ -74,10 +160,13 @@ export default class ChartRenderer extends Manager {
         const canvas = store.useCanvas();
         const ctx = canvasUtils.getContext(canvas);
 
-        // 把背景、判定线和音符绘制到离屏 canvas 上
+        // 把背景、判定线、音符和噪域绘制到离屏 canvas 上
         this.drawBackground();
         this.drawJudgeLines();
         this.drawNotes();
+
+        // 噪域显示在判定线与音符之上
+        this.drawBlockAreas();
 
         // 把屏幕 canvas 全部清空
         ctx.fillStyle = "black";
@@ -114,6 +203,149 @@ export default class ChartRenderer extends Manager {
         // 到最后，offscreenCanvas 上显示的应该是已经叠加了所有 shader 的画面
         // 把 offscreenCanvas 直接绘制到屏幕 canvas 上
         ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
+
+        // 手指被噪域污染时，在手指的位置显示故障效果
+        this.drawGlitchedFinger(ctx);
+
+        // 预览暂停时，在谱面画面上绘制蒙版和按钮
+        this.drawPreviewPausedMask(ctx);
+    }
+
+    /**
+     * 手指（鼠标）被噪域污染时，在手指位置绘制故障效果（一个红点）。
+     *
+     * 被污染的手指无法判定任何音符，红点会一直显示直到松开手指。
+     */
+    private drawGlitchedFinger(ctx: CanvasRenderingContext2D) {
+        const stateManager = store.useManager("stateManager");
+        if (!stateManager._state.isPreviewing || stateManager._state.autoplay) {
+            return;
+        }
+
+        const judgeManager = store.useManager("judgeManager");
+        if (!judgeManager.isFingerGlitched) {
+            return;
+        }
+
+        const mouseManager = store.useManager("mouseManager");
+        ctx.save();
+        ctx.fillStyle = ctx.strokeStyle = colorToString(Constants.JUDGE_GLITCH_FINGER_COLOR);
+        ctx.beginPath();
+        ctx.arc(mouseManager.mouseX, mouseManager.mouseY, Constants.JUDGE_GLITCH_FINGER_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    /**
+     * 预览开启且音乐暂停时，在谱面画面上绘制半透明黑色模糊蒙版，
+     * 中间依次显示退出、重开、继续三个按钮。
+     */
+    private drawPreviewPausedMask(ctx: CanvasRenderingContext2D) {
+        this.previewMaskButtons = [];
+
+        const stateManager = store.useManager("stateManager");
+        if (!stateManager._state.isPreviewing) {
+            return;
+        }
+
+        if (stateManager._state.autoplay && !stateManager._state.isFullscreen) {
+            return;
+        }
+
+        // 渲染视频时不绘制蒙版，避免蒙版被画进导出的视频里
+        if (store.isRenderingVideo.value) {
+            return;
+        }
+
+        const audio = store.useAudio();
+        if (!audio.paused) {
+            return;
+        }
+
+        const canvas = store.useCanvas();
+
+        // 把谱面画面模糊一遍，作为蒙版的背景
+        ctx.save();
+        ctx.filter = `blur(${Constants.PREVIEW_MASK_BLUR_RADIUS}px)`;
+        ctx.drawImage(this.offscreenCanvas, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // 半透明黑色蒙版
+        ctx.save();
+        ctx.fillStyle = Constants.PREVIEW_MASK_BACKGROUND;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // 依次绘制退出、重开、继续三个按钮（Back、Retry、Resume 图标），并记录碰撞箱用于点击检测
+        const labels: [PreviewMaskButtonName, string][] = [
+            ["exit", "退出"],
+            ["restart", "重开"],
+            ["resume", "继续"]
+        ];
+        const gap = Constants.PREVIEW_MASK_BUTTON_GAP;
+        const hitPadding = Constants.PREVIEW_MASK_BUTTON_HIT_PADDING;
+        const centerY = canvas.height / 2;
+        const icons = this.previewMaskIcons;
+
+        ctx.save();
+        if (icons) {
+            // 图标加载完成时绘制图片
+            const widths = labels.map(([name]) => icons[name].naturalWidth);
+            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * (labels.length - 1);
+            let left = canvas.width / 2 - totalWidth / 2;
+
+            labels.forEach(([name], index) => {
+                const image = icons[name];
+                const height = image.naturalHeight;
+                ctx.drawImage(image, left, centerY - height / 2);
+                this.previewMaskButtons.push({
+                    name,
+                    x: left - hitPadding,
+                    y: centerY - height / 2 - hitPadding,
+                    width: widths[index] + hitPadding * 2,
+                    height: height + hitPadding * 2
+                });
+                left += widths[index] + gap;
+            });
+        }
+        else {
+            // 图标还没加载出来时，退回为绘制文字
+            const fontSize = Constants.PREVIEW_MASK_BUTTON_FONT_SIZE;
+            ctx.font = `${fontSize}px PhiFont`;
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "white";
+
+            const widths = labels.map(([, label]) => ctx.measureText(label).width);
+            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * (labels.length - 1);
+            let left = canvas.width / 2 - totalWidth / 2;
+
+            labels.forEach(([name, label], index) => {
+                const width = widths[index];
+                ctx.fillText(label, left + width / 2, centerY);
+                this.previewMaskButtons.push({
+                    name,
+                    x: left - hitPadding,
+                    y: centerY - fontSize / 2 - hitPadding,
+                    width: width + hitPadding * 2,
+                    height: fontSize + hitPadding * 2
+                });
+                left += width + gap;
+            });
+        }
+
+        ctx.restore();
+    }
+
+    /** 检测预览暂停蒙版上点击到了哪个按钮，没有点到按钮时返回 null */
+    hitTestPreviewMaskButton(x: number, y: number): PreviewMaskButtonName | null {
+        for (const button of this.previewMaskButtons) {
+            if (x >= button.x && x <= button.x + button.width &&
+                y >= button.y && y <= button.y + button.height) {
+                return button.name;
+            }
+        }
+        return null;
     }
 
     private getShaderInfo(): ShaderInfo[] {
@@ -635,9 +867,12 @@ export default class ChartRenderer extends Manager {
                 ctx.globalAlpha = alpha / 255;
             }
 
+            // 把贴图路径统一为正斜杠形式后再查找，以兼容使用反斜杠路径的谱面
+            const textureKey = judgeLine.Texture.replace(/\\/g, "/");
+
             const size = ((): [number, number] => {
-                if (judgeLine.Texture in textures) {
-                    const image = textures[judgeLine.Texture];
+                if (textureKey in textures) {
+                    const image = textures[textureKey];
                     return [image.width, image.height];
                 }
 
@@ -654,8 +889,8 @@ export default class ChartRenderer extends Manager {
             ctx.translate((0.5 - judgeLine.anchor[0]) * size[0],
                 (0.5 - judgeLine.anchor[1]) * size[1]);
 
-            if (judgeLine.Texture in textures) {
-                const image = textures[judgeLine.Texture];
+            if (textureKey in textures) {
+                const image = textures[textureKey];
                 if (isMarkedCurrent) {
                     const editableImage = new EditableImage(image);
                     editableImage.addColor(currentColor);
@@ -1033,7 +1268,7 @@ export default class ChartRenderer extends Manager {
             const drawNote = (note: Note) => {
                 // 把当前判定线的角度转为弧度
                 const radians = MathUtils.degToRad(judgeLineInfo.angle);
-                const missSeconds = note.getJudgementRange().bad;
+                const missSeconds = -note.getJudgementRange(stateManager._state.judgementRule).bad[0];
                 const startSeconds = note.cachedStartSeconds;
                 const endSeconds = note.cachedEndSeconds;
 
@@ -1046,7 +1281,8 @@ export default class ChartRenderer extends Manager {
                     startPositionY = 0;
                 }
 
-                const isCovered = endPositionY < 0 && judgeLine.isCover === 1 && seconds < endSeconds;
+                // 用容差抵消浮点误差，避免把实际为 0 的差值误判为负数
+                const isCovered = endPositionY < -FLOOR_POSITION_EPSILON && judgeLine.isCover === 1 && seconds < endSeconds;
 
                 startPositionY = startPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
                 endPositionY = endPositionY * note.speed * (note.above === NoteAbove.Above ? 1 : -1) + note.yOffset;
@@ -1128,7 +1364,7 @@ export default class ChartRenderer extends Manager {
                                 return { head, body, end };
                             }
                             else {
-                                const key = `hold-${colorToString(note.tint)}`;
+                                const key = `hold-${colorToString(note.tint)}-${note.highlight ? "highlighted" : "unhighlighted"}`;
                                 if (this.cachedTintedHoldNote.has(key)) {
                                     return this.cachedTintedHoldNote.get(key)!;
                                 }
@@ -1202,7 +1438,7 @@ export default class ChartRenderer extends Manager {
                                 return image;
                             }
                             else {
-                                const key = `${note.type}-${colorToString(note.tint)}`;
+                                const key = `${note.type}-${colorToString(note.tint)}-${note.highlight ? "highlighted" : "unhighlighted"}`;
                                 if (this.cachedTintedNormalNote.has(key)) {
                                     return this.cachedTintedNormalNote.get(key)!;
                                 }
@@ -1267,7 +1503,7 @@ export default class ChartRenderer extends Manager {
                                 getAngle: true
                             });
                             const radians = MathUtils.degToRad(angle);
-                            const judgement = note.getJudgement();
+                            const judgement = note.getJudgement(stateManager._state.judgementRule);
 
                             /** 一个随机数种子生成器，只要保证输入不同的数字输出也不同就可以，这个是最优的方案 */
                             const hash = (a: number, b: number, c: number) => a * a + b * b + c * c;
@@ -1471,7 +1707,7 @@ export default class ChartRenderer extends Manager {
                 }
 
                 // 不论是什么种类的音符，被判定为bad的都不绘制，只绘制打击特效
-                if (note.getJudgement() === "bad") continue;
+                if (note.getJudgement(stateManager._state.judgementRule) === "bad") continue;
 
                 // 已经结束的Hold音符不绘制
                 if (note.type === NoteType.Hold) {
@@ -1480,7 +1716,7 @@ export default class ChartRenderer extends Manager {
 
                 // 已经被判定的非Hold音符不绘制
                 else {
-                    if (note.getJudgement() !== "none") continue;
+                    if (note.getJudgement(stateManager._state.judgementRule) !== "none") continue;
                 }
                 drawNote(note);
             }
@@ -1494,8 +1730,204 @@ export default class ChartRenderer extends Manager {
         }
     }
 
+    /**
+     * 绘制噪域图层，显示在判定线与音符之上。
+     *
+     * 已激活的噪域会参与布尔运算：先对所有普通噪域取并集，再与所有减算噪域的并集取对称差，
+     * 得到最终的噪域区域。区域可能含有洞（例如中间被挖空），因此它的边界可能由多段组成，
+     * 这些边界会连同内部一起绘制。
+     *
+     * 未激活与闪烁中的噪域不参与布尔运算，直接按矩形叠加绘制。
+     */
+    private drawBlockAreas() {
+        const chart = store.useChart();
+        if (chart.blockAreaList.length === 0) {
+            return;
+        }
+
+        const ctx = canvasUtils.getOffscreenCanvasContext(this.offscreenCanvas);
+        const seconds = store.getSeconds();
+
+        // 已激活的普通噪域，作为并集的成员
+        const normalPolygons: Polygon[] = [];
+
+        // 已激活的减算噪域，作为并集的成员
+        const subtractPolygons: Polygon[] = [];
+
+        // 未激活与闪烁中的噪域，直接叠加绘制
+        const overlays: BlockAreaOverlay[] = [];
+
+        for (const blockArea of chart.blockAreaList) {
+            const display = this.getBlockAreaDisplay(blockArea, seconds);
+            if (display === null) {
+                continue;
+            }
+
+            if (display.state === "active") {
+                const polygon: Polygon = [display.corners];
+                if (blockArea.isInvert) {
+                    subtractPolygons.push(polygon);
+                }
+                else {
+                    normalPolygons.push(polygon);
+                }
+            }
+            else {
+                overlays.push({
+                    corners: display.corners,
+                    color: this.getBlockAreaOverlayColor(display, seconds)
+                });
+            }
+        }
+
+        // 合成可见区域：普通噪域至少覆盖一次即有效；
+        // 反转噪域只在恰好被一个覆盖时反转该处（被两个及以上覆盖的部分不反转）
+        const region = computeBlockAreaRegion(normalPolygons, subtractPolygons);
+
+        if (region !== null && region.length > 0) {
+            this.drawBlockAreaRegion(ctx, region);
+        }
+
+        // 未激活与闪烁中的噪域直接叠加在噪域区域之上
+        for (const overlay of overlays) {
+            this.drawBlockAreaQuad(ctx, overlay.corners, overlay.color);
+        }
+    }
+
+    /**
+     * 计算噪域在某一时刻的显示信息。
+     * @param blockArea 噪域
+     * @param seconds 当前时间，单位为秒
+     * @returns 显示信息。噪域此刻不显示时返回 null
+     */
+    private getBlockAreaDisplay(blockArea: BlockArea, seconds: number): BlockAreaDisplay | null {
+        // 噪域只在出现时间与消失时间之间显示
+        const appearSeconds = blockArea.cachedStartSeconds;
+        const disappearSeconds = blockArea.cachedEndSeconds;
+        if (seconds < appearSeconds || seconds > disappearSeconds) {
+            return null;
+        }
+
+        // 判断激活状态：已经激活、激活前闪烁、还是普通的未激活
+        let state: BlockAreaState = "inactive";
+        let flashStartSeconds = 0;
+        for (const interval of blockArea.activeIntervals) {
+            const startSeconds = interval.cachedStartSeconds;
+            const endSeconds = interval.cachedEndSeconds;
+
+            if (seconds >= startSeconds && seconds <= endSeconds) {
+                state = "active";
+                break;
+            }
+
+            // 激活前的 readyFlash 秒内闪烁提示
+            if (seconds >= startSeconds - interval.readyFlash && seconds < startSeconds) {
+                state = "flashing";
+                flashStartSeconds = startSeconds - interval.readyFlash;
+            }
+        }
+
+        return {
+            state,
+            corners: this.getBlockAreaCorners(blockArea, seconds),
+            flashStartSeconds
+        };
+    }
+
+    /**
+     * 计算噪域在某一时刻的四个角，以画布坐标系为准。
+     *
+     * 噪域的形状以基准中心为支点缩放、旋转，基准中心沿着由各事件的 anchor 驱动的中心轨迹运动，
+     * 最后叠加移动事件的偏移，具体的变换方式见 getBlockAreaCorners。
+     * 事件没有 anchor 时以噪域中心为支点，此时与「以中心缩放、绕中心旋转、中心移动到目标位置」一致。
+     *
+     * @param blockArea 噪域
+     * @param seconds 当前时间，单位为秒
+     * @returns 依次为左上、右上、右下、左下的四个角
+     */
+    private getBlockAreaCorners(blockArea: BlockArea, seconds: number): Pair[] {
+        const coordinateManager = store.useManager("coordinateManager");
+
+        // 几何计算在谱面坐标系（y 轴向上）中完成，这里把结果转换回画布坐标
+        return blockArea.getCornersAt(seconds).map(([x, y]): Pair => [
+            coordinateManager.convertXToCanvas(x),
+            coordinateManager.convertYToCanvas(y)
+        ]);
+    }
+
+    /** 计算未激活或闪烁中的噪域在直接叠加绘制时使用的填充颜色 */
+    private getBlockAreaOverlayColor(display: BlockAreaDisplay, seconds: number): RGBAcolor {
+        if (display.state === "flashing") {
+            // 激活之前在粉色与白色之间闪烁
+            const elapsed = seconds - display.flashStartSeconds;
+            const isWhite = Math.floor(elapsed / Constants.BLOCK_AREA_FLASH_PERIOD) % 2 === 1;
+            return isWhite ? Constants.BLOCK_AREA_FLASH_FILL_COLOR : Constants.BLOCK_AREA_INACTIVE_FILL_COLOR;
+        }
+        return Constants.BLOCK_AREA_INACTIVE_FILL_COLOR;
+    }
+
+    /**
+     * 绘制噪域区域的内部与边框。
+     * @param ctx 绘制上下文
+     * @param region 噪域区域，可能含有多个多边形与洞
+     */
+    private drawBlockAreaRegion(ctx: OffscreenCanvasRenderingContext2D, region: MultiPolygon) {
+        const path = this.createPolygonPath(region.flat());
+
+        ctx.save();
+        ctx.resetTransform();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_FILL_COLOR);
+
+        // 用 nonzero 规则填充：洞的环绕方向与外环相反不会被填充，
+        // 而布尔运算降级保留的相互重叠的分块也不会被挖出空洞
+        ctx.fill(path, "nonzero");
+
+        // 描边会把外边界与洞的边界一起画出来
+        ctx.strokeStyle = colorToString(Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR);
+        ctx.lineWidth = Constants.BLOCK_AREA_BORDER_WIDTH;
+        ctx.stroke(path);
+        ctx.restore();
+    }
+
+    /**
+     * 把一个由角点组成的矩形直接叠加绘制到噪域图层上。
+     * @param ctx 绘制上下文
+     * @param corners 矩形的四个角
+     * @param color 填充颜色
+     */
+    private drawBlockAreaQuad(ctx: OffscreenCanvasRenderingContext2D, corners: Pair[], color: RGBAcolor) {
+        const path = this.createPolygonPath([corners]);
+
+        ctx.save();
+        ctx.resetTransform();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = colorToString(color);
+        ctx.fill(path);
+        ctx.restore();
+    }
+
+    /**
+     * 把若干个环转换成 Path2D。
+     * @param rings 每个环是一组依次相连的点
+     */
+    private createPolygonPath(rings: Pair[][]) {
+        const path = new Path2D();
+        for (const ring of rings) {
+            if (ring.length === 0) {
+                continue;
+            }
+            path.moveTo(ring[0][0], ring[0][1]);
+            for (let i = 1; i < ring.length; i++) {
+                path.lineTo(ring[i][0], ring[i][1]);
+            }
+            path.closePath();
+        }
+        return path;
+    }
+
     /** 获取判定线的事件信息 */
-    private getJudgeLineInfo(lineNumber: number, seconds: number, {
+    getJudgeLineInfo(lineNumber: number, seconds: number, {
         getX = false,
         getY = false,
         getAngle = false,
@@ -1566,6 +1998,9 @@ export default class ChartRenderer extends Manager {
             const { x: newX, y: newY } = MathUtils.moveAndRotate(fatherX, fatherY, fatherAngle, x, y);
             x = newX;
             y = newY;
+            if (judgeLine.rotateWithFather) {
+                angle += fatherAngle;
+            }
         }
 
         const scaleX = (() => {

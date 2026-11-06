@@ -4,8 +4,8 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import type { Beats } from "./models/beats";
-import type { NoteType } from "./models/note";
+import type { Beats } from "./models/rpe/beats";
+import type { NoteType } from "./models/rpe/note";
 import EventEmitter from "./tools/eventEmitter";
 export type PositionX = number;
 export type PositionY = number;
@@ -21,7 +21,12 @@ export type KeyOptions = {
  * 历史记录类型可以是六种类型的数组，表示本历史记录包含哪些类型，
  * 也可以是 "UNDO"、"REDO" 等
  */
-export type HistoryType = ("ADD_NOTE" | "MODIFY_NOTE" | "REMOVE_NOTE" | "ADD_EVENT" | "MODIFY_EVENT" | "REMOVE_EVENT")[] | "UNDO" | "REDO" | "CLEAR";
+export type HistoryType = (
+    | "ADD_NOTE" | "MODIFY_NOTE" | "REMOVE_NOTE"
+    | "ADD_EVENT" | "MODIFY_EVENT" | "REMOVE_EVENT"
+    | "MODIFY_BLOCK_AREA" | "REMOVE_BLOCK_AREA"
+    | "ADD_ACTIVE_INTERVAL" | "REMOVE_ACTIVE_INTERVAL" | "MODIFY_ACTIVE_INTERVAL"
+)[] | "UNDO" | "REDO" | "CLEAR";
 
 export interface VideoRenderingProgress {
 
@@ -79,6 +84,7 @@ export interface GlobalEventMap {
     PREVIEW: [boolean]
     STOP_PREVIEW: [boolean]
     TOGGLE_PREVIEW: []
+    TOGGLE_FULLSCREEN: []
     MOVE_TO_JUDGE_LINE: [number?]
     MOVE_TO_PREVIOUS_JUDGE_LINE: []
     MOVE_TO_NEXT_JUDGE_LINE: []

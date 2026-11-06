@@ -25,7 +25,15 @@ class SettingsManager extends Manager {
     }
 
     async readSettings(): Promise<object> {
-        const text = await fs.promises.readFile(this.settingsFile, Constants.ENCODING);
+        let text: string;
+        try {
+            text = await fs.promises.readFile(this.settingsFile, Constants.ENCODING);
+        }
+        catch {
+            // 设置文件不存在时使用默认设置
+            return {};
+        }
+
         try {
             return JSON.parse(text);
         }

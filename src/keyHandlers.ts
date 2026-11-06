@@ -5,7 +5,7 @@
  */
 
 import globalEventEmitter, { GlobalEventMap } from "./eventEmitter";
-import { NoteType } from "./models/note";
+import { NoteType } from "./models/rpe/note";
 import { isArray, isObject, isString } from "lodash";
 import KeyboardUtils from "./tools/keyboardUtils";
 import store from "./store";
@@ -17,6 +17,7 @@ const keyConfigs = {
     E: ["CHANGE_TYPE", NoteType.Flick] as ["CHANGE_TYPE", NoteType],
     R: ["CHANGE_TYPE", NoteType.Hold] as ["CHANGE_TYPE", NoteType],
     I: "TOGGLE_PREVIEW",
+    F11: "TOGGLE_FULLSCREEN",
     "[": "PREVIOUS_JUDGE_LINE",
     "]": "NEXT_JUDGE_LINE",
     A: "PREVIOUS_JUDGE_LINE",
@@ -66,7 +67,7 @@ type B = A | {
 }
 export default function getKeyHandler(e: KeyboardEvent, type: "keydown" | "keyup") {
     const key = KeyboardUtils.formatKey(e);
-    if (key.startsWith("Ctrl")) {
+    if (key.startsWith("Ctrl") || key === "F11") {
         if (key !== "Ctrl R" && key !== "Ctrl Shift I") {
             e.preventDefault();
         }

@@ -4,9 +4,9 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { Beats, beatsToSeconds, getBeatsValue } from "@/models/beats";
-import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/event";
-import { isNoteLike, NoteType } from "@/models/note";
+import { Beats, beatsToSeconds, formatBeats, getBeatsValue } from "@/models/rpe/beats";
+import { interpolateNumberEventValue, findLastEventIndex, interpolateColorEventValue, interpolateTextEventValue, isNumberEvent, isColorEvent, isTextEvent, NumberEvent, ColorEvent, TextEvent, AbstractEvent } from "@/models/rpe/event";
+import { isNoteLike, NoteType } from "@/models/rpe/note";
 import canvasUtils from "@/tools/canvasUtils";
 import { colorToHex, colorToString, RGBcolor } from "@/tools/color";
 import { floor, ceil } from "lodash";
@@ -16,7 +16,17 @@ import store from "@/store";
 import Manager from "./abstract";
 import { Box } from "@/tools/box";
 import globalEventEmitter from "@/eventEmitter";
-import { baseEventTypes, extendedEventTypes, isBaseEventLayer } from "@/models/eventLayer";
+import { BlockArea, BlockAreaEventType, blockAreaEventTracks, getBlockAreaEventTypeOfTrack } from "@/models/rpe/blockArea";
+
+/** 事件编辑区中的一栏 */
+interface EventTrackColumn {
+
+    /** 显示在栏顶部的名称 */
+    name: string
+
+    /** 这一栏的事件类型。激活区间没有事件类型，为空字符串 */
+    type: string
+}
 
 export default class EditorRenderer extends Manager {
     constructor() {
@@ -28,11 +38,18 @@ export default class EditorRenderer extends Manager {
 
     /** 显示编辑器界面到canvas上 */
     render() {
+        const stateManager = store.useManager("stateManager");
         this.renderBackground();
         this.renderGrid();
         this.renderSelection();
-        this.renderNotes();
-        this.renderEvents();
+        if (stateManager._state.isEditingBlockArea) {
+            this.renderBlockAreas();
+            this.renderBlockAreaEvents();
+        }
+        else {
+            this.renderNotes();
+            this.renderEvents();
+        }
 
         // this.renderBoxes();
     }
@@ -149,21 +166,13 @@ export default class EditorRenderer extends Manager {
             }
         }
 
-        const types = (() => {
-            const eventLayer = stateManager.currentEventLayer;
-            if (isBaseEventLayer(eventLayer)) {
-                return baseEventTypes;
-            }
-            else {
-                return extendedEventTypes;
-            }
-        })();
+        const tracks = stateManager.eventTracks;
 
         // 显示事件中间的分隔线
-        for (let i = 1; i < types.length; i++) {
-            drawLine(Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * i / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left,
+        for (let i = 1; i < tracks.length; i++) {
+            drawLine(Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * i / tracks.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left,
                 Constants.EDITOR_VIEW_EVENTS_VIEWBOX.top,
-                Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * i / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left,
+                Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * i / tracks.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left,
                 Constants.EDITOR_VIEW_NOTES_VIEWBOX.bottom,
                 Constants.EDITOR_VIEW_VERTICAL_MAIN_LINE_COLOR);
         }
@@ -345,6 +354,18 @@ export default class EditorRenderer extends Manager {
     /** 显示事件 */
     private renderEvents() {
         const stateManager = store.useManager("stateManager");
+        const eventLayer = stateManager.currentEventLayer;
+        const columns = stateManager.eventTracks.map(track => ({ name: track, type: track }));
+        this.renderEventColumns(columns, column => eventLayer.getEventsByType(column.type));
+    }
+
+    /**
+     * 显示事件编辑区中的若干栏事件
+     *
+     * @param columns 每一栏的名称与事件类型
+     * @param getEvents 根据一栏取到这一栏的事件
+     */
+    private renderEventColumns(columns: EventTrackColumn[], getEvents: (column: EventTrackColumn) => AbstractEvent[]) {
         const selectionManager = store.useManager("selectionManager");
         const coordinateManager = store.useManager("coordinateManager");
         const mouseManager = store.useManager("mouseManager");
@@ -354,22 +375,14 @@ export default class EditorRenderer extends Manager {
         const ctx = canvasUtils.getContext(canvas);
         const drawRect = canvasUtils.drawRect.bind(ctx);
         const writeText = canvasUtils.writeText.bind(ctx);
-        const types = (() => {
-            const eventLayer = stateManager.currentEventLayer;
-            if (isBaseEventLayer(eventLayer)) {
-                return baseEventTypes;
-            }
-            else {
-                return extendedEventTypes;
-            }
-        })();
 
-        for (let column = 0; column < types.length; column++) {
-            const type = types[column];
-            const events = stateManager.currentEventLayer.getEventsByType(type);
+        for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+            const column = columns[columnIndex];
+            const type = column.type;
+            const events = getEvents(column);
 
             // eslint-disable-next-line no-magic-numbers
-            const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (column + 0.5) / types.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
+            const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (columnIndex + 0.5) / columns.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
 
             // 确保事件按时间顺序排列
             // checkAndSort<AbstractEvent>(events, (a, b) => getBeatsValue(a.startTime) - getBeatsValue(b.startTime));
@@ -590,15 +603,21 @@ export default class EditorRenderer extends Manager {
                 }
             }
 
-            writeText(type, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
+            writeText(column.name, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
+
+            // 没有事件类型的栏（噪域编辑区的激活区间）由别的方法绘制下面的内容
+            if (!type) {
+                continue;
+            }
+
             if (type === "color") {
-                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const eventIndex = findLastEventIndex<AbstractEvent>(events, seconds);
                 const event = events[eventIndex] as ColorEvent;
                 const color: RGBcolor = event ? interpolateColorEventValue(event, seconds) : [255, 255, 255];
                 writeText(colorToHex(color), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, color, true);
             }
             else if (type === "text") {
-                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const eventIndex = findLastEventIndex<AbstractEvent>(events, seconds);
                 const event = events[eventIndex] as TextEvent;
                 const text = event ? interpolateTextEventValue(event, seconds) : "";
 
@@ -606,7 +625,7 @@ export default class EditorRenderer extends Manager {
                 writeText(text, eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
             else {
-                const eventIndex = findLastEventIndex<NumberEvent | ColorEvent | TextEvent>(events, seconds);
+                const eventIndex = findLastEventIndex<AbstractEvent>(events, seconds);
                 const event = events[eventIndex] as NumberEvent;
                 let currentEventValue = event ? interpolateNumberEventValue(event, seconds) : undefined;
                 switch (type) {
@@ -623,6 +642,264 @@ export default class EditorRenderer extends Manager {
                 writeText(currentEventValue.toFixed(2), eventX, Constants.EDITOR_VIEW_SECOND_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_SMALL, "white", true);
             }
         }
+    }
+
+    /**
+     * 显示噪域编辑区中的噪域
+     *
+     * 每个噪域显示为一个红色带边框的方块，横向中心位于 editorPositionX，
+     * 纵向覆盖噪域的出现时间到消失时间。当前正在编辑的噪域正常显示，其余噪域半透明。
+     */
+    private renderBlockAreas() {
+        const stateManager = store.useManager("stateManager");
+        const coordinateManager = store.useManager("coordinateManager");
+        const mouseManager = store.useManager("mouseManager");
+        const selectionManager = store.useManager("selectionManager");
+
+        const canvas = store.useCanvas();
+        const chart = store.useChart();
+        const ctx = canvasUtils.getContext(canvas);
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        const writeText = canvasUtils.writeText.bind(ctx);
+
+        const currentIndex = stateManager._state.currentBlockAreaNumber;
+        const halfWidth = Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH / 2;
+        const viewBox = Constants.EDITOR_VIEW_NOTES_VIEWBOX;
+
+        // 当前噪域最后绘制，避免被其他噪域盖住
+        const drawOrder = chart.blockAreaList
+            .map((_, index) => index)
+            .filter(index => index !== currentIndex);
+        drawOrder.push(currentIndex);
+
+        for (const index of drawOrder) {
+            const blockArea = chart.blockAreaList[index];
+            if (!blockArea) {
+                continue;
+            }
+
+            const x = coordinateManager.scaleX(blockArea.editorPositionX);
+            const appearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedStartSeconds);
+            const disappearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedEndSeconds);
+            const top = Math.min(appearY, disappearY);
+            const height = Math.max(Math.abs(disappearY - appearY), Constants.EDITOR_VIEW_BLOCK_AREA_MIN_HEIGHT);
+
+            // 裁剪到噪域编辑区内，避免遮挡其他界面
+            const clippedTop = Math.max(top, viewBox.top);
+            const clippedBottom = Math.min(top + height, viewBox.bottom);
+            if (clippedBottom <= clippedTop) {
+                continue;
+            }
+
+            const alpha = index === currentIndex ? 1 : Constants.EDITOR_VIEW_BLOCK_AREA_INACTIVE_ALPHA;
+            const left = x - halfWidth;
+            const clippedHeight = clippedBottom - clippedTop;
+
+            // 噪域主体
+            drawRect(left,
+                clippedTop,
+                Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH,
+                clippedHeight,
+                Constants.BLOCK_AREA_ACTIVE_FILL_COLOR,
+                true,
+                alpha);
+
+            // 噪域边框
+            ctx.lineWidth = Constants.EDITOR_VIEW_BLOCK_AREA_BORDER_WIDTH;
+            drawRect(left,
+                clippedTop,
+                Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH,
+                clippedHeight,
+                Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR,
+                false,
+                alpha);
+
+            // 选中的噪域
+            if (selectionManager.isSelected(blockArea)) {
+                drawRect(left,
+                    clippedTop,
+                    Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH,
+                    clippedHeight,
+                    Constants.EDITOR_VIEW_SELECTION_COLOR,
+                    true,
+                    alpha);
+            }
+
+            // 鼠标悬停的噪域
+            if (mouseManager.mouseX >= left && mouseManager.mouseX <= left + Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH &&
+                mouseManager.mouseY >= clippedTop && mouseManager.mouseY <= clippedBottom) {
+                drawRect(left,
+                    clippedTop,
+                    Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH,
+                    clippedHeight,
+                    Constants.EDITOR_VIEW_HOVER_COLOR,
+                    true,
+                    alpha);
+            }
+
+            if (clippedTop === top) {
+                writeText(index.toString(),
+                    x,
+                    top + Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+                    Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+                    "white",
+                    true,
+                    alpha);
+            }
+        }
+
+        // 显示当前噪域的信息
+        const blockArea = stateManager.currentBlockArea;
+        if (blockArea) {
+            writeText(`噪域编号：${stateManager._state.currentBlockAreaNumber}，名称：${blockArea.Name}`,
+                viewBox.middleX,
+                Constants.EDITOR_VIEW_FIRST_LINE_Y,
+                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+                "white",
+                true);
+            writeText(`激活区间数：${blockArea.activeIntervals.length}，事件数：${blockArea.numOfEvents}`,
+                viewBox.middleX,
+                Constants.EDITOR_VIEW_SECOND_LINE_Y,
+                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+                "white",
+                true);
+        }
+        else {
+            writeText("当前谱面没有噪域",
+                viewBox.middleX,
+                Constants.EDITOR_VIEW_FIRST_LINE_Y,
+                Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
+                "white",
+                true);
+        }
+    }
+
+    /** 显示噪域编辑区右侧的事件 */
+    private renderBlockAreaEvents() {
+        const stateManager = store.useManager("stateManager");
+        const blockArea = stateManager.currentBlockArea;
+        if (!blockArea) {
+            return;
+        }
+
+        const columns: EventTrackColumn[] = blockAreaEventTracks.map(track => {
+            const type = getBlockAreaEventTypeOfTrack(track);
+            return {
+                // 栏顶部的文字不显示 "Events" 后缀，读起来更短
+                name: type ?? track,
+                type: type ?? ""
+            };
+        });
+
+        this.renderBlockAreaIntervalColumn(blockArea, columns);
+        this.renderEventColumns(columns, column => {
+            if (!column.type) return [];
+            return blockArea.getEventsByType(column.type as BlockAreaEventType);
+        });
+    }
+
+    /** 显示噪域编辑区的激活区间栏（activeIntervals） */
+    private renderBlockAreaIntervalColumn(blockArea: BlockArea, columns: EventTrackColumn[]) {
+        const coordinateManager = store.useManager("coordinateManager");
+        const mouseManager = store.useManager("mouseManager");
+        const selectionManager = store.useManager("selectionManager");
+
+        const canvas = store.useCanvas();
+        const ctx = canvasUtils.getContext(canvas);
+        const drawRect = canvasUtils.drawRect.bind(ctx);
+        const writeText = canvasUtils.writeText.bind(ctx);
+
+        const columnIndex = columns.findIndex(column => !column.type);
+        if (columnIndex === -1) {
+            return;
+        }
+
+        const eventX = Constants.EDITOR_VIEW_EVENTS_VIEWBOX.width * (columnIndex + 0.5) / columns.length + Constants.EDITOR_VIEW_EVENTS_VIEWBOX.left;
+        const viewBox = Constants.EDITOR_VIEW_EVENTS_VIEWBOX;
+
+        for (const interval of blockArea.activeIntervals) {
+            const startY = coordinateManager.getRelativePositionYOfSeconds(interval.cachedStartSeconds);
+            const endY = coordinateManager.getRelativePositionYOfSeconds(interval.cachedEndSeconds);
+            const top = Math.max(Math.min(startY, endY), viewBox.top);
+            const bottom = Math.min(Math.max(startY, endY), viewBox.bottom);
+            if (bottom <= top) {
+                continue;
+            }
+
+            const left = eventX - Constants.EDITOR_VIEW_EVENT_WIDTH / 2;
+            const height = bottom - top;
+
+            drawRect(left,
+                top,
+                Constants.EDITOR_VIEW_EVENT_WIDTH,
+                height,
+                Constants.EDITOR_VIEW_BLOCK_AREA_INTERVAL_COLOR,
+                true);
+            ctx.lineWidth = Constants.EDITOR_VIEW_EVENT_BORDER_WIDTH;
+            drawRect(left,
+                top,
+                Constants.EDITOR_VIEW_EVENT_WIDTH,
+                height,
+                Constants.EDITOR_VIEW_BLOCK_AREA_INTERVAL_BORDER_COLOR,
+                false);
+
+            // 显示选中框
+            if (selectionManager.isSelected(interval)) {
+                drawRect(left,
+                    top,
+                    Constants.EDITOR_VIEW_EVENT_WIDTH,
+                    height,
+                    Constants.EDITOR_VIEW_SELECTION_COLOR,
+                    true);
+            }
+
+            // 显示鼠标悬停的效果
+            if (mouseManager.mouseX >= left && mouseManager.mouseX <= left + Constants.EDITOR_VIEW_EVENT_WIDTH &&
+                mouseManager.mouseY >= top && mouseManager.mouseY <= bottom) {
+                drawRect(left,
+                    top,
+                    Constants.EDITOR_VIEW_EVENT_WIDTH,
+                    height,
+                    Constants.EDITOR_VIEW_HOVER_COLOR,
+                    true);
+            }
+
+            // 显示开始时间
+            ctx.shadowBlur = Constants.EDITOR_VIEW_EVENT_TEXT_SHADOW_BLUR;
+            ctx.shadowColor = colorToString(Constants.EDITOR_VIEW_BACKGROUND_COLOR);
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            if (startY >= viewBox.top) {
+                writeText(formatBeats(interval.startTime),
+                    eventX,
+                    startY - 1,
+                    Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
+                    Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
+            }
+
+            if (endY <= viewBox.bottom) {
+                writeText(formatBeats(interval.endTime),
+                    eventX,
+                    endY,
+                    Constants.EDITOR_VIEW_EVENT_FONT_SIZE,
+                    Constants.EDITOR_VIEW_EVENT_TEXT_COLOR);
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        writeText(columns[columnIndex].name, eventX, Constants.EDITOR_VIEW_FIRST_LINE_Y, Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM, "white", true);
+
+        // 显示当前时间是否处于激活区间内
+        const seconds = store.getSeconds();
+        const isActive = blockArea.activeIntervals.some(interval => {
+            return interval.cachedStartSeconds <= seconds && seconds <= interval.cachedEndSeconds;
+        });
+        writeText(isActive ? "已激活" : "未激活",
+            eventX,
+            Constants.EDITOR_VIEW_SECOND_LINE_Y,
+            Constants.EDITOR_VIEW_FONT_SIZE_SMALL,
+            isActive ? Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR : "white",
+            true);
     }
 
     /** 测试专用：显示碰撞箱 */

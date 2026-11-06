@@ -5,11 +5,12 @@
  */
 
 import globalEventEmitter from "@/eventEmitter";
-import { Note, NoteType } from "@/models/note";
+import { Note, NoteType } from "@/models/rpe/note";
 import store from "@/store";
 import Manager from "./abstract";
 import Constants from "@/constants";
 import MathUtils, { Point } from "@/tools/mathUtils";
+import { isPointInConvexQuad } from "@/tools/blockAreaGeometry";
 import { reactive } from "vue";
 
 const HOLD_PREUNTOUCH = 0.22;
@@ -30,7 +31,19 @@ export default class JudgeManager extends Manager {
         lineColor: LineColor.AP,
     };
     judgeInfo = reactive(this._judgeInfo);
+
+    /**
+     * 手指（鼠标）是否被噪域污染。
+     *
+     * 试玩时按住的手指碰到激活的噪域就会被污染：无法判定任何音符，
+     * 就算离开噪域也一样，直到松开手指才恢复。键盘游玩不受影响。
+     */
+    isFingerGlitched = false;
+
     private cachedAllNotes: Note[];
+
+    /** 上一帧的时间，用来判断用户是不是把时间轴往回拖了 */
+    private lastSeconds = Number.NEGATIVE_INFINITY;
     constructor() {
         super();
         const chart = store.useChart();
@@ -45,6 +58,7 @@ export default class JudgeManager extends Manager {
             this.calculate();
             const stateManager = store.useManager("stateManager");
             if (!stateManager._state.isPreviewing) {
+                this.isFingerGlitched = false;
                 return;
             }
 
@@ -59,7 +73,14 @@ export default class JudgeManager extends Manager {
         });
     }
     resetHitState() {
+        const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
+
+        // 时间比上一帧还早，说明用户把时间轴往回拖了，音符的击打状态会被下面这段代码重置，
+        // 此时 combo 也得跟着回退（它平时只在 framely() / click() 里单向累加）
+        const isRewinding = seconds < this.lastSeconds;
+        this.lastSeconds = seconds;
+
         for (const note of this.cachedAllNotes) {
             // 如果当前时间小于击打时间，说明用户在音符被击打以后把进度条往回拖动了，重新把该音符设置为未击打状态
             if (note.hitSeconds && seconds < note.hitSeconds) {
@@ -68,8 +89,8 @@ export default class JudgeManager extends Manager {
             }
 
             if (note.type === NoteType.Hold) {
-                const range = note.getJudgementRange();
-                if (seconds < note.cachedStartSeconds - range.bad) {
+                const range = note.getJudgementRange(stateManager._state.judgementRule);
+                if (seconds < note.cachedStartSeconds - range.bad[0]) {
                     note.missed = false;
                 }
 
@@ -83,8 +104,75 @@ export default class JudgeManager extends Manager {
                 }
             }
         }
+
+        // autoplay 模式的 combo 由 autoplayManager 自己算，不在这里插手
+        if (isRewinding && !store.useManager("stateManager")._state.autoplay) {
+            this.recalculateCombo();
+        }
     }
+
+    /**
+     * 依据各音符当前保存的击打状态，从零开始推导 combo。
+     *
+     * combo 平时是在 framely() / click() 里随着击打累加的，没有回退的途径，
+     * 所以时间轴往回拖的时候需要重算：把音符按判定时刻排序，
+     * 排在当前时间之前的音符里、末尾连续「成功击打」的数量就是连击数，
+     * 中途出现 miss 或者 bad 就把连击清零。
+     */
+    recalculateCombo() {
+        const stateManager = store.useManager("stateManager");
+        const seconds = store.getSeconds();
+        const judgements: { seconds: number, success: boolean }[] = [];
+
+        for (const note of this.cachedAllNotes) {
+            if (note.isFake) {
+                continue;
+            }
+
+            // 已经 miss 的音符记一个「断连」时刻。音符在 startSeconds + bad 之后就会被判定为 miss
+            if (note.missed) {
+                judgements.push({
+                    seconds: note.cachedStartSeconds + note.getJudgementRange(stateManager._state.judgementRule).bad[0],
+                    success: false
+                });
+                continue;
+            }
+
+            const hitSeconds = note.hitSeconds;
+            if (hitSeconds === undefined) {
+                continue;
+            }
+
+            const judgement = note.getJudgement(stateManager._state.judgementRule);
+            const success = judgement === "perfect" || judgement === "good";
+
+            if (note.type === NoteType.Hold) {
+                // Hold 被击打时不计连击，只有完整按到判定点才算一次
+                if (note.holdJudged) {
+                    judgements.push({ seconds: note.cachedEndSeconds - HOLD_PREUNTOUCH, success });
+                }
+            }
+            else {
+                judgements.push({ seconds: hitSeconds, success });
+            }
+        }
+
+        judgements.sort((a, b) => a.seconds - b.seconds);
+
+        let combo = 0;
+        for (const judgement of judgements) {
+            if (judgement.seconds > seconds) {
+                // 判定时刻比当前时间还晚，后面的只会更晚，不用再看了
+                break;
+            }
+            combo = judgement.success ? combo + 1 : 0;
+        }
+
+        this.judgeInfo.combo = combo;
+    }
+
     calculate() {
+        const stateManager = store.useManager("stateManager");
         const seconds = store.getSeconds();
         let perfect = 0, good = 0, bad = 0, miss = 0, realNotes = 0;
         for (const note of this.cachedAllNotes) {
@@ -92,7 +180,7 @@ export default class JudgeManager extends Manager {
                 realNotes++;
                 const endSeconds = note.cachedEndSeconds;
                 if (note.type !== NoteType.Hold || endSeconds - seconds <= HOLD_PREUNTOUCH) {
-                    switch (note.getJudgement()) {
+                    switch (note.getJudgement(stateManager._state.judgementRule)) {
                         case "perfect":
                             perfect++;
                             break;
@@ -131,10 +219,20 @@ export default class JudgeManager extends Manager {
     /** 每帧运行一次 */
     framely() {
         const resourcePackage = store.useResourcePackage();
+        const stateManager = store.useManager("stateManager");
         const settingsManager = store.useManager("settingsManager");
         const mouseManager = store.useManager("mouseManager");
         const coordinateManager = store.useManager("coordinateManager");
         const seconds = store.getSeconds();
+
+        // 更新手指被噪域污染的状态：
+        // 按住的手指碰到激活的噪域就会被污染，直到松开手指才恢复
+        if (!mouseManager.mousePressed) {
+            this.isFingerGlitched = false;
+        }
+        else if (this.isFingerTouchingBlockArea()) {
+            this.isFingerGlitched = true;
+        }
 
         for (const note of this.cachedAllNotes) {
             if (note.isFake) {
@@ -150,7 +248,7 @@ export default class JudgeManager extends Manager {
 
             const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
             const delta = startSeconds - seconds;
-            const range = note.getJudgementRange();
+            const range = note.getJudgementRange(stateManager._state.judgementRule);
 
             const distance = pointToLineDistance(
                 note.cachedPosX,
@@ -160,15 +258,15 @@ export default class JudgeManager extends Manager {
                 coordinateManager.convertYToChart(mouseManager.mouseY)
             );
 
-            const timeValid = Math.abs(delta) <= range.bad;
+            const timeValid = delta >= range.bad[0] && delta <= range.bad[1];
 
-            /** 按照 Drag 的判定，该音符是否能被鼠标判定上 */
-            const mouseJudgeSucceed = mouseManager.mousePressed && distance <= threshold;
+            /** 按照 Drag 的判定，该音符是否能被鼠标判定上。被噪域污染的手指无法判定任何音符 */
+            const mouseJudgeSucceed = mouseManager.mousePressed && !this.isFingerGlitched && distance <= threshold;
 
             /** 按照 Drag 的判定，该音符是否能被键盘判定上 */
             const keyboardJudgeSucceed = store.pressedKeys.size > 0;
 
-            if (delta < -range.bad && note.hitSeconds === undefined && !note.missed) {
+            if (delta < range.bad[0] && note.hitSeconds === undefined && !note.missed) {
                 note.missed = true;
                 this.judgeInfo.combo = 0;
                 continue;
@@ -196,7 +294,7 @@ export default class JudgeManager extends Manager {
 
                     if (!note.holdJudged && endSeconds - seconds <= HOLD_PREUNTOUCH) {
                         note.holdJudged = true;
-                        const judgement = note.getJudgement();
+                        const judgement = note.getJudgement(stateManager._state.judgementRule);
                         if (judgement === "perfect" || judgement === "good") {
                             this.judgeInfo.combo++;
                         }
@@ -206,9 +304,14 @@ export default class JudgeManager extends Manager {
 
             if (note.type === NoteType.Drag || note.type === NoteType.Flick) {
                 if (note.hitSeconds === undefined && note.prejudgedSeconds !== undefined && seconds >= startSeconds) {
-                    note.hit(seconds);
+                    note.hit(seconds, stateManager._state.judgementRule);
                     resourcePackage.playSound(store.audioContext, note.hitSoundType, settingsManager._settings.hitSoundVolume);
                     this.judgeInfo.combo++;
+
+                    const judgement = note.getJudgement(stateManager._state.judgementRule);
+                    if (judgement === "bad") {
+                        this.judgeInfo.combo = 0;
+                    }
                 }
             }
         }
@@ -237,10 +340,10 @@ export default class JudgeManager extends Manager {
                 if (note.type === NoteType.Flick) {
                     const startSeconds = note.cachedStartSeconds;
 
-                    const range = note.getJudgementRange();
+                    const range = note.getJudgementRange(stateManager._state.judgementRule);
                     const delta = startSeconds - seconds;
 
-                    if (Math.abs(delta) > range.bad) {
+                    if (delta > range.bad[1] || delta < range.bad[0]) {
                         continue;
                     }
 
@@ -256,7 +359,7 @@ export default class JudgeManager extends Manager {
                         threshold
                     );
 
-                    if (mouseManager.mousePressed && judgeSucceed) {
+                    if (mouseManager.mousePressed && judgeSucceed && !this.isFingerGlitched) {
                         note.prejudgedSeconds = seconds;
                     }
                 }
@@ -269,6 +372,20 @@ export default class JudgeManager extends Manager {
         const settingsManager = store.useManager("settingsManager");
         const seconds = store.getSeconds();
         if (!stateManager._state.autoplay) {
+            // 带 x、y 的调用来自鼠标点击：被噪域污染的手指无法判定任何音符。
+            // 这里做一次实时检测而不只依赖 framely() 更新的污染状态，
+            // 保证一开始就按在噪域上的那一次点击也立即无效，不会先判定音符。
+            // 不带参数的调用来自键盘，键盘游玩不受噪域影响
+            if (x !== undefined && y !== undefined) {
+                if (this.isFingerTouchingBlockArea()) {
+                    this.isFingerGlitched = true;
+                }
+
+                if (this.isFingerGlitched) {
+                    return;
+                }
+            }
+
             for (const note of this.cachedAllNotes) {
                 if (note.isFake) {
                     continue;
@@ -287,10 +404,10 @@ export default class JudgeManager extends Manager {
                 }
 
                 const startSeconds = note.cachedStartSeconds;
-                const range = note.getJudgementRange();
+                const range = note.getJudgementRange(stateManager._state.judgementRule);
                 const delta = startSeconds - seconds;
                 const threshold = settingsManager._settings.noteSize * note.judgeArea / 2 * JUDGEMENT_AREA_RATIO;
-                if (Math.abs(delta) > range.bad) {
+                if (delta > range.bad[1] || delta < range.bad[0]) {
                     continue;
                 }
 
@@ -304,7 +421,7 @@ export default class JudgeManager extends Manager {
                     0;
 
                 if (distance <= threshold) {
-                    note.hit(seconds);
+                    note.hit(seconds, stateManager._state.judgementRule);
                     switch (note.hitsound) {
                         case undefined:
                             resourcePackage.playSound(store.audioContext, note.type, settingsManager._settings.hitSoundVolume);
@@ -322,7 +439,7 @@ export default class JudgeManager extends Manager {
                             console.error(`WHAT??? (${note.hitsound})`);
                     }
 
-                    const judgement = note.getJudgement();
+                    const judgement = note.getJudgement(stateManager._state.judgementRule);
                     if (judgement === "bad") {
                         this.judgeInfo.combo = 0;
                     }
@@ -333,6 +450,49 @@ export default class JudgeManager extends Manager {
                 }
             }
         }
+    }
+
+    /**
+     * 手指（鼠标）当前位置是否处于任一激活的噪域内。
+     *
+     * 与渲染时的可见区域语义一致：普通噪域至少覆盖一次即有效；
+     * 反转噪域只在恰好被一个覆盖时把该处反转为「没有噪域」。
+     */
+    private isFingerTouchingBlockArea() {
+        const chart = store.useChart();
+        if (chart.blockAreaList.length === 0) {
+            return false;
+        }
+
+        const mouseManager = store.useManager("mouseManager");
+        const coordinateManager = store.useManager("coordinateManager");
+        const seconds = store.getSeconds();
+        const point: [number, number] = [
+            coordinateManager.convertXToChart(mouseManager.mouseX),
+            coordinateManager.convertYToChart(mouseManager.mouseY)
+        ];
+
+        let inNormalArea = false;
+        let invertAreaCount = 0;
+        for (const blockArea of chart.blockAreaList) {
+            if (!blockArea.isActiveAt(seconds)) {
+                continue;
+            }
+
+            if (!isPointInConvexQuad(point, blockArea.getCornersAt(seconds))) {
+                continue;
+            }
+
+            if (blockArea.isInvert) {
+                invertAreaCount++;
+            }
+            else {
+                inNormalArea = true;
+            }
+        }
+
+        // 被两个及以上反转噪域覆盖的部分不反转，因此只有恰好一个时才视为「没有噪域」
+        return inNormalArea !== (invertAreaCount === 1);
     }
 }
 function pointToLineDistance(px: number, py: number, dir: number, qx: number, qy: number) {

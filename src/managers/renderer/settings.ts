@@ -28,6 +28,13 @@ export const defaultSettings = {
     renderTimeEnd: 0,
     renderFPS: 60
 };
+
+/**
+ * 这些设置与当前谱面的音乐有关，不能跨谱面继承，
+ * 否则打开新谱面时会沿用上一个谱面的值。
+ */
+const chartRelatedSettingKeys = ["renderTimeStart", "renderTimeEnd"];
+
 export default class SettingsManager extends Manager {
     _settings: NotReadonly<typeof defaultSettings> = { ...defaultSettings };
     settings = reactive(this._settings);
@@ -43,12 +50,20 @@ export default class SettingsManager extends Manager {
         window.electronAPI
             .loadSettings()
             .then((settings) => {
-                if (!settings) return;
-                for (const key in settings) {
-                    if (key in this.settings) {
-                        this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings];
+                if (settings) {
+                    for (const key in settings) {
+                        if (chartRelatedSettingKeys.includes(key)) continue;
+                        if (key in this.settings) {
+                            this.settings[key as keyof typeof this.settings] = settings[key as keyof typeof settings];
+                        }
                     }
                 }
+
+                // 无论设置是否读取成功，都要通知外部设置已经加载完毕
+                globalEventEmitter.emit("SETTINGS_LOADED");
+            })
+            .catch((error) => {
+                console.error("读取设置失败", error);
                 globalEventEmitter.emit("SETTINGS_LOADED");
             });
     }

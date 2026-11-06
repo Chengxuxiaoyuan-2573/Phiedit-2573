@@ -6,8 +6,9 @@
         :class="`grid-container ${props.class}`"
         v-bind="$attrs"
         :style="{
-            gridTemplateColumns: `repeat(${props.columns}, 1fr)`,
             gap: `${props.gap}px`,
+            gridTemplateRows: props.height ? props.height.map(num => num + 'fr').join(' ') : `repeat(${props.rows}, 1fr)`,
+            gridTemplateColumns: props.width ? props.width.map(num => num + 'fr').join(' ') : `repeat(${props.columns}, 1fr)`
         }"
     >
         <slot />
@@ -16,12 +17,18 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
     columns?: number,
+    rows?: number,
     gap?: number,
     class?: string,
+    width?: number[],
+    height?: number[]
 }>(), {
     columns: 1,
+    rows: 1,
     gap: 5,
-    class: ""
+    class: "",
+    width: undefined,
+    height: undefined
 });
 </script>
 <style scoped>

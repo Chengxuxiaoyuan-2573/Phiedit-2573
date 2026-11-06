@@ -9,7 +9,10 @@
         <Teleport :to="props.titleTeleport">
             shader编辑
         </Teleport>
-        <div class="effect-list">
+        <div
+            v-if="extra.effects.length > 0"
+            class="effect-list"
+        >
             <div
                 v-for="(effect, i) in extra.effects"
                 :key="i"
@@ -154,28 +157,34 @@
                         </template>
                         <MyButton
                             type="danger"
-                            @click="confirm(() => (extra.removeEffect(effect), close(), updateEffectList()), '确定要删除此特效吗？（该操作不可撤销）', '删除特效')"
+                            @click="confirm(() => (extra.removeEffect(effect), close(), updateEffectList()), '确定要删除此 shader 吗？（该操作不可撤销）', '删除 shader')"
                         >
                             删除此 shader
                         </MyButton>
-                        <p>
-                            动态变量值就是一堆 shader 事件，可以控制变量在不同时间变化为不同的值。静态变量值就是一个固定的值。目前编辑 shader 事件只能手动编辑，有点不方便。
+                        <p class="extra-description">
+                            动态变量值由若干 shader 事件控制，可以控制变量在不同时间变化为不同的值。静态变量值就是一个固定的值。目前 shader 事件不支持批量编辑。
                         </p>
                     </template>
                 </MyDialog>
             </div>
-            <MyButton
-                type="success"
-                @click="addEffect(), updateEffectList()"
-            >
-                添加
-            </MyButton>
         </div>
+        <div
+            v-else
+            class="placeholder"
+        >
+            当前没有 shader
+        </div>
+        <MyButton
+            type="success"
+            @click="addEffect(), updateEffectList()"
+        >
+            添加
+        </MyButton>
     </div>
 </template>
 <script setup lang="ts">
-import { formatBeats } from "@/models/beats";
-import { DEFAULT_VARS, Effect, isNumberOrVector, ShaderName } from "@/models/effect";
+import { formatBeats } from "@/models/rpe/beats";
+import { DEFAULT_VARS, Effect, isNumberOrVector, ShaderName } from "@/models/rpe/effect";
 import MyButton from "@/myElements/MyButton.vue";
 import MyDialog from "@/myElements/MyDialog.vue";
 import MyGridContainer from "@/myElements/MyGridContainer.vue";
