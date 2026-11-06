@@ -12,6 +12,7 @@ import path from "path";
 import Constants from "@/constants";
 import { Chart } from "@/models/rpe/chart";
 import { baseEventTypes } from "@/models/rpe/eventLayer";
+import { blockAreaEventTracks, getBlockAreaEventTypeOfTrack } from "@/models/rpe/blockArea";
 import { hashToDigits } from "@/tools/hash";
 import { app } from "electron";
 
@@ -58,6 +59,20 @@ class ExportChartManager extends Manager {
                         const event = eventList[i];
                         if (event.isDisabled) {
                             eventList.splice(i, 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const area of chart.blockAreaList) {
+            for (const track of blockAreaEventTracks) {
+                const type = getBlockAreaEventTypeOfTrack(track);
+                if (type) {
+                    const events = area.getEventsByType(type);
+                    for (let i = events.length - 1; i >= 0; i--) {
+                        if (events[i].isDisabled) {
+                            events.splice(i, 1);
                         }
                     }
                 }

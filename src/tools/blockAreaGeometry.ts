@@ -186,6 +186,22 @@ function accumulateChannel<Event extends BlockAreaGeometryEvent>(
 
     let previous: Event | null = null;
     let previousSegment: { startValue: number; endValue: number } | null = null;
+    let collapsedOffset: number | undefined;
+    const step = (start: number, end: number, anchor: Pair) => {
+        if (kind !== "rotate") {
+            const axis = kind === "scaleX" ? "x" : "y";
+            const pivot = anchor[axis === "x" ? 0 : 1];
+            if (start !== 0 && end === 0) {
+                collapsedOffset = (point[axis] - pivot) / start;
+            }
+            else if (start === 0 && end !== 0 && collapsedOffset !== undefined) {
+                point[axis] = pivot + collapsedOffset * end;
+                collapsedOffset = undefined;
+                return;
+            }
+        }
+        applyChannelStep(point, kind, start, end, anchor);
+    };
 
     for (let i = 0; i <= currentIndex; i++) {
         const event = events[i];
@@ -199,8 +215,8 @@ function accumulateChannel<Event extends BlockAreaGeometryEvent>(
 
             // 上一段的完整变换（含显式跳变），以及上一段结束值到本段起始值之间的跳变
             // （事件间数值不连续，连续段为恒等）
-            applyChannelStep(point, kind, previousSegment.startValue, previousSegment.endValue, anchor);
-            applyChannelStep(point, kind, previousSegment.endValue, segment.startValue, anchor);
+            step(previousSegment.startValue, previousSegment.endValue, anchor);
+            step(previousSegment.endValue, segment.startValue, anchor);
         }
 
         previous = event;
@@ -208,7 +224,7 @@ function accumulateChannel<Event extends BlockAreaGeometryEvent>(
     }
 
     if (previous !== null && previousSegment !== null) {
-        applyChannelStep(point, kind, previousSegment.startValue, sample(previous, seconds), anchorOfEvent(previous, fallbackAnchor));
+        step(previousSegment.startValue, sample(previous, seconds), anchorOfEvent(previous, fallbackAnchor));
     }
 }
 

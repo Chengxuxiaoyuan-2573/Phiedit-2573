@@ -211,6 +211,7 @@ return {
             this.state.currentNoteType = type;
         });
         globalEventEmitter.on("PREVIEW", (goBack) => {
+            store.useManager("mouseManager").checkMouseUp();
             const audio = store.useAudio();
             const time = audio.currentTime;
             this.state.isPreviewing = true;
@@ -227,6 +228,7 @@ return {
             globalEventEmitter.on("STOP_PREVIEW", handler);
         });
         globalEventEmitter.on("TOGGLE_PREVIEW", () => {
+            store.useManager("mouseManager").checkMouseUp();
             const audio = store.useAudio();
             if (this.state.isPreviewing) {
                 this.state.isPreviewing = false;
@@ -309,6 +311,9 @@ return {
 
     /** 打开或关闭噪域编辑 */
     setBlockAreaEditing(isEditing: boolean) {
+        if (this.state.isEditingBlockArea !== isEditing) {
+            store.useManager("mouseManager").checkMouseUp();
+        }
         this.state.isEditingBlockArea = isEditing;
         if (isEditing) {
             this.state.currentBlockAreaNumber = this.blockAreasCount === 0 ?

@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { reactive } from "vue";
+import { reactive, toRaw } from "vue";
 import globalEventEmitter from "@/eventEmitter";
 import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
@@ -13,6 +13,7 @@ import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/element";
 import { isEvent } from "@/models/rpe/event";
+import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
 
 export default class SelectionManager extends Manager {
     /** 被选中的元素。有时也用“selection”来代替“selectedElements”。 */
@@ -28,13 +29,6 @@ export default class SelectionManager extends Manager {
         globalEventEmitter.on("UNSELECT_ALL", createCatchErrorByMessage(() => {
             this.unselectAll();
         }, "取消选择", false));
-
-        // 在撤消重做时，取消所有选中元素，以免 selectedElements 依赖旧的元素而出现 bug
-        globalEventEmitter.on("HISTORY_UPDATE", (type) => {
-            if (type === "UNDO" || type === "REDO") {
-                this.unselectAll();
-            }
-        });
     }
 
     /** 取消选择所有元素，并选择指定的元素 */
@@ -87,51 +81,100 @@ export default class SelectionManager extends Manager {
         globalEventEmitter.emit("SELECTION_UPDATE");
     }
 
-    /** 删除所有选中元素 */
-    deleteSelection() {
-        if (this.selectedElements.length === 0) {
-            throw new Error("未选择任何元素");
-        }
-
+    /** 删除所有选中元素，或删除面板明确指定的元素 */
+    deleteSelection(elements?: SelectableElement[]) {
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         const stateManager = store.useManager("stateManager");
         const chart = store.useChart();
         mouseManager.checkMouseUp();
-        historyManager.group("删除");
 
-        // 复制一份：删除噪域时可能会调整当前噪域编号，遍历过程中不能依赖原数组
-        for (const element of [...this.selectedElements]) {
-            if (isNoteLike(element)) {
-                store.removeNote(element.id);
-                historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
-            }
-            else if (isBlockArea(element)) {
-                const position = chart.blockAreaList.indexOf(element);
-                const blockAreaObject = element.toObject();
-                store.removeBlockArea(element);
-                historyManager.recordRemoveBlockArea(blockAreaObject, element.index, position);
-                stateManager.notifyBlockAreaListChanged({ removedPosition: position });
-            }
-            else if (isActiveInterval(element)) {
-                const blockArea = element.owner;
-                if (!blockArea) {
-                    throw new Error("激活区间没有所属的噪域，无法删除");
-                }
-
-                const position = blockArea.activeIntervals.indexOf(element);
-                const intervalObject = element.toObject();
-                blockArea.removeActiveInterval(element);
-                historyManager.recordRemoveActiveInterval(blockArea.index, intervalObject, position);
-            }
-            else if (isEvent(element)) {
-                store.removeEvent(element.id);
-                historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
-            }
+        // 谱面中的噪域和激活区间使用原始对象，按引用删除前先取出 Vue 代理中的原始对象
+        const selected = [...new Set((elements ?? this.selectedElements).map(element => toRaw(element)))];
+        if (selected.length === 0) {
+            throw new Error("未选择任何元素");
         }
-        historyManager.ungroup();
-        this.selectedElements.splice(0);
-        globalEventEmitter.emit("SELECTION_UPDATE");
+
+        // 删除噪域的记录已经包含它的激活区间和事件
+        const removedBlockAreaIds = new Set(selected.filter(isBlockArea).map(area => area.index));
+        let currentPosition = stateManager.state.currentBlockAreaNumber;
+        const rollback: Array<() => void> = [];
+        const rememberRemoval = (list: SelectableElement[], element: SelectableElement) => {
+            const position = list.findIndex(item => toRaw(item) === element);
+            if (position === -1) {
+                throw new Error("选中的元素已不在谱面中");
+            }
+
+            // 保留原对象和位置，失败时可原样恢复选区引用和列表顺序
+            const original = list[position];
+            rollback.push(() => {
+                if (!list.includes(original)) {
+                    list.splice(position, 0, original);
+                }
+            });
+            return position;
+        };
+
+        try {
+            historyManager.recordGroup("删除", () => {
+                for (const element of selected) {
+                    if (isNoteLike(element)) {
+                        rememberRemoval(store.getJudgeLineById(element.judgeLineNumber).notes, element);
+                        historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
+                        store.removeNote(element.id);
+                    }
+                    else if (isBlockArea(element)) {
+                        const position = rememberRemoval(chart.blockAreaList, element);
+                        historyManager.recordRemoveBlockArea(element, position);
+                        store.removeBlockArea(element);
+                        if (position < currentPosition) {
+                            currentPosition--;
+                        }
+                    }
+                    else if (isActiveInterval(element)) {
+                        const blockArea = element.owner;
+                        if (!blockArea) {
+                            throw new Error("激活区间没有所属的噪域，无法删除");
+                        }
+
+                        if (removedBlockAreaIds.has(blockArea.index)) {
+                            continue;
+                        }
+
+                        if (!chart.blockAreaList.includes(blockArea)) {
+                            throw new Error("激活区间所属的噪域已不在谱面中");
+                        }
+
+                        const position = rememberRemoval(blockArea.activeIntervals, element);
+                        historyManager.recordRemoveActiveInterval(blockArea.index, element.toObject(), position);
+                        rollback.push(() => {
+                            element.owner = blockArea;
+                        });
+                        blockArea.removeActiveInterval(element);
+                    }
+                    else if (isEvent(element)) {
+                        if (element.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID && removedBlockAreaIds.has(element.judgeLineNumber)) {
+                            continue;
+                        }
+                        rememberRemoval(store.getSiblingEvents(element), element);
+                        historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
+                        store.removeEvent(element.id);
+                    }
+                }
+            });
+        }
+        catch (error) {
+            for (const restore of rollback.reverse()) {
+                restore();
+            }
+            throw error;
+        }
+
+        if (removedBlockAreaIds.size > 0) {
+            stateManager.state.currentBlockAreaNumber = currentPosition;
+            stateManager.notifyBlockAreaListChanged();
+        }
+        this.unselectAll();
     }
 
     /** 全选 */

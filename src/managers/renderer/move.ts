@@ -31,12 +31,12 @@ export default class MoveManager extends Manager {
         globalEventEmitter.on("MOVE_RIGHT", () => {
             this.moveRight();
         });
-        globalEventEmitter.on("MOVE_UP", () => {
+        globalEventEmitter.on("MOVE_UP", createCatchErrorByMessage(() => {
             this.moveUp();
-        });
-        globalEventEmitter.on("MOVE_DOWN", () => {
+        }, "上移", false));
+        globalEventEmitter.on("MOVE_DOWN", createCatchErrorByMessage(() => {
             this.moveDown();
-        });
+        }, "下移", false));
         globalEventEmitter.on("MOVE_TO_JUDGE_LINE", (num) => {
             this.moveToJudgeLine(num);
         });
@@ -74,7 +74,12 @@ export default class MoveManager extends Manager {
         const mouseManager = store.useManager("mouseManager");
         mouseManager.checkMouseUp();
         const canvas = store.useCanvas();
-        const step = canvas.width / (stateManager.state.verticalLineCount - 1) * direction;
+        const gridIntervals = stateManager.state.verticalLineCount - 1;
+
+        // 关闭竖线吸附时，每次按键横移一个谱面坐标单位
+        const step = (gridIntervals > 0 ?
+            canvas.width / gridIntervals :
+            1) * direction;
         historyManager.group(direction === 1 ? "右移" : "左移");
         for (const element of selectionManager.selectedElements) {
             if (isNoteLike(element)) {
@@ -114,19 +119,20 @@ export default class MoveManager extends Manager {
         mouseManager.checkMouseUp();
         const step: Beats = [0, 1, stateManager.state.horizonalLineCount];
         const shift = (beats: Beats) => direction === 1 ? addBeats(beats, step) : subBeats(beats, step);
+        store.validateBlockAreaEventTimes(selectionManager.selectedElements.filter(isEvent).map(event => ({
+            event,
+            startTime: shift(event.startTime),
+            endTime: shift(event.endTime)
+        })));
         historyManager.group(direction === 1 ? "上移" : "下移");
         for (const element of selectionManager.selectedElements) {
-            const startTime = getElementStartTime(element);
-            const endTime = getElementEndTime(element);
-            this.recordMove(element, shift(startTime), shift(endTime));
-            setElementStartTime(element, shift(startTime));
-            setElementEndTime(element, shift(endTime));
+            this.moveElement(element, shift(getElementStartTime(element)), shift(getElementEndTime(element)));
         }
         historyManager.ungroup();
     }
 
-    /** 记录一次沿时间轴的移动 */
-    private recordMove(element: SelectableElement, newStartTime: Beats, newEndTime: Beats) {
+    /** 沿时间轴移动元素并记录移动 */
+    private moveElement(element: SelectableElement, newStartTime: Beats, newEndTime: Beats) {
         const historyManager = store.useManager("historyManager");
         const startTime = getElementStartTime(element);
         const endTime = getElementEndTime(element);
@@ -145,14 +151,31 @@ export default class MoveManager extends Manager {
                 return;
             }
 
-            const intervalIndex = blockArea.activeIntervals.indexOf(element);
-            historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "startTime", newStartTime, startTime);
-            historyManager.recordModifyActiveInterval(blockArea.index, intervalIndex, "endTime", newEndTime, endTime);
+            const intervals = blockArea.activeIntervals;
+            const position = intervals.indexOf(element);
+            if (position === -1) {
+                return;
+            }
+
+            element.startTime = newStartTime;
+            element.endTime = newEndTime;
+            historyManager.recordModifyActiveInterval(blockArea.index, {
+                position,
+                startTime,
+                endTime
+            }, {
+                position: intervals.indexOf(element),
+                startTime: element.startTime,
+                endTime: element.endTime
+            });
+            return;
         }
         else if (isEvent(element)) {
             historyManager.recordModifyEvent(element.id, "startTime", newStartTime, startTime);
             historyManager.recordModifyEvent(element.id, "endTime", newEndTime, endTime);
         }
+        setElementStartTime(element, newStartTime);
+        setElementEndTime(element, newEndTime);
     }
 
     async moveToJudgeLine(targetJudgeLineNumber?: number) {

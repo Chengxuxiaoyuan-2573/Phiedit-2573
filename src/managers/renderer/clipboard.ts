@@ -10,13 +10,20 @@ import { createCatchErrorByMessage } from "@/tools/catchError";
 import store from "@/store";
 import Manager from "./abstract";
 import { reactive } from "vue";
-import { isEvent, isNumberEvent } from "@/models/rpe/event";
-import { SelectableElement, getElementStartTime } from "@/models/rpe/element";
-import { isNoteLike } from "@/models/rpe/note";
+import { AbstractEvent, IEvent, isEvent } from "@/models/rpe/event";
+import { SelectableElement } from "@/models/rpe/element";
+import { INote, isNoteLike } from "@/models/rpe/note";
 import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
+import { cloneDeep } from "lodash";
+
+type ClipboardEntry = { kind: "note", object: INote } | {
+    kind: "event"
+    object: IEvent<unknown>
+    event: Pick<AbstractEvent, "id" | "judgeLineNumber" | "eventLayerId" | "type">
+};
 
 export default class ClipboardManager extends Manager {
-    readonly clipboard: SelectableElement[] = reactive([]);
+    readonly clipboard: ClipboardEntry[] = reactive([]);
     constructor() {
         super();
         globalEventEmitter.on("CUT", createCatchErrorByMessage(() => {
@@ -43,6 +50,10 @@ export default class ClipboardManager extends Manager {
         if (selectionManager.selectedElements.length === 0) {
             throw new Error("未选择任何元素");
         }
+
+        if (selectionManager.selectedElements.some(element => !isNoteLike(element) && !isEvent(element))) {
+            throw new Error("噪域和激活区间不能被剪切");
+        }
         this.copy();
         selectionManager.deleteSelection();
     }
@@ -57,18 +68,32 @@ export default class ClipboardManager extends Manager {
         }
 
         // 噪域和激活区间不能复制，只复制音符和事件
-        const copyableElements = selectionManager.selectedElements.filter(element => isNoteLike(element) || isEvent(element));
-        if (copyableElements.length === 0) {
+        const copied: ClipboardEntry[] = [];
+        for (const element of selectionManager.selectedElements) {
+            if (isNoteLike(element)) {
+                copied.push({ kind: "note", object: cloneDeep(element.toObject()) });
+            }
+            else if (isEvent(element)) {
+                const { id, judgeLineNumber, eventLayerId, type } = element;
+                copied.push({
+                    kind: "event",
+                    object: cloneDeep(element.toObject()),
+                    event: { id, judgeLineNumber, eventLayerId, type }
+                });
+            }
+        }
+
+        if (copied.length === 0) {
             throw new Error("噪域和激活区间不能被复制");
         }
         this.clipboard.length = 0;
-        this.clipboard.push(...copyableElements);
+        this.clipboard.push(...copied);
     }
 
     /**
      * 把剪切板内的元素粘贴到鼠标位置
      */
-    paste(time?: Beats) {
+    paste(time?: Beats, mirror = false) {
         if (this.clipboard.length === 0) {
             throw new Error("剪切板为空");
         }
@@ -79,71 +104,78 @@ export default class ClipboardManager extends Manager {
         const historyManager = store.useManager("historyManager");
         const coordinateManager = store.useManager("coordinateManager");
         mouseManager.checkMouseUp();
+        const isEditingBlockArea = stateManager.state.isEditingBlockArea;
+        const blockArea = stateManager.currentBlockArea;
+        if (this.clipboard.some(entry => isEditingBlockArea !==
+            (entry.kind === "event" && entry.event.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID))) {
+            throw new Error("请在对应的编辑模式下粘贴");
+        }
+
+        if (isEditingBlockArea && !blockArea) {
+            throw new Error("当前谱面没有可粘贴的噪域");
+        }
+
         const y = mouseManager.mouseY;
-        const minStartTime = this.clipboard.reduce<Beats>((min, element) => {
-            return getBeatsValue(min) < getBeatsValue(getElementStartTime(element)) ? min : getElementStartTime(element);
+        const minStartTime = this.clipboard.reduce<Beats>((min, { object }) => {
+            return getBeatsValue(min) < getBeatsValue(object.startTime) ? min : object.startTime;
         }, [Infinity, 0, 1]);
         const pasteTime = time ?? coordinateManager.attatchY(y);
         const delta = subBeats(pasteTime, minStartTime);
+        const pasted = this.clipboard.map(entry => {
+            const copy = cloneDeep(entry);
+            copy.object.startTime = addBeats(copy.object.startTime, delta);
+            copy.object.endTime = addBeats(copy.object.endTime, delta);
+            return copy;
+        });
+        const events = pasted.filter(entry => entry.kind === "event");
+        store.validateBlockAreaEventTimes(events.map(({ event, object }) => ({
+            event, startTime: object.startTime, endTime: object.endTime, insertInto: blockArea?.index
+        })));
         const elements = new Array<SelectableElement>();
-        const isSameBaseEventLayer = (() => {
-            let event = null;
-            for (const element of this.clipboard) {
-                if (isEvent(element)) {
-                    if (event !== null && element.eventLayerId !== event.eventLayerId || element.eventLayerId === "X") {
-                        return false;
+        const sourceLayer = events[0]?.event.eventLayerId;
+        const isSameBaseEventLayer = sourceLayer !== "X" && events.every(({ event }) => event.eventLayerId === sourceLayer);
+        historyManager.group(mirror ? "镜像粘贴" : "粘贴");
+        try {
+            for (const entry of pasted) {
+                if (entry.kind === "note") {
+                    if (mirror) {
+                        entry.object.positionX = -entry.object.positionX;
                     }
-                    event = element;
+
+                    const note = store.addNote(entry.object, stateManager.state.currentJudgeLineNumber);
+                    historyManager.recordAddNote(note.id);
+                    elements.push(note);
+                }
+                else {
+                    const { object, event: source } = entry;
+                    if (mirror && (source.type === "moveX" || source.type === "moveY" || source.type === "rotate") &&
+                        typeof object.start === "number" && typeof object.end === "number") {
+                        object.start = -object.start;
+                        object.end = -object.end;
+                        if (object.transformStart !== undefined) {
+                            object.transformStart = -object.transformStart;
+                        }
+
+                        if (object.transformEnd !== undefined) {
+                            object.transformEnd = -object.transformEnd;
+                        }
+                    }
+
+                    const layer = isEditingBlockArea || !isSameBaseEventLayer ? source.eventLayerId : stateManager.state.currentEventLayerId;
+                    const owner = isEditingBlockArea ? blockArea!.index : stateManager.state.currentJudgeLineNumber;
+                    const event = store.addEvent(object, source.type, layer, owner);
+                    historyManager.recordAddEvent(event.id);
+                    elements.push(event);
                 }
             }
-            return true;
-        })();
-        historyManager.group("粘贴");
-        for (const element of this.clipboard) {
-            if (isNoteLike(element)) {
-                const noteObject = element.toObject();
-                noteObject.startTime = addBeats(noteObject.startTime, delta);
-                noteObject.endTime = addBeats(noteObject.endTime, delta);
-                const note = store.addNote(noteObject, stateManager.state.currentJudgeLineNumber);
-                historyManager.recordAddNote(note.id);
-                elements.push(note);
-            }
-            else if (isEvent(element)) {
-                const eventObject = element.toObject();
-                eventObject.startTime = addBeats(eventObject.startTime, delta);
-                eventObject.endTime = addBeats(eventObject.endTime, delta);
-
-                // 噪域事件只能粘贴到噪域中，判定线的事件也只能粘贴到判定线中
-                const isBlockAreaEvent = element.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID;
-                const event = store.addEvent(eventObject,
-                    element.type,
-                    isBlockAreaEvent ? BLOCK_AREA_EVENT_LAYER_ID : isSameBaseEventLayer ? stateManager._state.currentEventLayerId : element.eventLayerId,
-                    isBlockAreaEvent ? stateManager.currentBlockArea?.index ?? element.judgeLineNumber : stateManager.state.currentJudgeLineNumber);
-                historyManager.recordAddEvent(event.id);
-                elements.push(event);
-            }
         }
-        historyManager.ungroup();
-
+        finally {
+            historyManager.ungroup();
+        }
         selectionManager.select(elements);
     }
+
     pasteMirror(time?: Beats) {
-        const selectionManager = store.useManager("selectionManager");
-        const historyManager = store.useManager("historyManager");
-        this.paste(time);
-        for (const element of selectionManager.selectedElements) {
-            if (isNoteLike(element)) {
-                historyManager.recordModifyNote(element.id, "positionX", -element.positionX, element.positionX);
-                element.positionX = -element.positionX;
-            }
-            else {
-                if (isNumberEvent(element) && (element.type === "moveX" || element.type === "moveY" || element.type === "rotate")) {
-                    historyManager.recordModifyEvent(element.id, "start", -element.start, element.start);
-                    historyManager.recordModifyEvent(element.id, "end", -element.end, element.end);
-                    element.start = -element.start;
-                    element.end = -element.end;
-                }
-            }
-        }
+        this.paste(time, true);
     }
 }

@@ -131,10 +131,17 @@ export interface IBlockArea {
     topRight: Point
 }
 
+/** 撤销、重做时保留的事件标识和编号分配状态 */
+export type BlockAreaEventState = Record<BlockAreaEventType, {
+    nextNumber: number
+    identities: Pick<NumberEvent, "id" | "eventNumber">[]
+}>;
+
 /** 噪域解析时需要的额外参数 */
 export interface BlockAreaExtendedOptions {
     BPMList: BPM[]
     index: number
+    eventState?: BlockAreaEventState
 }
 
 /** 激活区间解析时需要的额外参数 */
@@ -251,10 +258,12 @@ function readEventArray(
     }
 
     value.forEach((event, i) => {
+        const identity = options.eventState?.[type].identities[i];
         const newEvent = new NumberEvent(event, {
             judgeLineNumber: options.index,
             eventLayerId: BLOCK_AREA_EVENT_LAYER_ID,
-            eventNumber: i,
+            eventNumber: identity?.eventNumber ?? i,
+            id: identity?.id,
             type,
             BPMList: options.BPMList
         });
@@ -377,6 +386,21 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
         scaleY: 0
     };
 
+    /** 事件标识只供历史记录使用，导出的谱面不包含这些字段 */
+    getEventState(): BlockAreaEventState {
+        const capture = (type: BlockAreaEventType) => ({
+            nextNumber: this.eventNumbers[type],
+            identities: this.getEventsByType(type).map(({ id, eventNumber }) => ({ id, eventNumber }))
+        });
+        return {
+            moveX: capture("moveX"),
+            moveY: capture("moveY"),
+            rotate: capture("rotate"),
+            scaleX: capture("scaleX"),
+            scaleY: capture("scaleY")
+        };
+    }
+
     /** 获取某一类型的事件列表 */
     getEventsByType(type: BlockAreaEventType): NumberEvent[] {
         switch (type) {
@@ -424,6 +448,7 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
         const newInterval = new ActiveInterval(interval, { BPMList: this.BPMList, context });
         newInterval.owner = this;
         insert(this.activeIntervals, newInterval, (x, y) => beatsCompare(x.startTime, y.startTime));
+        newInterval.sortedArray = this.activeIntervals;
         this.errorMessages.push(...newInterval.errorMessages);
         return newInterval;
     }
@@ -433,6 +458,7 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
         const newInterval = new ActiveInterval(interval, { BPMList: this.BPMList, context });
         newInterval.owner = this;
         this.activeIntervals.splice(clamp(position, 0, this.activeIntervals.length), 0, newInterval);
+        newInterval.sortedArray = this.activeIntervals;
         this.errorMessages.push(...newInterval.errorMessages);
         return newInterval;
     }
@@ -457,8 +483,9 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
 
     /** 当前时间是否处于某个激活区间内（即噪域此刻是否生效） */
     isActiveAt(seconds: number) {
-        return this.activeIntervals.some(interval =>
-            interval.cachedStartSeconds <= seconds && seconds <= interval.cachedEndSeconds);
+        return this.cachedStartSeconds <= seconds && seconds <= this.cachedEndSeconds &&
+            this.activeIntervals.some(interval =>
+                interval.cachedStartSeconds <= seconds && seconds <= interval.cachedEndSeconds);
     }
 
     /**
@@ -581,12 +608,12 @@ export class BlockArea implements IBlockArea, IObjectizable<IBlockArea>, BlockAr
             }
         }
 
-        // 新增事件的编号从已有事件的数量之后开始，避免与已有事件重号
-        this.eventNumbers.moveX = this.moveXEvents.length;
-        this.eventNumbers.moveY = this.moveYEvents.length;
-        this.eventNumbers.rotate = this.rotateEvents.length;
-        this.eventNumbers.scaleX = this.scaleXEvents.length;
-        this.eventNumbers.scaleY = this.scaleYEvents.length;
+        for (const track of blockAreaEventTracks) {
+            const type = getBlockAreaEventTypeOfTrack(track);
+            if (type) {
+                this.eventNumbers[type] = options.eventState?.[type].nextNumber ?? this.getEventsByType(type).length;
+            }
+        }
     }
 
     /** 噪域的中心，即 bottomLeft 与 topRight 的中点。也是事件没有 anchor 时的默认锚点 */

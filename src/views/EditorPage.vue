@@ -388,8 +388,22 @@
                     class="title-left"
                     @back="stateManager.setBlockAreaEditing(false)"
                 />
+                <div
+                    v-if="selectionManager.selectedElements.length > 1"
+                    class="left-inner"
+                >
+                    <Teleport to=".title-left">
+                        噪域多选
+                    </Teleport>
+                    <MyButton
+                        type="danger"
+                        @click="globalEventEmitter.emit('DELETE')"
+                    >
+                        删除选中的 {{ selectionManager.selectedElements.length }} 个元素
+                    </MyButton>
+                </div>
                 <ActiveIntervalEditPanel
-                    v-if="selectedActiveInterval"
+                    v-else-if="selectedActiveInterval"
                     :model-value="selectedActiveInterval"
                     title-teleport=".title-left"
                 />
@@ -1635,6 +1649,15 @@ function canvasMouseUp(e: MouseEvent) {
     globalEventEmitter.emit("MOUSE_UP", x, y, options);
 }
 
+/** 在画布外松开时也要结束拖动，并保留多选修饰键 */
+function windowOnMouseUp(e: MouseEvent) {
+    mouseManager.mouseUp(e.ctrlKey);
+}
+
+function finishMouseGesture() {
+    mouseManager.checkMouseUp();
+}
+
 function canvasMouseEnter() {
     mouseIsInCanvas.value = true;
     globalEventEmitter.emit("MOUSE_ENTER");
@@ -1783,6 +1806,8 @@ onMounted(() => {
     window.addEventListener("wheel", windowOnWheel);
     window.addEventListener("keydown", windowOnKeyDown);
     window.addEventListener("keyup", windowOnKeyUp);
+    window.addEventListener("mouseup", windowOnMouseUp);
+    window.addEventListener("blur", finishMouseGesture);
     const removeWindowFocusListener = window.electronAPI.onWindowFocus(windowOnFocus);
     const removeWindowBlurListener = window.electronAPI.onWindowBlur(windowOnBlur);
     document.oncontextmenu = documentOnContextmenu;
@@ -1837,6 +1862,9 @@ onMounted(() => {
         resizeObserver.disconnect();
         window.removeEventListener("wheel", windowOnWheel);
         window.removeEventListener("keydown", windowOnKeyDown);
+        window.removeEventListener("keyup", windowOnKeyUp);
+        window.removeEventListener("mouseup", windowOnMouseUp);
+        window.removeEventListener("blur", finishMouseGesture);
         removeWindowFocusListener();
         removeWindowBlurListener();
         audio.removeEventListener("timeupdate", audioOnTimeUpdate);
