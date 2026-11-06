@@ -252,6 +252,30 @@ export default class HistoryManager extends Manager {
         }
         globalEventEmitter.emit("HISTORY_UPDATE", toUnique(group.records).map(record => NAME_MAP[record.type as keyof typeof NAME_MAP]));
     }
+
+    /** 在操作失败时丢弃本次写入的记录，保留原有的撤销和重做记录 */
+    recordGroup(name: string, action: () => void) {
+        const previousDepth = this.groupDepth;
+        const previousRedoStack = this.redoStack;
+        this.group(name);
+        const groupIndex = this.undoStack.length - 1;
+        const group = this.undoStack[groupIndex] as RecordGroup;
+        const previousRecordCount = group.records.length;
+        try {
+            action();
+            this.ungroup();
+        }
+        catch (error) {
+            group.records.length = previousRecordCount;
+            if (previousDepth === 0) {
+                this.undoStack.splice(groupIndex, 1);
+            }
+            this.groupDepth = previousDepth;
+            this.redoStack = previousRedoStack;
+            throw error;
+        }
+    }
+
     undo() {
         // 防御：分组未正常关闭时（例如操作中途抛出异常），强制结束分组状态
         this.groupDepth = 0;
@@ -267,6 +291,7 @@ export default class HistoryManager extends Manager {
         record.undo();
         this.undoStack.pop();
         this.redoStack.push(record);
+        this.syncSelectionAfterReplay(record);
         globalEventEmitter.emit("HISTORY_UPDATE", "UNDO");
     }
     redo() {
@@ -280,7 +305,18 @@ export default class HistoryManager extends Manager {
         record.redo();
         this.redoStack.pop();
         this.undoStack.push(record);
+        this.syncSelectionAfterReplay(record);
         globalEventEmitter.emit("HISTORY_UPDATE", "REDO");
+    }
+
+    /** 噪域增删回放后选中当前噪域的新实例，其他操作清空可能失效的选区 */
+    private syncSelectionAfterReplay(record: HistoryRecord) {
+        const records = record instanceof RecordGroup ? record.records : [record];
+        const stateManager = store.useManager("stateManager");
+        const selectionManager = store.useManager("selectionManager");
+        const changedBlockAreas = records.some(item => item instanceof AddBlockAreaRecord || item instanceof RemoveBlockAreaRecord);
+        const current = changedBlockAreas && stateManager.state.isEditingBlockArea ? stateManager.currentBlockArea : null;
+        selectionManager.select(current ? [current] : []);
     }
 }
 abstract class HistoryRecord {
@@ -585,7 +621,9 @@ class AddBlockAreaRecord extends HistoryRecord {
             this.blockAreaIndex
         );
         this.position = store.useChart().blockAreaList.indexOf(blockArea);
-        store.useManager("stateManager").notifyBlockAreaListChanged({ insertedPosition: this.position });
+        const stateManager = store.useManager("stateManager");
+        stateManager.state.currentBlockAreaNumber = this.position;
+        stateManager.notifyBlockAreaListChanged();
         return blockArea;
     }
     undo() {
@@ -630,7 +668,9 @@ class RemoveBlockAreaRecord extends HistoryRecord {
     undo() {
         super.undo();
         const blockArea = store.insertBlockArea(copyHistoryValue(this.blockAreaObject), this.position, this.blockAreaIndex);
-        store.useManager("stateManager").notifyBlockAreaListChanged({ insertedPosition: this.position });
+        const stateManager = store.useManager("stateManager");
+        stateManager.state.currentBlockAreaNumber = this.position;
+        stateManager.notifyBlockAreaListChanged();
         return blockArea;
     }
     getDescription() {

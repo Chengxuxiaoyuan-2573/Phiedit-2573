@@ -22,7 +22,7 @@
                 style="flex: 1"
                 @click="changeBlockAreaNumber()"
             >
-                当前噪域编号：{{ stateManager.state.currentBlockAreaNumber }}
+                当前噪域编号：{{ blockArea?.index ?? "无" }}
             </MyButton>
             <ElTooltip placement="top">
                 <MyButton
@@ -144,7 +144,6 @@ const props = defineProps<{
 }>();
 const stateManager = store.useManager("stateManager");
 const selectionManager = store.useManager("selectionManager");
-const historyManager = store.useManager("historyManager");
 const blockArea = computed(() => stateManager.currentBlockArea);
 
 const nameInput = useTemplateRef("nameInput");
@@ -166,31 +165,9 @@ function deleteBlockArea() {
         throw new Error("当前谱面没有噪域");
     }
 
-    const chart = store.useChart();
-    const position = chart.blockAreaList.indexOf(blockArea.value);
-    if (position === -1) {
-        throw new Error(`噪域“${blockArea.value.Name}”不在噪域列表中`);
-    }
-
-    const blockAreaObject = blockArea.value.toObject();
-    const blockAreaIndex = blockArea.value.index;
-
-    historyManager.group("删除噪域");
-    try {
-        store.removeBlockArea(blockArea.value);
-        historyManager.recordRemoveBlockArea(blockAreaObject, blockAreaIndex, position);
-        stateManager.notifyBlockAreaListChanged({ removedPosition: position });
-
-        // 删除后立即切换到相邻噪域；最后一个噪域被删除时清空选择
-        if (chart.blockAreaList.length > 0) {
-            stateManager.selectBlockArea(Math.min(position, chart.blockAreaList.length - 1));
-        }
-        else {
-            selectionManager.unselectAll();
-        }
-    }
-    finally {
-        historyManager.ungroup();
+    selectionManager.deleteSelection([blockArea.value]);
+    if (stateManager.currentBlockArea) {
+        stateManager.selectBlockArea(stateManager.state.currentBlockAreaNumber);
     }
 }
 
@@ -236,9 +213,10 @@ const changeBlockAreaNumber = createCatchErrorByMessage(async () => {
         throw new Error("请输入数字");
     }
 
-    if (num < 0 || num >= stateManager.blockAreasCount) {
-        throw new Error(`噪域编号超出0~${stateManager.blockAreasCount - 1}的范围：${num}`);
+    const position = store.useChart().blockAreaList.findIndex(area => area.index === num);
+    if (position === -1) {
+        throw new Error(`噪域编号不存在：${num}`);
     }
-    stateManager.selectBlockArea(num);
+    stateManager.selectBlockArea(position);
 }, "切换噪域");
 </script>

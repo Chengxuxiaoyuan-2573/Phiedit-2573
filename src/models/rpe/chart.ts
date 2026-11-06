@@ -40,6 +40,7 @@ export class Chart implements IChart, IObjectizable {
     readonly judgeLineGroup: string[];
     readonly judgeLineList: JudgeLine[];
     readonly blockAreaList: BlockArea[] = [];
+    private nextBlockAreaId = 0;
     readonly errorMessages: string[] = [];
 
     /** 把谱面转为JSON对象 */
@@ -132,7 +133,7 @@ export class Chart implements IChart, IObjectizable {
      * 噪域编号用于生成噪域事件的 id，删除噪域时不会重新编号，所以新噪域必须取一个没用过的编号。
      */
     get nextBlockAreaIndex() {
-        return this.blockAreaList.reduce((max, blockArea) => Math.max(max, blockArea.index + 1), 0);
+        return this.nextBlockAreaId;
     }
 
     /** 删除一个噪域 */
@@ -151,6 +152,7 @@ export class Chart implements IChart, IObjectizable {
             index: index ?? this.nextBlockAreaIndex
         });
         this.blockAreaList.splice(clamp(position, 0, this.blockAreaList.length), 0, newBlockArea);
+        this.nextBlockAreaId = Math.max(this.nextBlockAreaId, newBlockArea.index + 1);
         this.errorMessages.push(...newBlockArea.errorMessages);
         this.calculateSeconds();
         return newBlockArea;
@@ -213,6 +215,7 @@ export class Chart implements IChart, IObjectizable {
                     this.blockAreaList.push(newBlockArea);
                     this.errorMessages = this.errorMessages.concat(newBlockArea.errorMessages);
                 }
+                this.nextBlockAreaId = this.blockAreaList.length;
             }
         }
         else {

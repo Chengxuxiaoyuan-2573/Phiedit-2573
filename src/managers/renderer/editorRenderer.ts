@@ -705,22 +705,7 @@ export default class EditorRenderer extends Manager {
             return { x, top, left, clippedTop, clippedBottom, clippedHeight };
         };
 
-        const { mouseX, mouseY } = mouseManager;
-        if (mouseManager.isHovering && !mouseManager.mousePressed &&
-            mouseManager.mouseMoveMode === MouseMoveMode.None && viewBox.touch(mouseX, mouseY)) {
-            const placement = mouseManager.getBlockAreaPlacement(mouseX, mouseY);
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(viewBox.left, viewBox.top, viewBox.width, viewBox.height);
-            ctx.clip();
-            drawBlockArea(placement.editorPositionX,
-                beatsToSeconds(chart.BPMList, placement.appearTime),
-                beatsToSeconds(chart.BPMList, placement.disappearTime),
-                Constants.EDITOR_VIEW_IMAGINARY_ALPHA);
-            ctx.restore();
-        }
-
-        // 当前噪域最后绘制，避免被其他噪域盖住
+        // 当前噪域绘制在其他已有噪域上方
         const drawOrder = chart.blockAreaList
             .map((_, index) => index)
             .filter(index => index !== currentIndex);
@@ -764,7 +749,7 @@ export default class EditorRenderer extends Manager {
             }
 
             if (clippedTop === top) {
-                writeText(index.toString(),
+                writeText(blockArea.index.toString(),
                     x,
                     top + Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
                     Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
@@ -774,10 +759,26 @@ export default class EditorRenderer extends Manager {
             }
         }
 
+        // 放置预览覆盖已有噪域，重叠时也能看清
+        const { mouseX, mouseY } = mouseManager;
+        if (stateManager._state.isEditingBlockArea && mouseManager.isHovering && !mouseManager.mousePressed &&
+            mouseManager.mouseMoveMode === MouseMoveMode.None && viewBox.touch(mouseX, mouseY)) {
+            const placement = mouseManager.getBlockAreaPlacement(mouseX, mouseY);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(viewBox.left, viewBox.top, viewBox.width, viewBox.height);
+            ctx.clip();
+            drawBlockArea(placement.editorPositionX,
+                beatsToSeconds(chart.BPMList, placement.appearTime),
+                beatsToSeconds(chart.BPMList, placement.disappearTime),
+                Constants.EDITOR_VIEW_IMAGINARY_ALPHA);
+            ctx.restore();
+        }
+
         // 显示当前噪域的信息
         const blockArea = stateManager.currentBlockArea;
         if (blockArea) {
-            writeText(`噪域编号：${stateManager._state.currentBlockAreaNumber}，名称：${blockArea.Name}`,
+            writeText(`噪域编号：${blockArea.index}，名称：${blockArea.Name}`,
                 viewBox.middleX,
                 Constants.EDITOR_VIEW_FIRST_LINE_Y,
                 Constants.EDITOR_VIEW_FONT_SIZE_MEDIUM,
