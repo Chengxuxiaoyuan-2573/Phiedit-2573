@@ -144,6 +144,7 @@ const props = defineProps<{
 }>();
 const stateManager = store.useManager("stateManager");
 const selectionManager = store.useManager("selectionManager");
+const historyManager = store.useManager("historyManager");
 const blockArea = computed(() => stateManager.currentBlockArea);
 
 const nameInput = useTemplateRef("nameInput");
@@ -165,9 +166,32 @@ function deleteBlockArea() {
         throw new Error("当前谱面没有噪域");
     }
 
-    // 噪域是可选中的元素，删除它等同于删除选中的元素（会写入历史记录）
-    selectionManager.select([blockArea.value]);
-    selectionManager.deleteSelection();
+    const chart = store.useChart();
+    const position = chart.blockAreaList.indexOf(blockArea.value);
+    if (position === -1) {
+        throw new Error(`噪域“${blockArea.value.Name}”不在噪域列表中`);
+    }
+
+    const blockAreaObject = blockArea.value.toObject();
+    const blockAreaIndex = blockArea.value.index;
+
+    historyManager.group("删除噪域");
+    try {
+        store.removeBlockArea(blockArea.value);
+        historyManager.recordRemoveBlockArea(blockAreaObject, blockAreaIndex, position);
+        stateManager.notifyBlockAreaListChanged({ removedPosition: position });
+
+        // 删除后立即切换到相邻噪域；最后一个噪域被删除时清空选择
+        if (chart.blockAreaList.length > 0) {
+            stateManager.selectBlockArea(Math.min(position, chart.blockAreaList.length - 1));
+        }
+        else {
+            selectionManager.unselectAll();
+        }
+    }
+    finally {
+        historyManager.ungroup();
+    }
 }
 
 /** 重新显示各个输入框中的值，切换噪域后调用 */

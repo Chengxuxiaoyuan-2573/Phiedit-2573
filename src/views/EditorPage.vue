@@ -388,8 +388,22 @@
                     class="title-left"
                     @back="stateManager.setBlockAreaEditing(false)"
                 />
+                <div
+                    v-if="selectionManager.selectedElements.length > 1"
+                    class="left-inner"
+                >
+                    <Teleport to=".title-left">
+                        噪域多选
+                    </Teleport>
+                    <MyButton
+                        type="danger"
+                        @click="globalEventEmitter.emit('DELETE')"
+                    >
+                        删除选中的 {{ selectionManager.selectedElements.length }} 个元素
+                    </MyButton>
+                </div>
                 <ActiveIntervalEditPanel
-                    v-if="selectedActiveInterval"
+                    v-else-if="selectedActiveInterval"
                     :model-value="selectedActiveInterval"
                     title-teleport=".title-left"
                 />

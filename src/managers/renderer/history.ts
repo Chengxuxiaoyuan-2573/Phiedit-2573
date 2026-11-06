@@ -22,6 +22,7 @@ const NAME_MAP = {
     modifyNote: "MODIFY_NOTE",
     modifyEvent: "MODIFY_EVENT",
     modifyBlockArea: "MODIFY_BLOCK_AREA",
+    addBlockArea: "ADD_BLOCK_AREA",
     removeBlockArea: "REMOVE_BLOCK_AREA",
     addActiveInterval: "ADD_ACTIVE_INTERVAL",
     removeActiveInterval: "REMOVE_ACTIVE_INTERVAL",
@@ -136,6 +137,10 @@ export default class HistoryManager extends Manager {
     }
     recordModifyBlockArea<T extends BlockAreaEditableAttribute>(blockAreaIndex: number, attribute: T, newValue: IBlockArea[T], oldValue?: IBlockArea[T]) {
         const record = new ModifyBlockAreaRecord(blockAreaIndex, attribute, newValue, oldValue);
+        this.addRecord(record);
+    }
+    recordAddBlockArea(blockAreaObject: IBlockArea, blockAreaIndex: number, position: number) {
+        const record = new AddBlockAreaRecord(blockAreaObject, blockAreaIndex, position);
         this.addRecord(record);
     }
     recordRemoveBlockArea(blockAreaObject: IBlockArea, blockAreaIndex: number, position: number) {
@@ -558,6 +563,46 @@ class ModifyBlockAreaRecord<T extends BlockAreaEditableAttribute> extends Histor
     }
     getDescription(): string {
         return `将噪域${this.blockAreaIndex}的${this.attribute}从${this.oldValue}修改为${this.newValue}`;
+    }
+}
+
+/** 添加噪域 */
+class AddBlockAreaRecord extends HistoryRecord {
+    readonly type = "addBlockArea";
+    private blockAreaObject: IBlockArea;
+    private position: number;
+
+    constructor(blockAreaObject: IBlockArea, private blockAreaIndex: number, position: number) {
+        super();
+        this.blockAreaObject = copyHistoryValue(blockAreaObject);
+        this.position = position;
+    }
+    redo() {
+        super.redo();
+        const blockArea = store.insertBlockArea(
+            copyHistoryValue(this.blockAreaObject),
+            this.position,
+            this.blockAreaIndex
+        );
+        this.position = store.useChart().blockAreaList.indexOf(blockArea);
+        store.useManager("stateManager").notifyBlockAreaListChanged({ insertedPosition: this.position });
+        return blockArea;
+    }
+    undo() {
+        super.undo();
+        const chart = store.useChart();
+        const blockArea = chart.blockAreaList.find(area => area.index === this.blockAreaIndex);
+        if (!blockArea) {
+            throw new Error(`噪域${this.blockAreaIndex}不存在`);
+        }
+        this.blockAreaObject = copyHistoryValue(blockArea.toObject());
+        this.position = chart.blockAreaList.indexOf(blockArea);
+        store.removeBlockArea(blockArea);
+        store.useManager("stateManager").notifyBlockAreaListChanged({ removedPosition: this.position });
+        return blockArea;
+    }
+    getDescription() {
+        return `添加噪域 ${this.blockAreaObject.Name}`;
     }
 }
 

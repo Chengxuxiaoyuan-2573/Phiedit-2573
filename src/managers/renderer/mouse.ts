@@ -155,6 +155,13 @@ export default class MouseManager extends Manager {
             if (isNoteLike(addedElement)) {
                 historyManager.recordAddNote(addedElement.id);
             }
+            else if (isBlockArea(addedElement)) {
+                const position = store.useChart().blockAreaList.indexOf(addedElement);
+                if (position === -1) {
+                    throw new Error(`新添加的噪域${addedElement.index}不在噪域列表中`);
+                }
+                historyManager.recordAddBlockArea(addedElement.toObject(), addedElement.index, position);
+            }
             else if (isEvent(addedElement)) {
                 // 确保没有与之重叠的事件
                 const events = store.getSiblingEvents(addedElement);
@@ -600,7 +607,7 @@ export default class MouseManager extends Manager {
         // 禁止在预览谱面时点击canvas
         if (stateManager.state.isPreviewing) return;
 
-        // 噪域编辑时，右键只在事件编辑区中添加噪域事件
+        // 噪域编辑时，右键添加噪域、激活区间或噪域事件
         if (stateManager._state.isEditingBlockArea) {
             this.mouseRightInBlockAreaMode(x, y);
             this.mousePressed = true;
@@ -685,12 +692,53 @@ export default class MouseManager extends Manager {
         this.mousePressed = true;
     }
 
-    /** 噪域编辑时的右键：在事件编辑区中添加噪域事件或激活区间 */
+    /** 获取鼠标吸附后的噪域放置位置和默认起止时间 */
+    getBlockAreaPlacement(x: number, y: number) {
+        const coordinateManager = store.useManager("coordinateManager");
+        const stateManager = store.useManager("stateManager");
+        const appearTime = coordinateManager.attatchY(y);
+        return {
+            appearTime,
+            disappearTime: addBeats(appearTime, [0, 1, stateManager.state.horizonalLineCount]),
+            editorPositionX: coordinateManager.attatchX(x)
+        };
+    }
+
     private mouseRightInBlockAreaMode(x: number, y: number) {
         const stateManager = store.useManager("stateManager");
         const selectionManager = store.useManager("selectionManager");
         const coordinateManager = store.useManager("coordinateManager");
         const historyManager = store.useManager("historyManager");
+
+        // 与添加音符一致：在左侧时间/音符区域右键，按鼠标位置创建噪域
+        if (Constants.EDITOR_VIEW_NOTES_VIEWBOX.touch(x, y)) {
+            const chart = store.useChart();
+            const placement = this.getBlockAreaPlacement(x, y);
+            const position = chart.blockAreaList.length;
+
+            const blockArea = store.insertBlockArea({
+                Name: `噪域${chart.nextBlockAreaIndex + 1}`,
+                activeIntervals: [{
+                    startTime: [...placement.appearTime],
+                    endTime: placement.disappearTime,
+                    readyFlash: DEFAULT_ACTIVE_INTERVAL_READY_FLASH
+                }],
+                ...placement,
+                bottomLeft: { x: -300, y: -200 },
+                topRight: { x: 300, y: 200 },
+                isInvert: false,
+                moveXEvents: [],
+                moveYEvents: [],
+                rotateEvents: [],
+                scaleXEvents: [],
+                scaleYEvents: []
+            }, position);
+
+            this.addedElement = blockArea;
+            stateManager.notifyBlockAreaListChanged({ insertedPosition: position });
+            stateManager.selectBlockArea(position);
+            return;
+        }
 
         if (!Constants.EDITOR_VIEW_EVENTS_VIEWBOX.touch(x, y)) {
             return;

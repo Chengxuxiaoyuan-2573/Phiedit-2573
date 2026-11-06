@@ -4,7 +4,7 @@
  * Licensed under MIT (https://opensource.org/licenses/MIT)
  */
 
-import { reactive } from "vue";
+import { reactive, toRaw } from "vue";
 import globalEventEmitter from "@/eventEmitter";
 import { isNoteLike } from "@/models/rpe/note";
 import store from "@/store";
@@ -13,6 +13,7 @@ import { BaseEventLayer, baseEventTypes, extendedEventTypes } from "@/models/rpe
 import { createCatchErrorByMessage } from "@/tools/catchError";
 import { SelectableElement, isActiveInterval, isBlockArea } from "@/models/rpe/element";
 import { isEvent } from "@/models/rpe/event";
+import { BLOCK_AREA_EVENT_LAYER_ID } from "@/models/rpe/blockArea";
 
 export default class SelectionManager extends Manager {
     /** 被选中的元素。有时也用“selection”来代替“selectedElements”。 */
@@ -89,49 +90,62 @@ export default class SelectionManager extends Manager {
 
     /** 删除所有选中元素 */
     deleteSelection() {
-        if (this.selectedElements.length === 0) {
-            throw new Error("未选择任何元素");
-        }
-
         const historyManager = store.useManager("historyManager");
         const mouseManager = store.useManager("mouseManager");
         const stateManager = store.useManager("stateManager");
         const chart = store.useChart();
         mouseManager.checkMouseUp();
+
+        // 谱面中的噪域和激活区间使用原始对象，按引用删除前先取出 Vue 代理中的原始对象
+        const selected = this.selectedElements.map(element => toRaw(element));
+        if (selected.length === 0) {
+            throw new Error("未选择任何元素");
+        }
+
+        // 删除噪域的记录已经包含它的激活区间和事件
+        const removedBlockAreaIds = new Set(selected.filter(isBlockArea).map(area => area.index));
         historyManager.group("删除");
-
-        // 复制一份：删除噪域时可能会调整当前噪域编号，遍历过程中不能依赖原数组
-        for (const element of [...this.selectedElements]) {
-            if (isNoteLike(element)) {
-                store.removeNote(element.id);
-                historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
-            }
-            else if (isBlockArea(element)) {
-                const position = chart.blockAreaList.indexOf(element);
-                const blockAreaObject = element.toObject();
-                store.removeBlockArea(element);
-                historyManager.recordRemoveBlockArea(blockAreaObject, element.index, position);
-                stateManager.notifyBlockAreaListChanged({ removedPosition: position });
-            }
-            else if (isActiveInterval(element)) {
-                const blockArea = element.owner;
-                if (!blockArea) {
-                    throw new Error("激活区间没有所属的噪域，无法删除");
+        try {
+            for (const element of selected) {
+                if (isNoteLike(element)) {
+                    store.removeNote(element.id);
+                    historyManager.recordRemoveNote(element.toObject(), element.judgeLineNumber, element.id);
                 }
+                else if (isBlockArea(element)) {
+                    const position = chart.blockAreaList.indexOf(element);
+                    const blockAreaObject = element.toObject();
+                    store.removeBlockArea(element);
+                    historyManager.recordRemoveBlockArea(blockAreaObject, element.index, position);
+                    stateManager.notifyBlockAreaListChanged({ removedPosition: position });
+                }
+                else if (isActiveInterval(element)) {
+                    const blockArea = element.owner;
+                    if (!blockArea) {
+                        throw new Error("激活区间没有所属的噪域，无法删除");
+                    }
 
-                const position = blockArea.activeIntervals.indexOf(element);
-                const intervalObject = element.toObject();
-                blockArea.removeActiveInterval(element);
-                historyManager.recordRemoveActiveInterval(blockArea.index, intervalObject, position);
-            }
-            else if (isEvent(element)) {
-                store.removeEvent(element.id);
-                historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
+                    if (removedBlockAreaIds.has(blockArea.index)) {
+                        continue;
+                    }
+
+                    const position = blockArea.activeIntervals.indexOf(element);
+                    const intervalObject = element.toObject();
+                    blockArea.removeActiveInterval(element);
+                    historyManager.recordRemoveActiveInterval(blockArea.index, intervalObject, position);
+                }
+                else if (isEvent(element)) {
+                    if (element.eventLayerId === BLOCK_AREA_EVENT_LAYER_ID && removedBlockAreaIds.has(element.judgeLineNumber)) {
+                        continue;
+                    }
+                    store.removeEvent(element.id);
+                    historyManager.recordRemoveEvent(element.toObject(), element.type, element.eventLayerId, element.judgeLineNumber, element.id);
+                }
             }
         }
-        historyManager.ungroup();
-        this.selectedElements.splice(0);
-        globalEventEmitter.emit("SELECTION_UPDATE");
+        finally {
+            historyManager.ungroup();
+            this.unselectAll();
+        }
     }
 
     /** 全选 */

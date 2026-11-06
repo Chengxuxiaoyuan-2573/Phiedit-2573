@@ -666,21 +666,10 @@ export default class EditorRenderer extends Manager {
         const halfWidth = Constants.EDITOR_VIEW_BLOCK_AREA_WIDTH / 2;
         const viewBox = Constants.EDITOR_VIEW_NOTES_VIEWBOX;
 
-        // 当前噪域最后绘制，避免被其他噪域盖住
-        const drawOrder = chart.blockAreaList
-            .map((_, index) => index)
-            .filter(index => index !== currentIndex);
-        drawOrder.push(currentIndex);
-
-        for (const index of drawOrder) {
-            const blockArea = chart.blockAreaList[index];
-            if (!blockArea) {
-                continue;
-            }
-
-            const x = coordinateManager.scaleX(blockArea.editorPositionX);
-            const appearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedStartSeconds);
-            const disappearY = coordinateManager.getRelativePositionYOfSeconds(blockArea.cachedEndSeconds);
+        const drawBlockArea = (positionX: number, startSeconds: number, endSeconds: number, alpha: number) => {
+            const x = coordinateManager.scaleX(positionX);
+            const appearY = coordinateManager.getRelativePositionYOfSeconds(startSeconds);
+            const disappearY = coordinateManager.getRelativePositionYOfSeconds(endSeconds);
             const top = Math.min(appearY, disappearY);
             const height = Math.max(Math.abs(disappearY - appearY), Constants.EDITOR_VIEW_BLOCK_AREA_MIN_HEIGHT);
 
@@ -688,10 +677,9 @@ export default class EditorRenderer extends Manager {
             const clippedTop = Math.max(top, viewBox.top);
             const clippedBottom = Math.min(top + height, viewBox.bottom);
             if (clippedBottom <= clippedTop) {
-                continue;
+                return null;
             }
 
-            const alpha = index === currentIndex ? 1 : Constants.EDITOR_VIEW_BLOCK_AREA_INACTIVE_ALPHA;
             const left = x - halfWidth;
             const clippedHeight = clippedBottom - clippedTop;
 
@@ -713,6 +701,44 @@ export default class EditorRenderer extends Manager {
                 Constants.BLOCK_AREA_ACTIVE_BORDER_COLOR,
                 false,
                 alpha);
+
+            return { x, top, left, clippedTop, clippedBottom, clippedHeight };
+        };
+
+        const { mouseX, mouseY } = mouseManager;
+        if (mouseManager.isHovering && !mouseManager.mousePressed &&
+            mouseManager.mouseMoveMode === MouseMoveMode.None && viewBox.touch(mouseX, mouseY)) {
+            const placement = mouseManager.getBlockAreaPlacement(mouseX, mouseY);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(viewBox.left, viewBox.top, viewBox.width, viewBox.height);
+            ctx.clip();
+            drawBlockArea(placement.editorPositionX,
+                beatsToSeconds(chart.BPMList, placement.appearTime),
+                beatsToSeconds(chart.BPMList, placement.disappearTime),
+                Constants.EDITOR_VIEW_IMAGINARY_ALPHA);
+            ctx.restore();
+        }
+
+        // 当前噪域最后绘制，避免被其他噪域盖住
+        const drawOrder = chart.blockAreaList
+            .map((_, index) => index)
+            .filter(index => index !== currentIndex);
+        drawOrder.push(currentIndex);
+
+        for (const index of drawOrder) {
+            const blockArea = chart.blockAreaList[index];
+            if (!blockArea) {
+                continue;
+            }
+
+            const alpha = index === currentIndex ? 1 : Constants.EDITOR_VIEW_BLOCK_AREA_INACTIVE_ALPHA;
+            const rect = drawBlockArea(blockArea.editorPositionX, blockArea.cachedStartSeconds, blockArea.cachedEndSeconds, alpha);
+            if (!rect) {
+                continue;
+            }
+
+            const { x, top, left, clippedTop, clippedBottom, clippedHeight } = rect;
 
             // 选中的噪域
             if (selectionManager.isSelected(blockArea)) {
